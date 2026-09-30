@@ -1,3 +1,5 @@
+> NOTE (2026-09-30): a revised version of this draft with the 14 critic fixes applied is at `docs/DESIGN-draft-revised.md`. Prefer the revised file for deployment/SCORM details, engine facts and content fixes. IGNORE its statements that stereochemistry, the reaction bench and the charge tool are deferred to v2: `docs/SCOPE.md` is authoritative and they are in v1.
+
 # OrgoCraft — Design Document (v1)
 
 A Minecraft-style voxel world that teaches college-level organic chemistry. Vite + TypeScript + Three.js, no backend, delivered inside a D2L Brightspace course shell either as uploaded course content (Manage Files) or as a SCORM 1.2 package that reports a score to the gradebook.
