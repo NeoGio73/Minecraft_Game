@@ -13,7 +13,9 @@
     "test:watch": "vitest",
     "package:d2l": "node scripts/package-d2l.mjs",
     "package:scorm": "node scripts/package-scorm.mjs",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "check:paths": "node scripts/check-relative-paths.mjs",
+    "release": "npm run build && npm run check:paths && npm run package:d2l && npm run package:scorm"
   },
   "dependencies": {
     "three": "^0.186.1"
