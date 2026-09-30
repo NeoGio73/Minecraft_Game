@@ -59,7 +59,7 @@ export interface WorldEdit {
 }
 export class World {
   readonly chunks: readonly Chunk[];     // length WORLD_CX * WORLD_CZ
-  readonly index: MoleculeIndex;
+  readonly index: MoleculeIndexExt;                              // 02 §1 / 09 §1.1: carries the suppressed-pair set
   /** Incremented by every mutation; Game compares it to decide whether to re-derive components. */
   editVersion: number;
   constructor(index?: MoleculeIndex);
@@ -67,6 +67,8 @@ export class World {
   setBlock(x: number, y: number, z: number, id: number): void;   // §2.3: no validation; updates index; marks chunks dirty
   isSolid(x: number, y: number, z: number): boolean;             // isSolid(getBlock(...)); true for y < 0
   setBondOrder(key: PairKey, order: BondOrder): void;            // delegates to index; bumps editVersion
+  suppressBond(key: PairKey): void;                              // index.suppressBond ("no bond", 09 §1.2); bumps editVersion; WorldEdit {kind:'bond', cells:[a,b]}
+  restoreBond(key: PairKey): void;                               // index.restoreBond (order 1); bumps editVersion; WorldEdit {kind:'bond'}
   setCharge(key: CellKey, charge: Charge): void;                 // delegates to index; bumps editVersion
   /** Removes an atom block and every explicit-H block that would be orphaned by it. Returns the removed cells (atom first). */
   removeAtomBlock(x: number, y: number, z: number): CellKey[];
@@ -186,7 +188,7 @@ export function lockedCells(s: StateView): ReadonlySet<CellKey>;
 /** Engine-side writers (Game.ts only; the HUD never calls them). */
 export interface EngineStateCommands {
   setTarget(component: ComponentId | null, cell: CellKey | null, pair: PairKey | null): void;   // emits target:changed on change
-  setAnalysis(component: ComponentId, analysis: Analysis | null, zone: Zone): void;          // null removes; emits molecule:analyzed
+  setAnalysis(component: ComponentId, analysis: Analysis | null, zone: Zone, suppressed?: readonly PairKey[]): void;   // null removes; emits molecule:analyzed; `suppressed` = suppressedPairsOfComponent(index, component) → TargetState.suppressed (09 §1.10)
   setLocked(placements: readonly LockedPlacement[]): void;
   addInventory(el: BlockElement, n: number): void;                                             // emits inventory:changed; H ignored
   setLookMode(mode: 'locked' | 'drag' | 'keys'): void;                                         // emits look:mode
@@ -227,7 +229,7 @@ export type HoverInfo =
   | { readonly kind: 'block'; readonly x: number; readonly y: number; readonly z: number; readonly id: number; readonly face: readonly [number, number, number] }
   | { readonly kind: 'atom'; readonly cell: CellKey; readonly el: BlockElement; readonly charge: Charge; readonly bonds: number; readonly hydrogens: number; readonly component: ComponentId; readonly face: readonly [number, number, number] }
   | { readonly kind: 'hydrogen'; readonly cell: CellKey; readonly slot: number; readonly explicit: boolean }
-  | { readonly kind: 'bond'; readonly pair: PairKey; readonly order: BondOrder }
+  | { readonly kind: 'bond'; readonly pair: PairKey; readonly order: WandOrder }   // 0 = hovering a break marker (suppressed pair), 09 §1.10
   | { readonly kind: 'bench' };
 export interface DebugApi {
   readonly version: string; frames: number; triangles: number; calls: number; lookMode: LookMode; lowGfx: boolean; pixelRatio: number;
@@ -237,6 +239,7 @@ export interface DebugApi {
   teleport?(x: number, y: number, z: number, yaw?: number, pitch?: number): void;
   setBlock?(x: number, y: number, z: number, id: number): void;
   place?(x: number, y: number, z: number, el: BlockElement): PlacementResult;
+  wand?(pair: PairKey): BondChangeResultExt;    // runs the real validateBondChange + apply path (09 §1.3) and emits the bond events
   goToChallenge?(id: string): void;
   press?(action: InputAction): void;
   state?(): UiState;                            // the live State instance (07 §1.1)
@@ -253,6 +256,8 @@ export interface EngineEvents {
   'gfx:context': { state: 'lost' | 'restored' };
   'gfx:changed': { lowGfx: boolean; pixelRatio: number; antialias: boolean };
   'world:ready': { seed: number };
+  'bond:suppressed': { pair: PairKey; previous: BondOrder };   // 09 §1.4: the pair is now a no-bond pair
+  'bond:restored': { pair: PairKey; order: BondOrder };        // 09 §1.4: the pair is bonded again
 }
 // Rows 07 §18 must carry for these events (07 owns the wiring table; listed here so both owners see one list):
 //   hover:changed      -> target info (#target-info text from HoverInfo; §10.2)
@@ -262,13 +267,15 @@ export interface EngineEvents {
 //   gfx:context        -> live region (assertive `contextLost` / polite `contextRestored`)
 //   gfx:changed        -> settings panel (Graphics select reflects the runtime downgrade), debug overlay
 //   world:ready        -> hud (mount panels; before it the HUD shows nothing but the LMS badge)
+//   bond:suppressed    -> molecule panel, target info, mirror (dirty); live region polite STRINGS.bondBroken(a, b)
+//   bond:restored      -> molecule panel, target info, mirror (dirty); live region polite STRINGS.bondRestored(a, b)
 // Slot changes are `inventory:changed { counts, slot }` (already in GameEvents); there is no `tool:changed`.
 
 // src/ui/strings.ts (owned by 07; Game.ts imports these exact strings)
 export const ENGINE_TEXT = {
   lockedMolecule: 'This molecule is part of the challenge and cannot be changed.',
   bondWandPrimary: 'Use E or the right mouse button to change the bond order.',
-  noBondHere: 'Point at a bond bar and press E.',
+  noBondHere: 'Point at a bond bar or a break marker and press E.',
   noAtomHere: 'Point at an atom block.',
   notPlaceable: 'Only atoms from the hotbar can be placed.',
   mineNoYield: 'Removed.',
@@ -284,7 +291,7 @@ export const ENGINE_TEXT = {
     ore: (el: string) => `${el} ore - mine for ${ORE_YIELD} ${el}`,
     atom: (el: string, bonds: number, h: number, q: Charge) => `${el} atom${q ? (q > 0 ? ' (+1)' : ' (-1)') : ''} - ${bonds} bond${bonds === 1 ? '' : 's'}, ${h} H`,
     hydrogen: (explicit: boolean) => explicit ? 'Hydrogen block' : 'Hydrogen',
-    bond: (a: string, b: string, order: BondOrder) => `Bond ${a}-${b}, order ${order} (E: cycle)`,
+    bond: (a: string, b: string, order: WandOrder) => order === 0 ? `No bond ${a}-${b}: the atoms touch but are not bonded (E: bond them)` : `Bond ${a}-${b}, order ${order} (E: cycle)`,
     bench: 'Reaction bench (E: open)',
     block: (name: string) => name,
   },
@@ -398,8 +405,8 @@ For each: `h = surfaceHeight(seed, x, z)`; set `(x,h,z), (x+1,h,z), (x,h,z+1), (
 `MoleculeIndex`, `validatePlacement`, `validateBondChange`, `validateChargeChange`, `extractMolecules`, `extractComponent` are specified in `02-chemistry-core.md` §12 and are called from `Game.ts` as written there. Engine-side obligations:
 
 - `World.setBlock` is the only writer of atom cells; it calls `index.addAtom/removeAtom` itself so the grid and the index never diverge.
-- Orders and charges live only in the index (R9). `World.setBondOrder`/`setCharge` are the only writers; nothing in the renderer reads them from anywhere else.
-- Context restore (§12.9) never rebuilds the index; the index survives a GPU context loss untouched. `rebuildFromGrid` is used only by tests and by the debug `setBlock` hook (which bypasses validation and then calls `index.rebuildFromGrid(get, currentOrders, currentCharges)`).
+- Orders, suppressed pairs and charges live only in the index (R9, 09 §1.6). `World.setBondOrder`/`suppressBond`/`restoreBond`/`setCharge` are the only writers; nothing in the renderer reads them from anywhere else. A suppressed pair is a touching atom pair with no bond: it contributes nothing to valence, connectivity or the extracted graph, and `removeAtomBlock` clears it (re-placing re-bonds).
+- Context restore (§12.9) never rebuilds the index; the index survives a GPU context loss untouched. `rebuildFromGrid` is used only by tests and by the debug `setBlock` hook (which bypasses validation and then calls `index.rebuildFromGrid(get, currentOrders, currentCharges, index.suppressed)`).
 
 ## 5. Mesher (`mesher.ts`)
 
@@ -634,7 +641,7 @@ Per frame `Game.ts` applies `camera.addLook(lookDX·sensitivity, lookDY·sensiti
 
 1. `eye = eyePosition(p)`, `dir = lookDirection(yaw, pitch)`.
 2. `vh = raycastVoxels(eye…, dir…, PICK_DISTANCE, world.getBlock)`.
-3. Bond pick (only when `tool.kind === 'bond'`): `Raycaster.set(eye, dir).intersectObject(bondRenderer.pickMesh)`; `bh` = nearest with `distance ≤ PICK_DISTANCE`. If `bh && (!vh || bh.distance < vh.t + 0.2)` → hover is the bond `bondRenderer.pairOf(bh.instanceId)`.
+3. Bond pick (only when `tool.kind === 'bond'`): `Raycaster.set(eye, dir).intersectObject(bondRenderer.pickMesh)`; `bh` = nearest with `distance ≤ PICK_DISTANCE`. If `bh && (!vh || bh.distance < vh.t + 0.2)` → hover is `{ kind: 'bond', pair: bondRenderer.pairOf(bh.instanceId), order: index.wandOrder(pair) }`; the pick mesh carries one instance per bond and one per suppressed pair (break marker), so `order` is 0 when a break marker is hovered (09 §5.1).
 4. Hydrogen pick (only when `tool.kind === 'select'`): `intersectObject(atomRenderer.hydrogenMesh)` (the mini-block mesh, visible in select mode); nearest with `distance ≤ PICK_DISTANCE` and `< vh.t` → `{ kind:'hydrogen', cell, slot, explicit:false }`. An explicit H block is an ordinary atom cell and is reported as `{ kind:'hydrogen', cell, slot, explicit:true }` with `slot` = its index in the parent's `hPos` order (ascending `cellIndex`).
 5. Otherwise from `vh`: `null → 'none'`; `id === Block.Bench → 'bench'`; `isAtom(id) → 'atom'` with `bonds = index.bondsOf(key).length`, `hydrogens = max(0, targetValence(el, charge) − index.bondOrderSum(key))`, `component = index.componentOf(key)`; else `'block'`.
 6. Emit `'hover:changed'` only when the value differs from the previous frame (structural comparison).
@@ -655,7 +662,7 @@ Per frame `Game.ts` applies `camera.addLook(lookDX·sensitivity, lookDY·sensiti
 | atom | hydrogen (explicit block) | mine the H block (`setBlock(Air)`) | place against it (the H block already has its one bond, so `validatePlacement` refuses with `'valence'` `H would have 2 bonds…`) |
 | atom | bench | nothing | emit `'bench:open'` |
 | atom | none | nothing | nothing |
-| bond | bond | live text `ENGINE_TEXT.bondWandPrimary` | `r = validateBondChange(index, pair, ctx)`; ok → `world.setBondOrder(pair, r.order)`, emit `bond:changed { pair, order, previous }`; refused → `block:refused` |
+| bond | bond (bar or break marker) | live text `ENGINE_TEXT.bondWandPrimary` | `r = validateBondChange(index, pair, ctx)` (cycle `1 → 2 → 3 → 0 → 1`, 09 §1.3); refused → `block:refused` (flash, §12.6); `r.order === 0` → `world.suppressBond(pair)`, emit `bond:suppressed { pair, previous }`; `r.previous === 0` → `world.restoreBond(pair)` (+ `setBondOrder` when `r.order > 1`), emit `bond:restored { pair, order }`; else `world.setBondOrder(pair, r.order)`, emit `bond:changed { pair, order, previous }` |
 | bond | atom / block / none | nothing (no accidental mining with the wand) | bench → `'bench:open'`; else live text `ENGINE_TEXT.noBondHere` |
 | charge | atom (not H) | cycle `0 → +1 → −1 → 0`: try `next(q)`, then `next(next(q))`; first `validateChargeChange` ok wins → `world.setCharge`, emit `charge:changed`; none ok → `block:refused` with the first refusal message | cycle in reverse `0 → −1 → +1 → 0` |
 | charge | hydrogen | `block:refused` with `REFUSAL_TEXT` from the `'h-block'` refusal | same |
@@ -677,7 +684,7 @@ While `HOTBAR[state.slot] === 'select-tool'` or a `select-atom` challenge is cur
 `placeLockedMolecule(g: MoleculeGraph, emb: Embedding, anchorMin: Vec3, zone: Zone, molecule: number): LockedPlacement` (07 §1.1 shape):
 1. Positions: `emb = layoutOf(entry)` (05 §1; `embedOnLattice` fallback inside it); a `null` embedding throws (content validation guarantees buildability, 05 R13).
 2. Translate `emb.pos ∪ emb.hPos` so the bounding-box minimum equals `anchorMin`.
-3. For every atom in id order: `world.setBlock(pos, atomBlockOf(el))`; then `world.setCharge` for non-zero charges; then `world.setBondOrder` for every bond with `order > 1`; then explicit H blocks from `hPos` (after the heavy atoms so each H has its parent).
+3. For every atom in id order: `world.setBlock(pos, atomBlockOf(el))`; then `world.suppressBond(pairKey(cell(a), cell(b)))` for every `[a, b]` of `emb.suppressedPairs` (09 §3.3: touching atoms the target does not bond); then `world.setCharge` for non-zero charges; then `world.setBondOrder` for every bond with `order > 1`; then explicit H blocks from `hPos` (after the heavy atoms so each H has its parent). Locked cells refuse the wand, so a locked suppression cannot be undone by the student.
 4. Return `{ molecule, cellToAtom, atomToCell, hCells, analysis: analyze(g), zone }`; `State.locked` is the list of placements and `lockedCells(state) = ∪ locked[i].cellToAtom.keys() ∪ hCells values` (helper in State.ts, §1). Locked cells are removed with `world.setBlock(Air)` (no inventory change) when the challenge changes or the bench is cleared (`bench:cleared`).
 
 Anchor table (the only one; 00-contracts §3 mirrors it; every anchor is at `y = 10` so the `−y` face of every atom in the bottom layer is Air and `implicitHCell` can use it, and so rings have a free row under them, R15):
@@ -774,6 +781,7 @@ export class AtomRenderer {
 ```ts
 export const BAR_W = 0.11, BAR_W_MULTI = 0.08, BAR_LEN = 1.0, OFFSET_2 = 0.13, OFFSET_3 = 0.17, PICK_W = 0.3;
 export const BOND_GREY = 0x9a9a9a, BOND_WARN = 0xef5350;
+export const BREAK_SIZE = 0.44, BREAK_THICK = 0.04, BREAK_RED = 0xd32f2f;   // break marker (09 §5.2)
 export class BondRenderer {
   constructor(scene: Scene);
   readonly pickMesh: InstancedMesh;         // visible = false; one instance per bond (not per bar)
@@ -785,15 +793,16 @@ export class BondRenderer {
 - Bars: `InstancedMesh(BoxGeometry(1, 1, BAR_LEN), MeshLambertMaterial({ color: 0xffffff }), capacity 4096)`; per bar the matrix is `compose(mid + perp·offset, quaternion.setFromUnitVectors(+Z, axis), (w, w, 1))` with `axis = (b − a)` (unit), `mid` = midpoint of the two cell centres, `w = order === 1 ? BAR_W : BAR_W_MULTI`, offsets `order 1: [0]`, `2: [−0.13, +0.13]`, `3: [−0.17, 0, +0.17]`, `perp = axis is ±y ? +x : +y`. Bar colour via `setColorAt` (correct use: base white × grey): `BOND_GREY` normally, `BOND_WARN` for pairs in `warnPairs` (double bonds whose `DoubleBondStereo.label ∈ {COLLINEAR, NOT_PLANAR, TWISTED}`); `instanceColor.needsUpdate = true`.
 - Order glyphs: sprites `"2"`/`"3"` (glyph texture, dark disc `0x101418`, white text) at `mid + (0, 0.32, 0)`, scale 0.22, shown only when `showGlyphs` (bond wand active) so the order is readable without colour or bar counting. Bonds are `bondsOf` order-independent: iterate `index.bonds` sorted by `PairKey`.
 - Pick mesh: `InstancedMesh(BoxGeometry(PICK_W, PICK_W, BAR_LEN), MeshBasicMaterial(), capacity)`, `visible = false` (the `Raycaster` ignores `visible`, and an invisible mesh costs no draw call and no transparent sorting — critic 6.4b), one instance per bond at `mid` with the bond quaternion; `instanceId → PairKey` array rebuilt in `update`; `computeBoundingSphere()` after every update (the cached sphere is what `InstancedMesh.raycast` tests first).
+- **Break marker** (09 §5.2; one per pair in `index.suppressed`, iterated after the bonds, sorted by `PairKey`): one `InstancedMesh(BoxGeometry(BREAK_SIZE, BREAK_SIZE, BREAK_THICK), materials, capacity 256, doubling)` — a thin square plate whose normal is the pair axis, centred at the midpoint of the two cell centres (0.19 clear of each 0.62-scale atom face), matrix `compose(mid, quaternion.setFromUnitVectors(+Z, axis), (1,1,1))`. Materials: the two `±z` faces `MeshLambertMaterial({ map: breakTexture() })`, the four edge faces `MeshLambertMaterial({ color: BREAK_RED })`; `breakTexture()` (`element-texture.ts`) is a 64×64 canvas filled `BREAK_RED` with a 4-px white border and a white "×" of two 8-px diagonals (the glyph and the missing bar are the non-colour cues), `NearestFilter`, sRGB, shared with the ghost variant. A suppressed pair draws **no** bar and no order glyph. The marker is visible whenever the pair is suppressed, for every tool and every distance (frustum culling only), independent of `showGlyphs` and of every setting. The pick mesh gets one instance per suppressed pair (same pick box at `mid` with the pair quaternion), listed after the bond instances, so `pairOf` resolves both kinds.
 - Aromatic bonds are not distinguished in 3D (no v1 content); orders stay editable Kekulé orders.
 
 ### 12.5 `render/GhostRenderer.ts`
 
 Translucent previews; nothing here is pickable or solid.
-- **Ghost blocks** (bench `preview:'ghost'`, buildable embeddings): per element an `InstancedMesh(BoxGeometry(ATOM_SCALE), MeshLambertMaterial({ map, transparent: true, opacity: 0.35, depthWrite: false }))`; positions = `preview.pos` translated so the bounding-box minimum is `PRODUCT_MIN = [65, 10, 37]` (04 §7.2; the same translation 04's `previewFor` applies, so the ghost and the acceptance zone agree); if the extent exceeds `PRODUCT_MAX − PRODUCT_MIN + 1 = 10 × 21 × 10` the preview falls back to sticks. Ghost bonds: same bar geometry, opacity 0.35.
+- **Ghost blocks** (bench `preview:'ghost'`, buildable embeddings): per element an `InstancedMesh(BoxGeometry(ATOM_SCALE), MeshLambertMaterial({ map, transparent: true, opacity: 0.35, depthWrite: false }))`; positions = `preview.pos` translated so the bounding-box minimum is `PRODUCT_MIN = [65, 10, 37]` (04 §7.2; the same translation 04's `previewFor` applies, so the ghost and the acceptance zone agree); if the extent exceeds `PRODUCT_MAX − PRODUCT_MIN + 1 = 10 × 21 × 10` the preview falls back to sticks. Ghost bonds: same bar geometry, opacity 0.35. **Ghost break markers** (09 §5.3): for every `preview.suppressedPairs` entry an instance of a ghost plate mesh (the §12.4 break-marker geometry and texture with `transparent: true, opacity: 0.35, depthWrite: false`) at the translated midpoint; hovering a ghost cell that is an endpoint of such a pair shows `STRINGS.targetGhostBreak(el)`.
 - **Sticks** (`preview:'sticks'`, `relaxedLayout` from 04): spheres `SphereGeometry(0.22, 12, 8)` (instanced, CPK colour, opaque) and bars, layout scaled ×0.9 and centred at `(70, 12, 42)`, slowly rotating about `y` at `0.3 rad/s` unless `reducedMotion`.
 - **Mirror ghost** (enantiomer feedback): the targeted component's cells reflected through `x' = 2·maxX + 3 − x`, drawn as ghost blocks for 8 s or until `target:changed`.
-- API: `showGhost(previews, anchor)`, `showSticks(graph, pos)`, `showMirror(cells: {cell, el}[])`, `clear()`.
+- API: `showGhost(previews, anchor)` (each preview carries `pos`, `hPos`, `suppressedPairs`), `showSticks(graph, pos)`, `showMirror(cells: {cell, el}[])`, `clear()`.
 
 ### 12.6 `render/Highlight.ts`
 
@@ -802,9 +811,9 @@ export const SHELL = { hover: 0xffd54f, target: 0xf4f6f8, selected: 0x4dd0e1, co
 export const SHELL_SIZE = { target: 0.70, hover: 0.74, selected: 0.74, result: 0.76 } as const;
 export const FLASH_MS = 300;
 ```
-- Block outline: `LineSegments(EdgesGeometry(BoxGeometry(1.002)), LineBasicMaterial({ color: 0xffffff }))` plus a second `LineSegments` at `1.008` in `0x101418` behind it (3:1 against any terrain colour); positioned at the hovered cell (block or atom); hidden when `hover.kind ∈ {none, bond, hydrogen}`. Bond hover: one `Mesh(BoxGeometry(0.2, 0.2, 1.0), MeshBasicMaterial({ color: SHELL.hover, transparent, opacity: 0.6, depthWrite: false }))` at the bond's mid/quaternion. Hydrogen hover: a `0.5` shell around the mini-block.
+- Block outline: `LineSegments(EdgesGeometry(BoxGeometry(1.002)), LineBasicMaterial({ color: 0xffffff }))` plus a second `LineSegments` at `1.008` in `0x101418` behind it (3:1 against any terrain colour); positioned at the hovered cell (block or atom); hidden when `hover.kind ∈ {none, bond, hydrogen}`. Bond hover: one `Mesh(BoxGeometry(0.2, 0.2, 1.0), MeshBasicMaterial({ color: SHELL.hover, transparent, opacity: 0.6, depthWrite: false }))` at the bond's mid/quaternion; when the hovered pair is suppressed (a break marker, `hover.order === 0`) a frame `Mesh(BoxGeometry(BREAK_SIZE + 0.14, BREAK_SIZE + 0.14, BREAK_THICK + 0.12), same material)` at the plate's mid/quaternion is shown instead (09 §5.4). Hydrogen hover: a `0.5` shell around the mini-block.
 - Atom shells: one `InstancedMesh(BoxGeometry(1), MeshBasicMaterial({ side: BackSide, transparent: true, opacity: 0.85, depthWrite: false }), 2048)`; instance scale from `SHELL_SIZE`, colour via `setColorAt` (correct: base white). Layers: target shells (all atoms of `State.target`), selected shells (the cells of every `State.selection` item, resolved through `locked[i].atomToCell` / `target.atomToCell`; items with `hSlot` additionally shell the H block or the `implicitHCell` mini-block at 0.5), hover shell, result shells. Priority when one atom has several: result > selected > hover > target.
-- Refused placement: outline colour set to `SHELL.wrong` and faded back to white over `FLASH_MS` (one fade, no strobe; with `reducedMotion` the colour is held for `FLASH_MS` then reset).
+- Refused placement: outline colour set to `SHELL.wrong` and faded back to white over `FLASH_MS` (one fade, no strobe; with `reducedMotion` the colour is held for `FLASH_MS` then reset). A refused wand action flashes the bond hover box / break-marker frame the same way.
 - Submission result (from `'challenge:submitted'`): correct set pulses `SHELL.correct` twice (each pulse a `FLASH_MS` fade in and out, total 1.2 s, well under 3 Hz); a wrong pick holds `SHELL.wrong` for 1.2 s while the correct set (if revealed) shows `SHELL.correct`.
 
 ### 12.7 `render/StereoOverlay.ts`
@@ -827,7 +836,7 @@ Sprites use `SpriteMaterial({ map, transparent: true, depthTest: true, depthWrit
 
 ## 13. Draw-call and capacity budget
 
-≤ 64 chunk meshes (frustum-culled, typically ~20 visible) + 9 atom meshes + 1 stud mesh + 1 H mini-block mesh + 1 bar mesh + 0 for the invisible pick mesh + 1 shell mesh + 2 outlines + ghosts (≤ 10) + sprites (≤ 64 for a targeted molecule) ≈ 100–150 calls worst case, ~40 typical. Instance capacities double on demand (mesh recreated, matrices copied), so no hard atom limit exists below the 1024-atom index guidance of R8.
+≤ 64 chunk meshes (frustum-culled, typically ~20 visible) + 9 atom meshes + 1 stud mesh + 1 H mini-block mesh + 1 bar mesh + 1 break-marker mesh + 0 for the invisible pick mesh + 1 shell mesh + 2 outlines + ghosts (≤ 11) + sprites (≤ 64 for a targeted molecule) ≈ 100–150 calls worst case, ~40 typical. Instance capacities double on demand (mesh recreated, matrices copied), so no hard atom limit exists below the 1024-atom index guidance of R8.
 
 ## 14. `src/app/Game.ts` — composition and loop
 
@@ -878,7 +887,7 @@ Runs only when `world.editVersion !== seenVersion`:
 
 ### 14.4 Analysis scheduler → events → UI
 
-`run(budgetMs)`: `t0 = performance.now()`; while `queue` non-empty and `performance.now() − t0 < budgetMs`: take `State.target` first if queued, else the smallest id; `g = extractComponent(index, id)`; `zone` = common `zoneOf` of its cells or `'world'`; `analysis = analyze(g)`; store in `analysisCache` and `State.analyses`; emit `'molecule:analyzed' { component: id, analysis, zone }`. `analyze` (F) calls `runOne(target)` synchronously (ignoring the budget) before emitting `'analyze:requested'`. The UI (07) subscribes: the molecule panel renders the targeted analysis (`≤ 4 Hz` throttle on its side), the scene-description mirror lists pad molecules, the live region announces on `'analyze:requested'` and submissions. Nothing in the engine formats student text beyond `ENGINE_TEXT`.
+`run(budgetMs)`: `t0 = performance.now()`; while `queue` non-empty and `performance.now() − t0 < budgetMs`: take `State.target` first if queued, else the smallest id; `g = extractComponent(index, id)`; `zone` = common `zoneOf` of its cells or `'world'`; `analysis = analyze(g)`; store in `analysisCache` and `State.analyses` via `setAnalysis(id, analysis, zone, suppressedPairsOfComponent(index, id))` (09 §5.9); emit `'molecule:analyzed' { component: id, analysis, zone }`. A suppress/restore changes `bondsOf` and therefore the §14.3 signature, so re-analysis needs no extra key. `analyze` (F) calls `runOne(target)` synchronously (ignoring the budget) before emitting `'analyze:requested'`. The UI (07) subscribes: the molecule panel renders the targeted analysis (`≤ 4 Hz` throttle on its side), the scene-description mirror lists pad molecules, the live region announces on `'analyze:requested'` and submissions. Nothing in the engine formats student text beyond `ENGINE_TEXT`.
 
 Per-atom hydrogens for the panel come from `analysis.hydrogens`; the renderer's stud count (§12.3) is computed from the index and equals it by construction (`tv − heavyOrderSum − hBlocks`).
 
@@ -901,7 +910,7 @@ On `submit` (or the panel button, which calls `state.submit()` directly): `Game.
 
 ### 14.8 Debug overlay and hooks
 
-F3 (fixed code, `'debug'`) toggles `#debug` (07 provides the element): `fps`, `frame ms (mean of 60)`, `calls`, `triangles`, `lookMode`, `lowGraphics`, `pixelRatio`, `player x y z yaw pitch`, `target id`, `hover kind`, `analysis queue length`. `__orgocraft.teleport(x,y,z,yaw,pitch)` sets the player and camera and zeroes velocity; `setBlock` bypasses validation then rebuilds the index (§4); `place` runs the real placement path and returns the `PlacementResult`; `goToChallenge(id)` calls `state.setChallenge(index of id)`; `press(action)` calls `input.inject`; `state()` returns the `UiState` instance; `events` is `state.events`.
+F3 (fixed code, `'debug'`) toggles `#debug` (07 provides the element): `fps`, `frame ms (mean of 60)`, `calls`, `triangles`, `lookMode`, `lowGraphics`, `pixelRatio`, `player x y z yaw pitch`, `target id`, `hover kind`, `analysis queue length`. `__orgocraft.teleport(x,y,z,yaw,pitch)` sets the player and camera and zeroes velocity; `setBlock` bypasses validation then rebuilds the index (§4); `place` runs the real placement path and returns the `PlacementResult`; `goToChallenge(id)` calls `state.setChallenge(index of id)`; `press(action)` calls `input.inject`; `wand(pair)` runs the §10.4 wand path against `pair` without hovering (09 §1.10) and returns its `BondChangeResultExt`; `state()` returns the `UiState` instance; `events` is `state.events`.
 
 ## 15. Tests
 
@@ -913,6 +922,8 @@ Listed with their fixtures in §3.6 (worldgen), §5.3 (mesher), §6.2 (raycast),
 3. `removeAtomBlock` on a carbon with two explicit H blocks removes all three cells and returns them atom-first; an H block also bonded to another heavy atom survives.
 4. `getBlock(−1, 5, 5) === Air`, `getBlock(5, −1, 5) === Bedrock`, `getBlock(5, 32, 5) === Air`.
 5. `drainEdits` returns the edits once.
+6. `suppressBond` on a bond of two touching carbons bumps `editVersion`, drains one `{kind:'bond'}` edit naming both cells, removes the pair from `index.bonds` and adds it to `index.suppressed`; `restoreBond` reverses it with order 1 (09 §1.2).
+7. `removeAtomBlock` on an endpoint of a suppressed pair clears the pair from `index.suppressed`; `setBlock` of a carbon back into that cell creates an ordinary order-1 bond.
 
 ### 15.2 Playwright smoke (`scripts/smoke.mjs`, `npm run smoke`, WP-11) — the single smoke specification
 
@@ -958,6 +969,7 @@ Steps (each with a 20 s timeout; a step's number is its id in CI logs):
 15. `[07-8]` `page.emulateMedia({ reducedMotion: 'reduce' })` + reload → `html[data-reduced-motion="true"]` and `document.getAnimations().length === 0` inside `#stage`.
 16. `[07-9]` axe-core (`@axe-core/playwright` is not installed; the script injects `node_modules/axe-core/axe.min.js` if present, else skips this step with a warning) on the page with `#pause` open: no `serious`/`critical` violations and no `aria-allowed-role` violation for `canvas[role="application"]`.
 17. `[07-12]` `goToChallenge('ch11-predict-e2-2-bromobutane')`; press `KeyR` → `#bench-panel` visible; press React → `.bp-mech` non-empty, `.bp-minor` empty, and `#bench-panel.textContent` contains neither `but-1-ene` nor `2-ethoxybutane` while `state().bench.mode === 'predict'` and the challenge is unsolved; build E-but-2-ene in the product zone: `__orgocraft.place` at `(65,10,37)`, `(66,10,37)`, `(66,10,38)`, `(67,10,38)` (all `'C'`; a planar zigzag with C2=C3 along `+z`), then `teleport(66.5, 10, 41.5, 0, -0.35)` (looking at the C2–C3 bar from `+z`), press `KeyB`, then `KeyE` once (order 1 → 2; `__orgocraft.state().padComponents[0].analysis.name === 'E-but-2-ene'` — 05's name for `C/C=C/C`), then click `#bp-submit` → `.cp-feedback` starts with `Correct:` and `.bp-minor` lists `Minor product: but-1-ene`.
+17a. No bond (09 §5.10): `goToChallenge('ch7-build-z-but-2-ene')`; `__orgocraft.place` `'C'` at `(60,9,60)`, `(60,9,61)`, `(61,9,61)`, `(61,9,60)` (a 2×2 square; the unwanted C1–C4 pair is bonded too); press `Enter` → `.cp-feedback` starts with `Not yet:` and contains `break marker`; `__orgocraft.wand('60,9,60|61,9,60')` three times → `order` 2, 3, 0; `__orgocraft.wand('60,9,61|61,9,61')` → `order` 2; expect `state().target.suppressed` to deep-equal `['60,9,60|61,9,60']`, `#status` to contain `removed: the atoms touch` within `LIVE_POLITE_MS + 500 ms`, `#molecule-panel .mp-name` to read `(Z)-but-2-ene`; `Enter` → `.cp-feedback` starts with `Correct:`.
 18. `[07-7]` *(lms)* Save & Exit: open `#pause`, click `#pm-exit`, confirm → finished overlay text contains `Progress saved`; the fake API saw `LMSFinish` exactly once and `cmi.core.exit !== 'logout'`.
 19. `[07-13]` *(lms)* After step 18, `document.activeElement` is the finished overlay (`[role="dialog"][tabindex="-1"]`) and `#toast` contains `Progress saved`.
 20. Debug overlay: `keyboard.press('F3')` on a fresh page → `#debug` not hidden and its text contains `fps`; `F3` again hides it.

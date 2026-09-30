@@ -97,20 +97,41 @@ export interface PlacementContext {
   readonly lockedZones: readonly Zone[];
 }
 export function validatePlacement(index: MoleculeIndex, x: number, y: number, z: number, el: BlockElement, ctx: PlacementContext): PlacementResult;
-export function validateBondChange(index: MoleculeIndex, key: PairKey, ctx: Pick<PlacementContext, 'lockedZones'>): BondChangeResult;
 export function validateChargeChange(index: MoleculeIndex, key: CellKey, charge: Charge, ctx: Pick<PlacementContext, 'lockedZones'>): ChargeChangeResult;
 
-// src/content/types.ts — one field ADDED to the existing MoleculeEntry (contracts PR; unresolved question 11).
-// Every other MoleculeEntry field is unchanged.
-export interface MoleculeEntry {
-  // ...existing fields (id, name, commonNames, formula, smiles, chapters, requiresDiagonalBonds, labels?, layout?, meso?)...
-  /**
-   * Present, and always `false`, on exactly the entries whose constitution embeds but whose `tet`/`ez` tags
-   * no lattice embedding realises (00-contracts R3; the 8 entries of 05-content §6.2). Absent everywhere else;
-   * `true` is not a legal value. Tests and validate.ts read this field, never a prose list.
-   */
-  readonly stereoBuildable?: false;
+// src/world/molecule-index.ts — "no bond" amendment (09-amendment-no-bond.md §1.1, §1.3; exact shapes there)
+export type WandOrder = BondOrder | 0;                       // 0 = "no bond" (suppressed pair); never stored in a MoleculeGraph
+export const WAND_CYCLE: readonly WandOrder[] = [1, 2, 3, 0];
+export interface MoleculeIndexExt extends MoleculeIndex {
+  readonly suppressed: ReadonlySet<PairKey>;                 // touching atom pairs that are NOT bonded; disjoint from `bonds`
+  isSuppressed(key: PairKey): boolean;
+  suppressedOf(key: CellKey): PairKey[];
+  wandOrder(key: PairKey): WandOrder | undefined;           // bond order, 0 when suppressed, undefined when not touching
+  bondedNeighbours(key: CellKey): IndexedAtom[];
+  suppressBond(key: PairKey): void;                          // bond -> suppressed (Error if not a bond)
+  restoreBond(key: PairKey): void;                           // suppressed -> bond of order 1 (Error if not suppressed)
+  rebuildFromGrid(get: (x: number, y: number, z: number) => number, keepOrders: ReadonlyMap<PairKey, BondOrder>, keepCharges: ReadonlyMap<CellKey, Charge>, keepSuppressed?: ReadonlySet<PairKey>): void;
 }
+export function createMoleculeIndex(): MoleculeIndexExt;
+export type BondChangeResultExt =
+  | { readonly ok: true; readonly order: WandOrder; readonly previous: WandOrder }
+  | { readonly ok: false; readonly refusal: BondChangeRefusal; readonly message: string };
+export function validateBondChange(index: MoleculeIndexExt, key: PairKey, ctx: Pick<PlacementContext, 'lockedZones'>): BondChangeResultExt;
+
+// src/world/extract.ts — suppressed pairs touching a component (for the molecule panel; 09 §1.7)
+export function suppressedPairsOfComponent(index: MoleculeIndexExt, id: ComponentId): PairKey[];
+
+// src/chem/embed.ts — two-pass embedding (09 §1.8, §3.1)
+export interface EmbedOptionsExt extends EmbedOptions { readonly allowSuppressed?: boolean; }   // default true; false = induced only
+export interface EmbeddingExt extends Embedding {
+  /** Heavy-atom id pairs [a, b] (a < b, sorted) that are face-adjacent in `pos` but not bonded in g. Empty when induced. */
+  readonly suppressedPairs: readonly (readonly [number, number])[];
+}
+export function embedOnLattice(g: MoleculeGraph, opts?: EmbedOptionsExt): EmbeddingExt | null;   // still satisfies ChemApi
+export function suppressedPairsOf(g: MoleculeGraph, pos: readonly Vec3[]): (readonly [number, number])[];
+
+// src/content/types.ts — the `MoleculeEntry.stereoBuildable?: false` field proposed by an earlier revision is WITHDRAWN
+// (09 §1.9): every library entry embeds, so no entry needs a flag; validate.ts reports the field as obsolete if present.
 
 // src/util/vec3.ts
 export function add(a: Vec3, b: Vec3): Vec3; export function sub(a: Vec3, b: Vec3): Vec3; export function neg(a: Vec3): Vec3;
@@ -476,16 +497,17 @@ const GROUP_NAME: Record<GroupId, string> = {
 
 ### 12.1 MoleculeIndex internals
 
-`createMoleculeIndex(): MoleculeIndex` holds `atoms: Map<CellKey, IndexedAtom>`, `bonds: Map<PairKey, IndexedBond>`, `adjacency: Map<CellKey, Set<PairKey>>`, and a component cache invalidated by every mutation.
+`createMoleculeIndex(): MoleculeIndexExt` holds `atoms: Map<CellKey, IndexedAtom>`, `bonds: Map<PairKey, IndexedBond>`, `suppressed: Set<PairKey>` (touching pairs with **no** bond, 09 §1.1), `adjacency: Map<CellKey, Set<PairKey>>` (bonds only), `suppressedAdjacency: Map<CellKey, Set<PairKey>>`, and a component cache invalidated by every mutation (including `suppressBond`/`restoreBond`).
 
 - `neighbours(key)`: the atoms at `key + d` for `d ∈ FACE_DIRS` (in that order) that exist in `atoms`.
 - `bondsOf(key)`: bonds in `adjacency.get(key)` sorted by `PairKey`.
 - `bondOrderSum(key)`: Σ `order` over `bondsOf(key)` (H blocks contribute 1 each because every H bond has order 1).
-- `addAtom(atom)`: insert; for each face neighbour that is an atom create `{key: pairKey(a,b), a, b, order: 1, diagonal: false}` and register it in both adjacency sets. Refuse nothing (validation is separate).
-- `removeAtom(key)`: delete every bond in its adjacency set from both sides, then the atom.
-- `setBondOrder(key, order)`: replace the bond record (`Error` if absent). `setCharge(key, q)`: replace the atom record.
+- `addAtom(atom)`: insert; for each face neighbour that is an atom create `{key: pairKey(a,b), a, b, order: 1, diagonal: false}` and register it in both adjacency sets. Refuse nothing (validation is separate). Nothing is ever auto-suppressed.
+- `removeAtom(key)`: delete every bond in its adjacency set from both sides, delete every suppressed pair in its `suppressedAdjacency` set from both sides, then the atom (so re-placing the cell re-bonds, 09 §1.1 I6).
+- `setBondOrder(key, order)`: replace the bond record (`Error` if absent — including when the pair is suppressed). `setCharge(key, q)`: replace the atom record.
+- `suppressBond(key)`: move the record from `bonds`/`adjacency` to `suppressed`/`suppressedAdjacency` (`Error('not a bond: ' + key)` otherwise). `restoreBond(key)`: the reverse, creating `{order: 1, diagonal: false}` (`Error('not suppressed: ' + key)` otherwise). `isSuppressed`, `suppressedOf(key)` (sorted by `PairKey`), `wandOrder(key)` (`bonds.get(key)?.order ?? (suppressed.has(key) ? 0 : undefined)`), `bondedNeighbours(key)` (= `neighbours(key)` minus suppressed partners) are reads. `neighbours(key)` keeps its meaning "touching atoms".
 - `components()`: lazily: iterate atoms sorted by `cellIndex`; BFS each unvisited atom over `bondsOf`; assign the next dense id; the id order therefore follows each component's minimum `cellIndex`. `componentOf(key)` reads the cache.
-- `rebuildFromGrid(get, keepOrders, keepCharges)`: clear; for `y, z, x` over the world, if `isAtom(get(x,y,z))` call `addAtom({key, el: elementOf(id), x, y, z, charge: keepCharges.get(key) ?? 0})`; then for every bond `setBondOrder(key, keepOrders.get(key) ?? 1)`.
+- `rebuildFromGrid(get, keepOrders, keepCharges, keepSuppressed?)`: clear; for `y, z, x` over the world, if `isAtom(get(x,y,z))` call `addAtom({key, el: elementOf(id), x, y, z, charge: keepCharges.get(key) ?? 0})`; then for every bond `setBondOrder(key, keepOrders.get(key) ?? 1)`; then for every key of `keepSuppressed` that is now a bond with no H endpoint, `suppressBond(key)` (other keys are dropped silently).
 
 ### 12.2 Validation (refuse, never drop a bond)
 
@@ -499,7 +521,7 @@ const GROUP_NAME: Record<GroupId, string> = {
 7. H-block parent rule: `el === 'H'` and the number of neighbours with `el !== 'H'` is not exactly 1 → `'h-block-needs-parent'`.
 Success: `newBonds` = the pair keys that `addAtom` will create; `cage` = some ring of `smallestRings(extractComponent(index, c).graph)` contains ≥ 3 of the new atom's neighbours, for the component `c` that holds ≥ 3 of them (critic 4.5: inner cube vertices of the chair hexagon are legal for C/N and flagged).
 
-`validateBondChange(index, key, ctx)`: bond absent → `'not-adjacent'`; either endpoint in a locked zone → `'locked-zone'`; either endpoint `el === 'H'` → `'h-block'` (message `bondHBlock`); with current order `o`, try `o+1`, `o+2` (wrapping in 1..3): the first `n` with `bondOrderSum(e) − o + n ≤ targetValence(e.el, e.charge)` for both endpoints is returned `{ok:true, order:n}`; none → `'valence'` naming the endpoint that blocked `o+1`, message `bondValence(el, max)`.
+`validateBondChange(index, key, ctx): BondChangeResultExt` (09 §1.3): `o = index.wandOrder(key)`; `o === undefined` (the cells do not touch) → `'not-adjacent'`; either endpoint in a locked zone → `'locked-zone'`; either endpoint `el === 'H'` → `'h-block'` (message `bondHBlock`; an H bond is always single and never suppressed); then try the three values that follow `o` in `WAND_CYCLE = [1, 2, 3, 0]` (cyclically, i.e. `1 → 2 → 3 → 0 → 1`): `n === 0` is always feasible; `n ≥ 1` is feasible iff `bondOrderSum(e) − o + n ≤ targetValence(e.el, e.charge)` for both endpoints (`o = 0` and `bondOrderSum` excludes the pair when it is suppressed); the first feasible `n` is returned `{ok:true, order:n, previous:o}`; none (only possible from `o === 0`) → `'valence'` naming the endpoint that blocked order 1 (lower `cellIndex` first), message `bondValence(el, max)`. The caller applies `order 0` through `World.suppressBond`, `previous 0` through `World.restoreBond` (+ `setBondOrder` when `order > 1`), anything else through `World.setBondOrder`.
 
 `validateChargeChange(index, key, q, ctx)`: locked zone → `'locked-zone'`; `el === 'H'` → `'h-block'`; `targetValence(el, q) === undefined` → `'unsupported'` (`chargeUnsupported`); `bondOrderSum(key) > tv` → `'valence'` (`chargeValence(el, q, tv)`); else `{ok:true, charge:q}`.
 
@@ -520,7 +542,7 @@ For each component id (ascending) with cells `C`:
 5. `graph = buildGraph(atoms, bonds)`; `zone` = the common `zoneOf` of all cells (heavy and H) or `'world'`.
 6. With a `zone` argument, keep only components whose `zone` equals it.
 
-Atom ids within a component are therefore ascending `cellIndex`, and component ids follow minimum `cellIndex`, so extraction is a pure function of the grid state. Collapsing does not change hydrogen counts: the graph atom's bond-order sum covers heavy bonds only, so `implicitHydrogens` returns `tv − s_heavy`, which is the total (implicit + explicit) hydrogen count of that atom; `hPos` only records where the explicit ones sit, and the index's `bondOrderSum` (which counts H blocks) is used solely by placement validation.
+Atom ids within a component are therefore ascending `cellIndex`, and component ids follow minimum `cellIndex`, so extraction is a pure function of the grid state plus the index-only maps. Suppressed pairs are never read here: two touching atoms with a suppressed pair are not bonded in the graph and may even belong to different components. `suppressedPairsOfComponent(index, id)` (§1) returns the suppressed pairs touching any cell of component `id`, sorted by `PairKey`, for the molecule panel (09 §5.6). Collapsing does not change hydrogen counts: the graph atom's bond-order sum covers heavy bonds only, so `implicitHydrogens` returns `tv − s_heavy`, which is the total (implicit + explicit) hydrogen count of that atom; `hPos` only records where the explicit ones sit, and the index's `bondOrderSum` (which counts H blocks) is used solely by placement validation.
 
 ## 13. `embed.ts`
 
@@ -535,13 +557,13 @@ Port of `embed.py` with the stereo constraints of reaction-bench 4.2. `origin = 
 4. **Candidates** for node `i` at depth `k > 0`: `pos[parent] + d` for `d ∈ FACE_DIRS`, plus the 12 edge-diagonal directions `(±1,±1,0),(±1,0,±1),(0,±1,±1)` when `diag`. Sorted with the straight continuation `pos[parent] − pos[grandparent]` first when a grandparent exists, then the remaining `FACE_DIRS` order, then diagonals. Node 0 is placed at `origin`.
 5. **Feasibility** of `p` for `i`:
    - `p` not occupied.
-   - For every placed node `q`: let `d = manhattan(p, pos[q])`, `bonded = bondBetween(i,q) !== undefined` (H node: bonded only to its parent). Require: if bonded and the bond is not diagonal → `d === 1`; if bonded and diagonal → `p − pos[q]` is an edge-diagonal; if not bonded → `d !== 1` (a diagonal non-bond is allowed: diagonal adjacency is not a bond unless declared).
+   - For every placed node `q`: let `d = manhattan(p, pos[q])`, `bonded = bondBetween(i,q) !== undefined` (H node: bonded only to its parent). Require: if bonded and the bond is not diagonal → `d === 1`; if bonded and diagonal → `p − pos[q]` is an edge-diagonal; if not bonded → in **pass A** `d !== 1` (a diagonal non-bond is allowed: diagonal adjacency is not a bond unless declared); in **pass B** (09 §3.1) `d === 1` is allowed iff both `i` and `q` are heavy-atom nodes (an H node may touch only its parent) — such a pair is a *required suppression*. Pass B candidates are the pass-A order stable-sorted by the number of new touching-unbonded pairs they create (0 first).
    - Tetrahedral: for every atom `c ∈ {i} ∪ neighbours(i)` with `tet` whose four order entries (`'H'` → its H node) are all placed: `V = ((p1−p0)×(p2−p0))·(p3−p0)` over the tips in `tet.order`; require `sign(V) === tet.sign` (`V === 0` rejects).
    - E/Z: for every bond `(a,b)` with `ez` whose `a`, `b`, `refA`, `refB` are placed: `u = pos[b]−pos[a]`, `va = pos[refA]−pos[a]`, `vb = pos[refB]−pos[b]`; require `dot(va,u) === 0`, `dot(vb,u) === 0`, `cross(va,vb) = 0` (same perpendicular axis), and `(dot(va,vb) > 0) === ez.cis`.
-6. **Search.** `place(k)`: `nodesVisited++`; if `nodesVisited > budget` abort the whole call (return `null`); if `k === nodes.length` succeed; else try each candidate in order, commit, recurse, undo. 
-7. **Result.** `pos[atomId]` for heavy atoms; `hPos: Map<parentId, Vec3[]>` for H nodes; `nodesVisited`. `null` on exhaustion or budget.
+6. **Search.** `place(k)`: `nodesVisited++`; if `nodesVisited > budget` abort the pass (return `null`); if `k === nodes.length` succeed; else try each candidate in order, commit, recurse, undo. **Two passes**: pass A (strict, induced) first; if it returns `null` and `opts.allowSuppressed !== false`, pass B with the relaxed rule of step 5, each pass with its own `budget` count (`nodesVisited` is the sum). Pass B cannot help an odd ring (bonded pairs must still be adjacent), so odd rings still fail.
+7. **Result.** `pos[atomId]` for heavy atoms; `hPos: Map<parentId, Vec3[]>` for H nodes; `nodesVisited`; `suppressedPairs = suppressedPairsOf(g, pos)` (face-adjacent unbonded heavy pairs, `a < b`, sorted; empty after pass A). `null` on exhaustion or budget.
 
-Consequences recorded in 00-contracts R3: every Z alkene and every tri-/tetrasubstituted alkene with a defined E/Z fails with its `ez` tag (a cis pair across the C=C would be face-adjacent but unbonded), odd rings fail without `allowDiagonal`, E-1,2-disubstituted / monosubstituted / 1,1-disubstituted alkenes succeed. Over the library (05 §5.2, 192 entries): every entry not flagged `stereoBuildable: false` (184 of 192) embeds with its stereo tags; the 8 flagged entries (05 §6.2: `z-but-2-ene`, `z-hex-3-ene`, `z-2-chlorobut-2-ene`, `e-2-chlorobut-2-ene`, `e-3-methylpent-2-ene`, `z-3-methylpent-2-ene`, `z-1-2-dichloroethene`, `e-1-2-dibromobut-1-ene`) return `null` as written and embed after `withoutStereoTags` (constitution only). Max 297 nodes over the library with the plain embedder; stereo constraints add backtracking but stay far below the budget.
+Consequences (09 §3.1, replacing the former R3 consequences): odd rings fail without `allowDiagonal`; every alkene with a defined E/Z embeds — E-1,2-disubstituted, monosubstituted and 1,1-disubstituted ones in pass A (induced), every Z-1,2-disubstituted and trisubstituted one in pass B with exactly one suppressed pair (the same-side substituents touch), tetrasubstituted ones with two. Over the library (05 §5.2, 192 entries): 184 embed in pass A with `suppressedPairs = []`; the 8 entries of 05 §6.2 (`z-but-2-ene`, `z-hex-3-ene`, `z-2-chlorobut-2-ene`, `e-2-chlorobut-2-ene`, `e-3-methylpent-2-ene`, `z-3-methylpent-2-ene`, `z-1-2-dichloroethene`, `e-1-2-dibromobut-1-ene`) embed in pass B with the one pair listed in 09 §2.1 and return `null` under `{allowSuppressed: false}`. Max 297 nodes over the library with the plain embedder; stereo constraints add backtracking but stay far below the budget.
 
 ## 14. `naming.ts` (WP-12)
 
@@ -797,7 +819,11 @@ Every expected value below is RDKit 2026.03.6 output or a direct consequence of 
 | M5 | O with two C neighbours, then a third | refused `valence` for the O cell (`have 3, max 2`) |
 | M6 | H at a cell with two heavy neighbours | `'h-block-needs-parent'`; H with one heavy neighbour ok; second H next to that H → `valence` on the H (`max 1`) |
 | M7 | C placed at (10,11,10), the inner cube vertex of M2's chair (face-adjacent to (10,10,10), (11,11,10), (10,11,11)) | `ok, cage: true`, 3 `newBonds`; ring count becomes 3; `cageWarnings` on the extracted graph has one entry for that atom |
-| M8 | `validateBondChange` on methanol's C–O at order 1 / at order 2; on fluoromethane's C–F; on a C–H block bond | returns `order 2` / returns `order 1` (3 refused by O); `valence` (`F`, max 1); `'h-block'` |
+| M8 | `validateBondChange` on methanol's C–O at order 1 / at order 2; on fluoromethane's C–F at order 1 / when suppressed; on a C–H block bond | returns `{order 2, previous 1}` / returns `{order 0, previous 2}` (3 refused by O, 0 always allowed); `{order 0, previous 1}` (2 refused by F) / `{order 1, previous 0}`; `'h-block'` |
+| M17 | C at (10,10,10),(10,10,11),(11,10,11),(11,10,10) (a 2×2 square); `suppressBond('10,10,10|11,10,10')` | `bonds.size` 3, `suppressed` = that key, `bondOrderSum` 1 on both endpoints, `wandOrder` 0, `bondedNeighbours` of (10,10,10) = [(10,10,11)], `neighbours` still lists both; `components()` has one component; `restoreBond` → `bonds.size` 4, order 1 |
+| M18 | after M17, `removeAtom('11,10,10')` then `addAtom` the same cell | `suppressed` empty after removal; after re-adding, the pair is a bond of order 1 |
+| M19 | `rebuildFromGrid` after M17 with `keepSuppressed = {that key}` (and a key whose cells do not touch) | the touching key is suppressed again; the other is dropped |
+| M20 | C–C pair suppressed, then three more C neighbours placed around one endpoint (valence 4 reached with other bonds); `validateBondChange` on the suppressed pair | `{reason:'valence', have 5, max 4}` naming that endpoint; the pair stays suppressed |
 | M9 | `validateChargeChange` O→−1 on methanol O | ok; O→+1 with three bonds → `valence`; Cl→+1 → `unsupported` |
 | M10 | reactant-zone cell with `lockedZones:['reactant']` | `'locked-zone'` |
 | M11 | `rebuildFromGrid` after M2 with order map `{pair:2}` and charge map `{cell:1}` | order and charge preserved |
@@ -811,9 +837,9 @@ Every expected value below is RDKit 2026.03.6 output or a direct consequence of 
 
 | case | input | expected |
 |---|---|---|
-| E1 | every entry `e` of `molecules.json` (all have `requiresDiagonalBonds:false`), `g = parseEntry(e)` | `embedOnLattice(g) !== null` **iff** `e.stereoBuildable === undefined`; for every non-null result every bonded pair face-adjacent and no unbonded pair face-adjacent; for the 8 entries with `stereoBuildable: false` (05 §6.2) `embedOnLattice(g) === null` and `embedOnLattice(withoutStereoTags(g)) !== null`. The flag is the only data the test reads (no prose list). 05's `validate.ts` (check B1 there, and the build-target checks R10/R13) rejects a flagged entry used as `exact-molecule`, `name-to-structure`, `stereo-exact`, `isomer-set` member, `predict-product` `expected`/`acceptAlso` or quiz `display` (message `library:<id>: stereoBuildable:false entry used as build target by <challengeId>`). |
+| E1 | every entry `e` of `molecules.json` (all have `requiresDiagonalBonds:false`), `g = parseEntry(e)` | `embedOnLattice(g) !== null` for every entry; every bonded pair face-adjacent; `suppressedPairs` equals `suppressedPairsOf(g, pos)`; for the 8 entries in `test/content/fixtures/suppressions.ts` (`NEEDS_SUPPRESSION`, 09 §4.4) `suppressedPairs` equals the one listed pair and `embedOnLattice(g, {allowSuppressed:false}) === null`; for every other entry `suppressedPairs.length === 0` and the strict call returns the same positions. |
 | E2 | `C1CC1`, `CC1CC1`, `C1CCCC1` | `null` with `allowDiagonal:false` |
-| E3 | `C/C=C\C` (Z) | `null`; `C/C=C/C` (E) non-null with `refA`/`refB` on opposite sides |
+| E3 | `C/C=C\C` (Z) | non-null with `suppressedPairs = [[0,3]]` (the two methyls touch), `refA`/`refB` on the same side; `null` with `{allowSuppressed:false}`; `C/C=C/C` (E) non-null with `suppressedPairs = []` and `refA`/`refB` on opposite sides |
 | E4 | `C[C@@H](O)CC` | non-null; `hPos` has one entry for atom 1; `V` over `tet.order` positive; `assignRS` (03) on the resulting world graph gives `R` |
 | E5 | `C[C@H](O)CC` | `S` under the same check |
 | E6 | `C[C@H](Br)[C@@H](Br)C` (meso) | non-null; both centres satisfied |
@@ -822,6 +848,10 @@ Every expected value below is RDKit 2026.03.6 output or a direct consequence of 
 | E9 | `origin:[52,9,64]` | every position equals the default embedding translated by the origin |
 | E10 | `CC(C)(C)C` (neopentane) | non-null (four face neighbours of the centre) |
 | E11 | `CC(C)(C)C(C)(C)C` | non-null (two quaternary carbons, each with three free faces) |
+| E12 | each row of 09 §2.1's verified table (8 library entries plus `CCC/C=C\CCC` and `CC/C(Cl)=C/CC`) | non-null; `suppressedPairs` equals the listed pair; `assignEZ` (03) on the world graph built from `pos` gives the listed label; `{allowSuppressed:false}` → `null` |
+| E13 | every 05 §5.3 layout entry that existed before the amendment, and `C/C=C/C` | pass A succeeds: `suppressedPairs = []` and positions identical to the pre-amendment expectation |
+| E14 | `suppressedPairsOf(g, layout)` for `z-but-2-ene` / `e-but-2-ene` | `[[0,3]]` / `[]` |
+| E15 | `C1CC1` with and without `allowSuppressed` | `null` both ways (pass B never helps an odd ring) |
 
 ### 16.13 `naming.ts` (`test/chem/naming.test.ts`)
 
@@ -862,4 +892,4 @@ Every expected value below is RDKit 2026.03.6 output or a direct consequence of 
 8. **Carbocation subtypes** reuse `GroupSubtype` literals (`methyl|primary|secondary|tertiary|vinyl|aryl`); the comment in `types.ts` lists only alcohol/amine/halide, but the union allows it.
 9. **DoU for ions** is stored as a half-integer; 07 must format it (one decimal) and 05 must not set `piBonds` on charged targets.
 10. **Expectation script.** The RDKit script used to regenerate section 16 (`gen.py` in the session scratchpad) should be committed as `tools/reference/gen_core_expectations.py` by WP-01 so the fixtures can be regenerated.
-11. **`MoleculeEntry.stereoBuildable`.** The contracts PR adds the optional field of section 1 to `src/content/types.ts`; 05 sets `stereoBuildable: false` on its 8 §6.2 entries (and nowhere else), rewrites B1 to read the flag instead of "entries not listed in §6.2" (B1's "seven" is a miscount: the §6.2 table has 8 entries, one row holds two), and adds the validate.ts build-target check named in E1 (section 16.12).
+11. *Withdrawn (09-amendment-no-bond.md).* `MoleculeEntry.stereoBuildable` is no longer needed: every library entry embeds (the 8 former §6.2 entries with one suppressed pair each). The test data that replaces the flag is `test/content/fixtures/suppressions.ts` (09 §4.4).

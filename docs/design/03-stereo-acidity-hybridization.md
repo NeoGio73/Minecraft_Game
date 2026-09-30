@@ -288,7 +288,7 @@ The panel prints `E (trans)` / `Z (cis)` when `cisTrans` is present.
 | 2-methylbut-2-ene (0,1,0) (0,0,0) (1,0,0) (1,1,0) (1,−1,0) | | NO_EZ (C3 tie) |
 | but-2-ene with explicit H on C2 at (0,0,1), CH3 at (0,1,0) | | NOT_PLANAR (C2) |
 
-Reconciliation R3 applies: with face-adjacency = bond, only E-1,2-disubstituted alkenes are buildable; Z and tri/tetrasubstituted targets are quiz / choose-reagent challenges (05-content.md).
+Buildability (09-amendment-no-bond.md §2.1, replacing the former R3 note): the rules of §3.1–3.2 never mention adjacency, and with the bond wand's "no bond" setting every alkene with a defined E/Z is buildable. A same-side pair of substituents (every Z-1,2-disubstituted alkene, one pair of every trisubstituted alkene, two pairs of a tetrasubstituted one) occupies two face-adjacent cells; the student sets that auto-bond to no bond (a *suppressed pair*, excluded from the extracted graph) and the tests above read the intended geometry. The "zigzag Z" row of this table is therefore a legal build once the pair `C1|C4` is suppressed. 09 §2.1 tabulates RDKit-verified layouts for all eight Z / trisubstituted library entries (one suppressed pair each); the stereo code is unchanged.
 
 ---
 
@@ -423,16 +423,19 @@ Grid coordinates for the dibromobutane rows (atoms 0=C1 1=C2 2=Br 3=C3 4=Br 5=C4
 | `rr` (05 `2r-3r-dibromobutane`) | (0,1,0) | (0,0,0) | (0,0,−1) | (1,0,0) | (1,−1,0) | (1,0,1) | (R, R) | false, `chiral` |
 | `ss` (05 `2s-3s-dibromobutane`) | (0,1,0) | (0,0,0) | (0,0,1) | (1,0,0) | (1,−1,0) | (1,0,−1) | (S, S) | false, `chiral` |
 
-Two traps, both hit by an earlier draft of this table and both caught by RDKit: (1) on a zigzag chain C1 (0,−1,0), C2 (0,0,0), C3 (1,0,0), C4 (1,1,0), putting both Br at +z gives (R,R), not meso, and putting them at +z/−z gives the meso (R,S) form — the "same side" intuition from a Fischer projection does not transfer to the anti zigzag; (2) Br at (0,0,1) and (1,0,1) are face-adjacent cells, so on the grid the two bromines would auto-bond and exceed valence 1: that build cannot exist in the world and must not be a fixture. Hand check of `rr` at C2 (priorities Br (0,0,−1) > C3 (1,0,0) > C1 (0,1,0) > H virtual (−1,−1,1)): `V = ((C3−Br)×(C1−Br))·(H−Br) = ((1,0,1)×(0,1,1))·(−1,−1,2) = (−1,−1,1)·(−1,−1,2) = 4 → R`.
+Two traps, both hit by an earlier draft of this table and both caught by RDKit: (1) on a zigzag chain C1 (0,−1,0), C2 (0,0,0), C3 (1,0,0), C4 (1,1,0), putting both Br at +z gives (R,R), not meso, and putting them at +z/−z gives the meso (R,S) form — the "same side" intuition from a Fischer projection does not transfer to the anti zigzag; (2) Br at (0,0,1) and (1,0,1) are face-adjacent cells, so on the grid the two bromines auto-bond and exceed valence 1; since 09-amendment-no-bond.md that build exists only with the `Br|Br` pair set to no bond with the wand, and it is still not a fixture (the four induced layouts above are). Hand check of `rr` at C2 (priorities Br (0,0,−1) > C3 (1,0,0) > C1 (0,1,0) > H virtual (−1,−1,1)): `V = ((C3−Br)×(C1−Br))·(H−Br) = ((1,0,1)×(0,1,1))·(−1,−1,2) = (−1,−1,1)·(−1,−1,2) = 4 → R`.
 
 **Fixture legality assertion.** Every grid fixture in `test/chem/stereo.test.ts`, `stereo-compare.test.ts` and the §11 end-to-end rows passes `assertBuildable(g)` (test helper `test/helpers/lattice.ts`, a restatement of `embedOnLattice` step 5 in 02-chemistry-core §13) before any label is asserted, so an unbuildable fixture fails loudly instead of testing geometry the world cannot produce:
 
 ```ts
 // test/helpers/lattice.ts — for every pair of cells (heavy atoms and hPos entries) of a WorldGraph:
 //   manhattan(p, q) === 1  ⇔  the two cells are bonded (heavy–heavy: a bond in g.bonds that is not diagonal;
-//                             heavy–H: the H is in that atom's hPos; H–H: never), and no two cells coincide.
-// Throws Error(`fixture not buildable: cells ${p} and ${q} are face-adjacent but unbonded`) (or the converse).
-export function assertBuildable(g: WorldGraph): void;
+//                             heavy–H: the H is in that atom's hPos; H–H: never), and no two cells coincide —
+//   except that a face-adjacent UNBONDED heavy–heavy pair is allowed when its PairKey is in `suppressed`
+//   (09-amendment-no-bond.md §2.3: a "no bond" pair the student sets with the wand).
+// Throws Error(`fixture not buildable: cells ${p} and ${q} are face-adjacent but unbonded`) (or the converse), and
+// Error(`fixture: suppressed pair ${key} is not a touching unbonded pair`) for a bad `suppressed` entry.
+export function assertBuildable(g: WorldGraph, suppressed?: ReadonlySet<PairKey>): void;
 ```
 
 ---

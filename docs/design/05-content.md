@@ -55,8 +55,9 @@ export function entryById(id: string): MoleculeEntry | undefined;
 export function entryBySmiles(smiles: string): MoleculeEntry | undefined;
 /** parseSmiles + implicitHydrogens + perceiveAromaticity, memoised by SMILES string. */
 export function parseEntry(entry: MoleculeEntry | string): MoleculeGraph;
-/** entry.layout when present, else embedOnLattice(parseEntry(entry)) (memoised); null when unembeddable. */
-export function layoutOf(entry: MoleculeEntry): Embedding | null;
+/** entry.layout when present (pos = layout, hPos empty, suppressedPairs = suppressedPairsOf(parseEntry(entry), layout)),
+ *  else embedOnLattice(parseEntry(entry)) (memoised); null only for odd rings (09-amendment-no-bond.md §1.9). */
+export function layoutOf(entry: MoleculeEntry): EmbeddingExt | null;
 
 // src/content/acceptance.ts
 export function evaluate(challenge: Challenge, ctx: SubmissionContext): SubmitResult;
@@ -109,6 +110,14 @@ export function feedbackText(kind: FeedbackKind, params?: FeedbackParams, overri
 export interface ContentProblem { readonly where: string; readonly message: string }   // where = "challenge:<id>" | "library:<id>" | "reagent:<id>"
 export function validateContent(library: MoleculeLibrary, roster: ChallengeRoster, reagents: readonly ReagentCard[]): string[];  // "<where>: <message>"
 export function validateContentDetailed(library: MoleculeLibrary, roster: ChallengeRoster, reagents: readonly ReagentCard[]): ContentProblem[];
+/** Required "no bond" pairs per build target and per library entry (09 §1.9); reported, never a failure. */
+export interface BuildReportRow { readonly where: string; readonly smiles: string; readonly nodesVisited: number; readonly suppressedPairs: readonly (readonly [number, number])[] }
+export function buildReport(library: MoleculeLibrary, roster: ChallengeRoster): BuildReportRow[];
+
+// src/content/feedback.ts — additions (09 §1.9, §4.5)
+export const NO_BOND_HINT = 'Two touching atoms that should not be bonded have bonded into a ring: point the bond wand (B) at the bar between them and press E until it shows the red x break marker (no bond).';
+// FeedbackParams may carry `extraRing: 1` (student ringCount > target ringCount); the wrong-formula, constitutional-isomer and
+// wrong-ring-count templates then append ' ' + NO_BOND_HINT.
 ```
 
 Clarifications of `types.ts` used here (no shape change):
@@ -123,10 +132,10 @@ Clarifications of `types.ts` used here (no shape change):
 Constants are `POINTS_BY_DIFFICULTY = {easy: 2, medium: 4, hard: 8}`, `ATTEMPT_MULTIPLIER = [1, 0.5, 0]`, `DEFAULT_MAX_ATTEMPTS = {quiz: 2, selectAtom: 3, chooseReagent: 2}`, `DEFAULT_PASS_MARK = 70` (all in `types.ts`).
 
 1. **Points per challenge** = `POINTS_BY_DIFFICULTY[difficulty]`; the JSON also stores `points` and `test/content/challenges.test.ts` asserts equality for every record.
-2. **Total** = `totalPoints(rosterInfo(loadFullRoster(), config))` = Σ points over enabled challenges. It is **never a literal** anywhere (critic 5.1): tests compute it from the JSON, the progress bar reads `score:changed.total`, INSTRUCTOR.md says "total shown in the game". With the roster of §4 and the default config the value is **358** (89 challenges: 25 easy = 50, 51 medium = 204, 13 hard = 104); this number appears here only as a cross-check and `challenges.test.ts` asserts it against the JSON sum so a content edit that changes it fails loudly until this line is updated.
+2. **Total** = `totalPoints(rosterInfo(loadFullRoster(), config))` = Σ points over enabled challenges. It is **never a literal** anywhere (critic 5.1): tests compute it from the JSON, the progress bar reads `score:changed.total`, INSTRUCTOR.md says "total shown in the game". With the roster of §4 and the default config the value is **378** (91 challenges: 25 easy = 50, 50 medium = 200, 16 hard = 128; 09-amendment-no-bond.md §4.3); this number appears here only as a cross-check and `challenges.test.ts` asserts it against the JSON sum so a content edit that changes it fails loudly until this line is updated.
 3. **Earned per solve**: build rules (`exact-molecule`, `formula-and-groups`, `isomer-set`, `name-to-structure`, `stereo-exact`, `predict-product`) have unlimited attempts and earn full points, except an `acceptAlso` match which earns `floor(points × 0.5)` and is recorded as `SolvedReduced`; a subsequent exact match on that challenge upgrades it to `SolvedFull` and earns the remaining `points − floor(points × 0.5)` (§1, `applyOutcome` rule (e)). Attempt-limited rules (`select-atom`, `quiz`, `choose-reagent`) earn `pointsForAttempt(points, attempt, false)` = full on attempt 1, half on attempt 2, nothing from attempt 3 on; when `attempt ≥ maxAttempts` and the answer is wrong the challenge is marked `Attempted` and the answer is revealed (`attempts-exhausted`).
 4. **Raw score** = `rawScore(earned, total) = round(100·earned/total)`, clamped to 0..100. Monotonic within an attempt: `earned` only increases (already-solved challenges return `pointsEarned: 0` except the one-time reduced → full upgrade, which returns the positive remainder; a reduced solve is never downgraded), so `raw` never decreases; `ProgressState.reportedRaw` additionally stores the highest value written so a restore can never lower the gradebook.
-5. **Pass**: `raw ≥ config.passMark` → `lesson_status = passed`. With 358 points, `raw ≥ 70` first holds at `earned = 249` (`round(100·249/358) = 70`; 248 rounds to 69).
+5. **Pass**: `raw ≥ config.passMark` → `lesson_status = passed`. With 378 points, `raw ≥ 70` first holds at `earned = 263` (`round(100·263/378) = 70`; 262 rounds to 69).
 6. **Disabled challenges** contribute nothing to `total` and are absent from the UI; their roster bits stay reserved. New challenges are appended to the file, never inserted (ids and bit positions are permanent).
 7. Diagonal-only challenges (`requiresDiagonalBonds: true`) are hidden and excluded from `total` unless `config.diagonalBonds` is true. The v1 roster contains none; `IsomerSetRule.optionalDiagonalIsomers` on `ch4-isomers-c4h8` is the only diagonal-aware datum.
 
@@ -143,7 +152,7 @@ Constants are `POINTS_BY_DIFFICULTY = {easy: 2, medium: 4, hard: 8}`, `ATTEMPT_M
 
 ## 4. Challenge roster (`src/content/challenges.json`, `version: 1`)
 
-89 records. `requiresDiagonalBonds` is `false` on every record and omitted below only for brevity; the JSON file writes it out.
+91 records. `requiresDiagonalBonds` is `false` on every record and omitted below only for brevity; the JSON file writes it out. Four records were added or replaced by 09-amendment-no-bond.md §4.2 (`ch7-build-z-but-2-ene`, `ch7-build-z-2-chlorobut-2-ene`, `ch9-predict-br2-1-equiv-but-1-yne`, `ch9-predict-lindlar-z-hex-3-ene`); because v1 has not shipped they sit at their pedagogical positions, and the append-only rule applies from the first release on.
 
 ### 4.1 Chapter 1 — Structure and bonding (7 challenges, 20 points)
 
@@ -504,7 +513,7 @@ Accepted sets (enumerated by tests): alcohol C3H8O → propan-1-ol, propan-2-ol;
 ]
 ```
 
-### 4.7 Chapter 7 — Alkenes: structure, E/Z, Markovnikov (9 challenges, 38 points)
+### 4.7 Chapter 7 — Alkenes: structure, E/Z, Markovnikov (10 challenges, 46 points)
 
 ```json
 [
@@ -527,22 +536,26 @@ Accepted sets (enumerated by tests): alcohol C3H8O → propan-1-ol, propan-2-ol;
  "difficulty":"medium","points":4,
  "rule":{"type":"stereo-exact","target":"C/C=C/C","mode":"absolute"},"source":"MM 7.4 (m00066)",
  "feedback":{"diastereomer":"Your double bond is Z (cis): the two methyl groups are on the same side. Move one methyl to the opposite side of the C=C."}},
+{"id":"ch7-build-z-but-2-ene","chapter":7,"section":"7.4","topic":"E/Z","title":"(Z)-But-2-ene",
+ "instruction":"Build (Z)-but-2-ene (cis-2-butene) on the lab pad: the two methyl groups on the SAME side of the C=C, all four carbons in one plane (a U shape). The two methyl blocks touch and bond into a ring at first: point the bond wand (B) at the bar between them and press E until it becomes a red x break marker (no bond). Target and submit. The panel labels the double bond E or Z.",
+ "objective":"Z = higher-priority groups on the same side. On the block grid a cis pair of substituents touches, so the automatic bond between them must be broken with the wand; the two methyls are then not bonded and the molecule is an open-chain alkene.",
+ "hint":"CH3 above C2, C2=C3 across, CH3 above C3. Cycle the bar between the two CH3 blocks with the wand (B, then E: double, triple, no bond) until the red x marker shows, then set C2=C3 to double.",
+ "difficulty":"medium","points":4,
+ "rule":{"type":"stereo-exact","target":"C/C=C\\C","mode":"absolute"},"source":"MM 7.4 (m00066)",
+ "feedback":{"diastereomer":"Your double bond is E (trans): the two methyl groups are on opposite sides. Move one methyl so both are on the same side of the C=C, then break the bond between them with the wand."}},
 {"id":"ch7-build-2e-4e-hexa-2-4-diene","chapter":7,"section":"7.5","topic":"E/Z","title":"(2E,4E)-Hexa-2,4-diene",
  "instruction":"Build (2E,4E)-hexa-2,4-diene (CH3-CH=CH-CH=CH-CH3) on the lab pad with both double bonds E, all six carbons in one plane. Target and submit. The panel labels each double bond.",
  "objective":"Each double bond gets its own E/Z descriptor; a planar zigzag chain makes both E.",
  "hint":"An all-trans zigzag: go up, across, down, across, up, across, down. Every substituent must be beside its alkene carbon, never in line with the C=C.",
  "difficulty":"hard","points":8,
  "rule":{"type":"stereo-exact","target":"C/C=C/C=C/C","mode":"absolute"},"source":"MM 7.5 (m00067)"},
-{"id":"ch7-quiz-ez-2-chlorobut-2-ene","chapter":7,"section":"7.5","topic":"E/Z","title":"E or Z?",
- "instruction":"Consider the isomer of 2-chlorobut-2-ene, CH3-C(Cl)=CH-CH3, in which the chlorine on C2 and the methyl group on C3 lie on the same side of the C=C double bond. (This geometry has a cis pair and cannot be laid out on the block grid, so no model is placed; work from the drawing in the quiz panel.) Rank the groups on each alkene carbon and answer the quiz question.",
- "objective":"On C2: Cl > CH3; on C3: CH3 > H. Z when the two higher-priority groups are on the same side.",
- "hint":"McMurry's own example. 'Z' from German zusammen, 'together'; the higher groups are on ze zame zide.",
- "difficulty":"medium","points":4,
- "rule":{"type":"quiz","kind":"mc","prompt":"2-Chlorobut-2-ene, CH3-C(Cl)=CH-CH3: in the isomer where Cl (on C2) and the C3 methyl group are on the same side of the double bond, is the double bond E or Z?",
-  "options":[{"id":"a","text":"E"},{"id":"b","text":"Z"},{"id":"c","text":"Neither: this double bond has no E/Z isomerism"}],
-  "correct":["b"],"shuffle":false,"maxAttempts":2,
-  "explanation":"On C2 chlorine outranks methyl; on C3 methyl outranks hydrogen. The two higher-priority groups (Cl and CH3) are on the same side, so the configuration is Z (McMurry 7.5)."},
- "source":"MM 7.5 (m00067)"},
+{"id":"ch7-build-z-2-chlorobut-2-ene","chapter":7,"section":"7.5","topic":"E/Z","title":"Build (Z)-2-chlorobut-2-ene",
+ "instruction":"Build (Z)-2-chlorobut-2-ene, CH3-C(Cl)=CH-CH3, on the lab pad. Rank the two groups on each alkene carbon (Cl versus CH3 on C2; CH3 versus H on C3): Z means the two higher-priority groups are on the same side of the C=C. Keep every substituent beside its alkene carbon, all in one plane. Two blocks on the same side touch and bond at first: break that bond with the bond wand (B, then E until the red x marker). Target and submit.",
+ "objective":"E/Z for a trisubstituted alkene: rank the substituents on each carbon by atomic number (Cl > C on C2; C > H on C3); Z when the higher-ranked groups are on the same side (McMurry 7.5).",
+ "hint":"McMurry's own example. Chlorine outranks methyl on C2; methyl outranks hydrogen on C3. Put the Cl and the C3 methyl on the same side (Z, zusammen: on ze zame zide); the C2 methyl goes opposite the Cl. The Cl block and the C3 methyl block touch: cycle that bar to no bond.",
+ "difficulty":"hard","points":8,
+ "rule":{"type":"stereo-exact","target":"C/C=C(\\Cl)C","mode":"absolute"},"source":"MM 7.5 (m00067)",
+ "feedback":{"diastereomer":"Your double bond is E: the chlorine (highest priority on C2) and the C3 methyl (highest on C3) are on opposite sides. Z puts them on the same side; the C2 methyl then sits opposite the chlorine."}},
 {"id":"ch7-quiz-alkene-stability","chapter":7,"section":"7.6","topic":"alkene-stability","title":"Which alkene is most stable?",
  "instruction":"Answer the quiz question using McMurry Table 7.2 (heats of hydrogenation).",
  "objective":"Stability: more substituted > less substituted; trans > cis (steric strain between cis substituents).",
@@ -654,7 +667,7 @@ Accepted sets (enumerated by tests): alcohol C3H8O → propan-1-ol, propan-2-ol;
 ]
 ```
 
-### 4.9 Chapter 9 — Alkynes (8 challenges, 38 points)
+### 4.9 Chapter 9 — Alkynes (9 challenges, 50 points)
 
 ```json
 [
@@ -671,6 +684,13 @@ Accepted sets (enumerated by tests): alcohol C3H8O → propan-1-ol, propan-2-ol;
  "difficulty":"medium","points":4,
  "rule":{"type":"predict-product","reactant":"C#CCCCC","reagentId":"HX_2EQ_HBR","expected":["CCCCC(C)(Br)Br"],"stereoCheck":"none"},"source":"MM 9.3 (m00105)",
  "feedback":{"constitutional-isomer":"Right formula, wrong positions: both bromines go to the SAME carbon (C2). The second addition follows Markovnikov's rule again, giving the geminal 2,2-dibromide."}},
+{"id":"ch9-predict-br2-1-equiv-but-1-yne","chapter":9,"section":"9.3","topic":"alkyne-addition","title":"One Br2 on an alkyne: trans dibromide",
+ "instruction":"Reaction bench: but-1-yne is locked in the reactant zone. Apply the Br2 / CH2Cl2 card with the equivalents switch on 1. Build the product in the product zone with the correct geometry: the two bromines on opposite sides of the new C=C (anti addition), every substituent beside its alkene carbon, all in one plane. The Br on C1 and the ethyl group on C2 end up on the same side and touch: break that bond with the bond wand (B, then E until the red x marker). Submit.",
+ "objective":"One equivalent of X2 adds anti across a triple bond to give the (E)-1,2-dihaloalkene (McMurry 9.3).",
+ "hint":"(E)-1,2-dibromobut-1-ene, BrCH=C(Br)CH2CH3: Br above C1, Br below C2, the ethyl CH2 above C2 next to the first Br. Cycle the Br-CH2 bar to no bond, then set C1=C2 to double.",
+ "difficulty":"hard","points":8,
+ "rule":{"type":"predict-product","reactant":"C#CCC","reagentId":"X2_BR2","equiv":1,"expected":["Br/C=C(/Br)CC"],"stereoCheck":"ez"},"source":"MM 9.3 (m00105)",
+ "feedback":{"diastereomer":"Your two bromines are on the same side (Z). Br2 adds anti to an alkyne: the bromines end up on opposite sides of the C=C (E).","invalid-alkene-geometry":"The double bond is not planar or a substituent is in line with it. Put both bromines and the ethyl group beside their alkene carbons in one plane, and break the bond where the Br and the ethyl group touch."}},
 {"id":"ch9-predict-hgso4-hydration-hex-1-yne","chapter":9,"section":"9.4","topic":"alkyne-hydration","title":"Mercury-catalysed hydration",
  "instruction":"Reaction bench: hex-1-yne is locked in the reactant zone. Apply the H2O / H2SO4 / HgSO4 card. Build the isolated product (the carbonyl compound, not the enol) in the product zone and submit.",
  "objective":"Markovnikov hydration of a terminal alkyne gives an enol that tautomerizes to a methyl ketone.",
@@ -686,14 +706,13 @@ Accepted sets (enumerated by tests): alcohol C3H8O → propan-1-ol, propan-2-ol;
  "rule":{"type":"choose-reagent","reactant":"C#CCCCC","product":"CCCCCC=O","options":["HGSO4_HYDRATION","HYDROBORATION_ALKYNE","H3O_HYDRATION","H2_LINDLAR"],"correct":["HYDROBORATION_ALKYNE"],"maxAttempts":2,
   "rejections":{"HGSO4_HYDRATION":"Hg-catalysed hydration is Markovnikov and gives the methyl ketone hexan-2-one.","H3O_HYDRATION":"Aqueous acid alone does not hydrate an alkyne usefully, and any hydration would be Markovnikov (ketone).","H2_LINDLAR":"Lindlar hydrogenation adds H2 to give the cis alkene; it adds no oxygen."}},
  "source":"MM 9.4 (m00106)"},
-{"id":"ch9-choose-lindlar-z-hex-3-ene","chapter":9,"section":"9.5","topic":"reduction","title":"Alkyne to cis alkene",
- "instruction":"At the reaction bench, hex-3-yne is shown as the reactant and (Z)-hex-3-ene (cis-3-hexene) as the target product (shown as a model; a cis alkene cannot be laid out on the block grid). Pick the reagent card that performs this conversion and submit.",
- "objective":"Lindlar catalyst gives syn addition of H2 and stops at the cis alkene; Li/NH3 gives the trans alkene; Pd/C reduces all the way to the alkane.",
- "hint":"Which reduction stops after one H2 and delivers both hydrogens to the same face?",
- "difficulty":"medium","points":4,
- "rule":{"type":"choose-reagent","reactant":"CCC#CCC","product":"CC/C=C\\CC","options":["H2_LINDLAR","LI_NH3","H2_PD","NANH2_BASE"],"correct":["H2_LINDLAR"],"maxAttempts":2,
-  "rejections":{"LI_NH3":"Dissolving-metal reduction (Li, NH3) gives the trans alkene, (E)-hex-3-ene.","H2_PD":"H2 over Pd/C adds two H2 and gives hexane.","NANH2_BASE":"NaNH2 is a base; it deprotonates terminal alkynes and does not reduce an internal alkyne."}},
- "source":"MM 9.5 (m00107)"},
+{"id":"ch9-predict-lindlar-z-hex-3-ene","chapter":9,"section":"9.5","topic":"reduction","title":"Alkyne to cis alkene",
+ "instruction":"Reaction bench: hex-3-yne is locked in the reactant zone. Apply the H2 / Lindlar catalyst card. Build (Z)-hex-3-ene (cis-3-hexene) in the product zone with the correct geometry: both ethyl groups beside their alkene carbons, in one plane, on the SAME side. The two ethyl groups touch where they meet: break that bond with the bond wand (B, then E until the red x marker) so they stay separate. Submit.",
+ "objective":"Lindlar's poisoned catalyst delivers both hydrogens to the same face (syn addition) and stops at the cis (Z) alkene; Li/NH3 gives the trans alkene and Pd/C the alkane.",
+ "hint":"A U shape: CH2 above C3, C3=C4 across, CH2 above C4, each CH3 continuing outward. The two CH2 blocks touch: cycle their bar to no bond. Then set C3=C4 to double.",
+ "difficulty":"hard","points":8,
+ "rule":{"type":"predict-product","reactant":"CCC#CCC","reagentId":"H2_LINDLAR","expected":["CC/C=C\\CC"],"stereoCheck":"ez"},"source":"MM 9.5 (m00107)",
+ "feedback":{"diastereomer":"Your alkene is E (trans). Lindlar hydrogenation is syn: both hydrogens add to the same face, so the two ethyl groups end up on the same side (Z).","invalid-alkene-geometry":"The double bond is not planar or a substituent is in line with it. Put both ethyl groups beside their carbons in the same plane as the C=C, on the same side, and break the bond where they touch."}},
 {"id":"ch9-predict-li-nh3-hex-3-yne","chapter":9,"section":"9.5","topic":"reduction","title":"Alkyne to trans alkene",
  "instruction":"Reaction bench: hex-3-yne is locked in the reactant zone. Apply the Li / NH3 card. Build (E)-hex-3-ene in the product zone with the correct geometry (planar zigzag, ethyl groups on opposite sides) and submit.",
  "objective":"Dissolving-metal reduction gives anti addition of H2: the trans (E) alkene.",
@@ -857,14 +876,14 @@ Accepted sets (enumerated by tests): alcohol C3H8O → propan-1-ol, propan-2-ol;
 | 4 | 6 | 22 | isomer-set, formula-and-groups ×2, name-to-structure, stereo-exact ×2 |
 | 5 | 8 | 42 | select-atom, stereo-exact ×6, quiz(yesno) |
 | 6 | 1 | 2 | predict-product |
-| 7 | 9 | 38 | formula-and-groups, name-to-structure, stereo-exact ×2, quiz(mc) ×2, select-atom, predict-product ×2 |
+| 7 | 10 | 46 | formula-and-groups, name-to-structure, stereo-exact ×4, quiz(mc), select-atom, predict-product ×2 |
 | 8 | 10 | 50 | predict-product ×9, choose-reagent |
-| 9 | 8 | 38 | predict-product ×5, choose-reagent ×2, select-atom |
+| 9 | 9 | 50 | predict-product ×7, choose-reagent, select-atom |
 | 10 | 7 | 26 | isomer-set, name-to-structure, predict-product ×3, choose-reagent ×2 |
 | 11 | 9 | 36 | predict-product ×7, choose-reagent, select-atom |
-| **total** | **89** | **358** | 9 rule kinds (8 `rule.type`s plus yes/no quiz), every `Selector.kind` except `atom-ids` is exercised |
+| **total** | **91** | **378** | 9 rule kinds (8 `rule.type`s plus yes/no quiz), every `Selector.kind` except `atom-ids` is exercised |
 
-Dropped from the research lists and why: DESIGN-draft C18–C25 (arenes/carbonyl derivatives, Organic II, SCOPE); mcmurry #21 cyclopentane variants (odd rings); acids-bases C2-05 propanamide (unverified pKa class), glycolamide and 3-hydroxypropanoic acid (margin), C2-01 DMSO/nitromethane (kept out to hold the roster at 89; nitromethane and DMSO stay in the library for the panel); stereo-on-grid S5 "enantiomer of the shown molecule" and S8 "diastereomer of the shown molecule" (need a display field on `StereoExactRule`, see §12); E2/E3 tri-substituted E/Z builds (unbuildable, R3) replaced by `ch7-quiz-ez-2-chlorobut-2-ene`; reaction-bench RB-11/RB-14 (epoxide, cyclopropane: diagonal), RB-18/RB-38 (E/Z on vinylic halides: unbuildable with stereo; RB-18's constitution stays in the library as `e-1-2-dibromobut-1-ene`), RB-21 built as choose-reagent (Z product), RB-37 TBUOK Hofmann (not in 10e); ch10 Grignard (needs Mg). Reserve ideas for v1.1 are listed in §12.
+Dropped from the research lists and why: DESIGN-draft C18–C25 (arenes/carbonyl derivatives, Organic II, SCOPE); mcmurry #21 cyclopentane variants (odd rings); acids-bases C2-05 propanamide (unverified pKa class), glycolamide and 3-hydroxypropanoic acid (margin), C2-01 DMSO/nitromethane (kept out to hold the roster at 89; nitromethane and DMSO stay in the library for the panel); stereo-on-grid S5 "enantiomer of the shown molecule" and S8 "diastereomer of the shown molecule" (need a display field on `StereoExactRule`, see §12); reaction-bench RB-11/RB-14 (epoxide, cyclopropane: diagonal), RB-38 (optional in the research; buildable since 09-amendment-no-bond.md but kept as the engine vector 04 §9.1 row 5 only), RB-37 TBUOK Hofmann (not in 10e); ch10 Grignard (needs Mg). Restored by 09-amendment-no-bond.md: the tri-substituted E/Z build (`ch7-build-z-2-chlorobut-2-ene`, replacing the E/Z quiz), RB-18 (`ch9-predict-br2-1-equiv-but-1-yne`) and RB-21 as a predict-product (`ch9-predict-lindlar-z-hex-3-ene`, replacing the choose-reagent). Reserve ideas for v1.1 are listed in §12.
 
 ## 5. Molecule library (`src/content/molecules.json`, `version: 1`)
 
@@ -882,7 +901,7 @@ Dropped from the research lists and why: DESIGN-draft C18–C25 (arenes/carbonyl
 
 ### 5.2 Entries (192; every row regenerated by `verify05.py`: formula and labels from RDKit, flags from the lattice embedder)
 
-Columns: id | name | common / alternate names | formula | SMILES | chapters | CIP labels (1-based SMILES positions) | flags. `NOT-BUILDABLE(stereo)` = the constitution embeds but no embedding reproduces the stereo tags (§6).
+Columns: id | name | common / alternate names | formula | SMILES | chapters | CIP labels (1-based SMILES positions) | flags. The flags column is empty for every entry: since 09-amendment-no-bond.md every entry embeds (the eight Z / trisubstituted alkenes with one required "no bond" pair each, §6.2); the former `NOT-BUILDABLE(stereo)` flag is gone.
 
 | id | name | alternate names | formula | SMILES | ch | labels | flags |
 |---|---|---|---|---|---|---|---|
@@ -920,7 +939,7 @@ Columns: id | name | common / alternate names | formula | SMILES | chapters | CI
 | `propenal` | propenal | prop-2-enal; acrolein; 2-propenal | C3H4O | `C=CC=O` | 1 |  |  |
 | `but-1-ene` | but-1-ene | 1-butene | C4H8 | `C=CCC` | 4,7 |  |  |
 | `e-but-2-ene` | (E)-but-2-ene | trans-2-butene; (E)-2-butene; trans-but-2-ene | C4H8 | `C/C=C/C` | 4,7,8 | 2=3:E |  |
-| `z-but-2-ene` | (Z)-but-2-ene | cis-2-butene; (Z)-2-butene; cis-but-2-ene | C4H8 | `C/C=C\C` | 7 | 2=3:Z | NOT-BUILDABLE(stereo) |
+| `z-but-2-ene` | (Z)-but-2-ene | cis-2-butene; (Z)-2-butene; cis-but-2-ene | C4H8 | `C/C=C\C` | 7 | 2=3:Z |  |
 | `2-methylpropene` | 2-methylpropene | isobutylene; isobutene; methylpropene | C4H8 | `C=C(C)C` | 4,7,8,11 |  |  |
 | `buta-1-3-diene` | buta-1,3-diene | 1,3-butadiene | C4H6 | `C=CC=C` | 7 |  |  |
 | `2-methylbut-2-ene` | 2-methylbut-2-ene | 2-methyl-2-butene | C5H10 | `CC=C(C)C` | 7,8,11 |  |  |
@@ -929,15 +948,15 @@ Columns: id | name | common / alternate names | formula | SMILES | chapters | CI
 | `2-methylpent-2-ene` | 2-methylpent-2-ene | 2-methyl-2-pentene | C6H12 | `CCC=C(C)C` | 8 |  |  |
 | `2-3-dimethylbut-2-ene` | 2,3-dimethylbut-2-ene | 2,3-dimethyl-2-butene | C6H12 | `CC(C)=C(C)C` | 7 |  |  |
 | `e-pent-2-ene` | (E)-pent-2-ene | trans-2-pentene; (E)-2-pentene | C5H10 | `C/C=C/CC` | 7 | 2=3:E |  |
-| `e-3-methylpent-2-ene` | (E)-3-methylpent-2-ene | (E)-3-methyl-2-pentene | C6H12 | `C/C=C(\C)CC` | 7 | 2=3:E | NOT-BUILDABLE(stereo) |
-| `z-3-methylpent-2-ene` | (Z)-3-methylpent-2-ene | (Z)-3-methyl-2-pentene | C6H12 | `C/C=C(/C)CC` | 7 | 2=3:Z | NOT-BUILDABLE(stereo) |
-| `z-2-chlorobut-2-ene` | (Z)-2-chlorobut-2-ene | (Z)-2-chloro-2-butene | C4H7Cl | `C/C=C(\Cl)C` | 7 | 2=3:Z | NOT-BUILDABLE(stereo) |
-| `e-2-chlorobut-2-ene` | (E)-2-chlorobut-2-ene | (E)-2-chloro-2-butene | C4H7Cl | `C/C=C(/Cl)C` | 7 | 2=3:E | NOT-BUILDABLE(stereo) |
+| `e-3-methylpent-2-ene` | (E)-3-methylpent-2-ene | (E)-3-methyl-2-pentene | C6H12 | `C/C=C(\C)CC` | 7 | 2=3:E |  |
+| `z-3-methylpent-2-ene` | (Z)-3-methylpent-2-ene | (Z)-3-methyl-2-pentene | C6H12 | `C/C=C(/C)CC` | 7 | 2=3:Z |  |
+| `z-2-chlorobut-2-ene` | (Z)-2-chlorobut-2-ene | (Z)-2-chloro-2-butene | C4H7Cl | `C/C=C(\Cl)C` | 7 | 2=3:Z |  |
+| `e-2-chlorobut-2-ene` | (E)-2-chlorobut-2-ene | (E)-2-chloro-2-butene | C4H7Cl | `C/C=C(/Cl)C` | 7 | 2=3:E |  |
 | `e-hex-3-ene` | (E)-hex-3-ene | trans-3-hexene; (E)-3-hexene | C6H12 | `CC/C=C/CC` | 7,9 | 3=4:E |  |
-| `z-hex-3-ene` | (Z)-hex-3-ene | cis-3-hexene; (Z)-3-hexene | C6H12 | `CC/C=C\CC` | 9 | 3=4:Z | NOT-BUILDABLE(stereo) |
+| `z-hex-3-ene` | (Z)-hex-3-ene | cis-3-hexene; (Z)-3-hexene | C6H12 | `CC/C=C\CC` | 9 | 3=4:Z |  |
 | `2e-4e-hexa-2-4-diene` | (2E,4E)-hexa-2,4-diene | trans,trans-2,4-hexadiene | C6H10 | `C/C=C/C=C/C` | 7 | 2=3:E, 4=5:E |  |
 | `e-1-2-dichloroethene` | (E)-1,2-dichloroethene | trans-1,2-dichloroethylene | C2H2Cl2 | `Cl/C=C/Cl` | 7 | 2=3:E |  |
-| `z-1-2-dichloroethene` | (Z)-1,2-dichloroethene | cis-1,2-dichloroethylene | C2H2Cl2 | `Cl/C=C\Cl` | 7 | 2=3:Z | NOT-BUILDABLE(stereo) |
+| `z-1-2-dichloroethene` | (Z)-1,2-dichloroethene | cis-1,2-dichloroethylene | C2H2Cl2 | `Cl/C=C\Cl` | 7 | 2=3:Z |  |
 | `cyclohexene` | cyclohexene |  | C6H10 | `C1CCC=CC1` | 7,8,10,11 |  |  |
 | `1-methylcyclohexene` | 1-methylcyclohexene |  | C7H12 | `CC1=CCCCC1` | 7,8,11 |  |  |
 | `methylenecyclohexane` | methylenecyclohexane |  | C7H12 | `C=C1CCCCC1` | 11 |  |  |
@@ -983,7 +1002,7 @@ Columns: id | name | common / alternate names | formula | SMILES | chapters | CI
 | `trans-1s-2s-dibromocyclohexane` | (1S,2S)-1,2-dibromocyclohexane | trans-1,2-dibromocyclohexane | C6H10Br2 | `Br[C@H]1CCCC[C@@H]1Br` | 8 | 2:S, 7:S |  |
 | `2-2-dibromohexane` | 2,2-dibromohexane |  | C6H12Br2 | `CCCCC(C)(Br)Br` | 9 |  |  |
 | `2-bromohex-1-ene` | 2-bromohex-1-ene | 2-bromo-1-hexene | C6H11Br | `C=C(Br)CCCC` | 9 |  |  |
-| `e-1-2-dibromobut-1-ene` | (E)-1,2-dibromobut-1-ene | (E)-1,2-dibromo-1-butene | C4H6Br2 | `Br/C=C(/Br)CC` | 9 | 2=3:E | NOT-BUILDABLE(stereo) |
+| `e-1-2-dibromobut-1-ene` | (E)-1,2-dibromobut-1-ene | (E)-1,2-dibromo-1-butene | C4H6Br2 | `Br/C=C(/Br)CC` | 9 | 2=3:E |  |
 | `1-bromo-2-methylpropan-2-ol` | 1-bromo-2-methylpropan-2-ol | 1-bromo-2-methyl-2-propanol | C4H9BrO | `CC(C)(O)CBr` | 8 |  |  |
 | `dichloromethane` | dichloromethane | methylene chloride | CH2Cl2 | `ClCCl` | 10 |  |  |
 | `1-bromopropane` | 1-bromopropane | propyl bromide; n-propyl bromide | C3H7Br | `CCCBr` | 9,10 |  |  |
@@ -1079,7 +1098,7 @@ Columns: id | name | common / alternate names | formula | SMILES | chapters | CI
 | `dmso` | dimethyl sulfoxide | DMSO; methylsulfinylmethane | C2H6OS | `C[S+](C)[O-]` | 2 |  |  |
 | `hydrogen-chloride` | hydrogen chloride | HCl | HCl | `Cl` | 2 |  |  |
 
-### 5.3 Verified `layout` values (heavy atoms, index = SMILES atom order; every listed layout is an induced lattice embedding whose stereo RDKit reproduced from the coordinates with implicit hydrogens)
+### 5.3 Verified `layout` values (heavy atoms, index = SMILES atom order; every listed layout is a lattice embedding whose stereo RDKit reproduced from the coordinates with implicit hydrogens; the last eight contain exactly one face-adjacent unbonded pair, which `layoutOf` reports as a required "no bond" pair — 09-amendment-no-bond.md §2.1)
 
 ```json
 {
@@ -1111,7 +1130,15 @@ Columns: id | name | common / alternate names | formula | SMILES | chapters | CI
  "r-lactic-acid":                    [[0,1,0],[0,0,0],[0,0,-1],[1,0,0],[2,0,0],[1,-1,0]],
  "s-lactic-acid":                    [[0,1,0],[0,0,0],[0,0,1],[1,0,0],[2,0,0],[1,-1,0]],
  "s-alanine":                        [[0,1,0],[0,0,0],[0,0,-1],[1,0,0],[2,0,0],[1,-1,0]],
- "r-alanine":                        [[0,1,0],[0,0,0],[0,0,1],[1,0,0],[2,0,0],[1,-1,0]]
+ "r-alanine":                        [[0,1,0],[0,0,0],[0,0,1],[1,0,0],[2,0,0],[1,-1,0]],
+ "z-but-2-ene":                      [[0,1,0],[0,0,0],[1,0,0],[1,1,0]],
+ "z-hex-3-ene":                      [[-1,1,0],[0,1,0],[0,0,0],[1,0,0],[1,1,0],[2,1,0]],
+ "z-2-chlorobut-2-ene":              [[0,1,0],[0,0,0],[1,0,0],[1,1,0],[1,-1,0]],
+ "e-2-chlorobut-2-ene":              [[0,1,0],[0,0,0],[1,0,0],[1,-1,0],[1,1,0]],
+ "e-3-methylpent-2-ene":             [[0,1,0],[0,0,0],[1,0,0],[1,1,0],[1,-1,0],[2,-1,0]],
+ "z-3-methylpent-2-ene":             [[0,1,0],[0,0,0],[1,0,0],[1,-1,0],[1,1,0],[2,1,0]],
+ "z-1-2-dichloroethene":             [[0,1,0],[0,0,0],[1,0,0],[1,1,0]],
+ "e-1-2-dibromobut-1-ene":           [[0,1,0],[0,0,0],[1,0,0],[1,-1,0],[1,1,0],[2,1,0]]
 }
 ```
 
@@ -1121,27 +1148,28 @@ The four cis entries (`cis-1-2-dimethylcyclohexane`, `cis-1-2-dibromocyclohexane
 
 ### 6.1 Definition
 
-A target graph `T` is **buildable** iff `embedOnLattice(T) !== null` (02-chemistry-core §13): there is an injective map `pos: atoms(T) → Z³` such that for every pair of heavy atoms `(i, j)`: `manhattan(pos i, pos j) = 1 ⇔ bonded(i, j)` (induced subgraph of the cubic lattice, because face-adjacent atom blocks are always bonded), and, when `T` carries `tet`/`ez` tags, the tags are realised (`sign(V) = tet.sign`, planar coplanar alkene with the `cis` relation), with explicit H cells for tetrahedral centres that need them. Consequences (all confirmed by enumeration):
+A target graph `T` is **buildable** iff `embedOnLattice(T) !== null` (02-chemistry-core §13; 09-amendment-no-bond.md §4.4): there is an injective map `pos: atoms(T) → Z³` such that every bonded heavy pair is face-adjacent, the `tet`/`ez` tags are realised (`sign(V) = tet.sign`, planar coplanar alkene with the `cis` relation) with explicit H cells for tetrahedral centres that need them, and every face-adjacent *unbonded* heavy pair is recorded as a required "no bond" pair (`suppressedPairs`) that the student sets with the bond wand. Touching is no longer forbidden (the former "induced subgraph" rule is withdrawn). Consequences (all confirmed by enumeration):
 
 1. **Odd rings** are impossible (no odd cycle in the cubic lattice). Excluded from library and roster; `optionalDiagonalIsomers` and `requiresDiagonalBonds` keep the door open.
 2. **Fused/bridged cages**: a 2×3 planar hexagon has a chord; six-membered rings are always the cube-corner chair (Help > Rings). Placing an atom on one of the two free cube corners bonds it to three ring atoms (`cage` warning, R15).
-3. **Alkene geometry**: an sp2 carbon's substituents sit perpendicular to the C=C axis; two substituents on adjacent alkene carbons that are cis occupy face-adjacent cells and would bond. Therefore **only alkenes with no cis pair across the C=C are buildable with defined geometry**: E-1,2-disubstituted, monosubstituted and 1,1-disubstituted alkenes. Every Z alkene and every tri-/tetrasubstituted alkene with a defined E/Z (which always has a cis pair) is unbuildable with stereo (R3), although its constitution embeds (twisted, and the panel reports `TWISTED`/`NOT_PLANAR`).
+3. **Alkene geometry**: an sp2 carbon's substituents sit perpendicular to the C=C axis, all in one plane; two substituents on adjacent alkene carbons that are cis occupy face-adjacent cells, auto-bond when placed, and the student breaks that bond with the wand (one such pair for every Z-1,2-disubstituted and every trisubstituted alkene, two for a tetrasubstituted one). **Every alkene with a defined E/Z is therefore buildable**; a same-side pair left bonded shows up as an extra ring and the feedback appends `NO_BOND_HINT` (§9).
 4. **Ring alkenes** (cyclohexene, 1-methylcyclohexene, 1,2-dimethylcyclohexene) embed on the chair; the double bond is labelled `RING` and no geometry check runs.
 5. Quaternary carbons, neopentyl chains, 2,2,4-trimethylpentane, 3-ethyl-2-methylpentane and every chain in the library embed (max 297 search nodes with the plain embedder).
 
-### 6.2 Library entries that violate buildability and how the roster avoids them
+### 6.2 Library entries that need a "no bond" pair (09-amendment-no-bond.md §2.1; RDKit-verified layouts in §5.3)
 
-| entry | constitution embeds | stereo embeds | used by | how |
-|---|---|---|---|---|
-| `z-but-2-ene` | yes | **no** | nothing (panel naming, alkene-stability quiz text) | never a build target |
-| `z-hex-3-ene` | yes | **no** | `ch9-choose-lindlar-z-hex-3-ene` (`product`) | choose-reagent: product is previewed as a ball-and-stick model, never built |
-| `z-2-chlorobut-2-ene` | yes | **no** | nothing (`ch7-quiz-ez-2-chlorobut-2-ene` describes it in its prompt and has no `display`: quiz displays are placed as locked blocks and have no model fallback, R13) | library only (naming) |
-| `e-2-chlorobut-2-ene` | yes | **no** | nothing | library only (naming) |
-| `e-3-methylpent-2-ene`, `z-3-methylpent-2-ene` | yes | **no** | nothing | library only (naming) |
-| `z-1-2-dichloroethene` | yes | **no** | nothing | library only |
-| `e-1-2-dibromobut-1-ene` | yes | **no** | nothing (RB-18 dropped) | library only |
+| entry | required suppressed pair (SMILES atom indices) | used by |
+|---|---|---|
+| `z-but-2-ene` | [0,3] (the two methyls) | `ch7-build-z-but-2-ene` (target), alkene-stability quiz text |
+| `z-hex-3-ene` | [1,4] (the two CH2) | `ch9-predict-lindlar-z-hex-3-ene` (`expected`) |
+| `z-2-chlorobut-2-ene` | [0,3] (C3 methyl and Cl) | `ch7-build-z-2-chlorobut-2-ene` (target) |
+| `e-2-chlorobut-2-ene` | [0,4] (the two methyls) | library only (naming) |
+| `e-3-methylpent-2-ene` | [0,3] | library only (naming) |
+| `z-3-methylpent-2-ene` | [0,4] | library only (naming) |
+| `z-1-2-dichloroethene` | [0,3] (the two chlorines) | library only |
+| `e-1-2-dibromobut-1-ene` | [0,4] (Br on C1 and the ethyl CH2) | `ch9-predict-br2-1-equiv-but-1-yne` (`expected`) |
 
-Every other entry (184) and every build target (exact, name, stereo-exact, isomer, predict expected/acceptAlso) is fully buildable; `test/content/buildable.test.ts` asserts it (§11 tests B1–B3).
+Every entry (192) and every build target (exact, name, stereo-exact, isomer, predict expected/acceptAlso, quiz display) is buildable; the 184 entries not listed here embed induced (no suppression); no v1 target needs more than one suppression. `test/content/buildable.test.ts` asserts all of this (§11 tests B1–B3; the pair list lives in `test/content/fixtures/suppressions.ts`).
 
 ### 6.3 Ring cis/trans on the cube chair (verified fact that the Help overlay and two hints depend on)
 
@@ -1185,8 +1213,9 @@ kindForVerdict(v, sameElements):
 a = requireTargeted(ctx); T = parseEntry(rule.target); tA = analyze(T)
 r = sameMolecule(ctx.targeted, T, { stereo: 'none' })
 if r.same → pass('correct', { name: tA.name ?? rule.names?.[0] ?? tA.formula })
-else fail(kindForVerdict(r.verdict, sameElements), { yours: a.formula, expected: tA.formula, name })
+else fail(kindForVerdict(r.verdict, sameElements), { yours: a.formula, expected: tA.formula, name, extraRing: a.ringCount > tA.ringCount ? 1 : undefined })
 ```
+`extraRing` (09 §4.5) makes the `wrong-formula` / `constitutional-isomer` template append `NO_BOND_HINT`: the student left two touching atoms bonded that the target does not bond.
 
 ### 7.3 `formula-and-groups` (checks in this order; first failure reported)
 
@@ -1231,7 +1260,7 @@ targets = [rule.target, ...(rule.accept ?? [])].map(parseEntry)
 results = targets.map(t => sameMolecule(ctx.targeted, t, { stereo: rule.mode }))
 if results.some(r => r.same) → pass('correct', { name: labelledName(target) })
 r = results[0]  // feedback always relative to the primary target
-fail(kindForVerdict(r.verdict, sameElements), { atom: (r.offendingAtom ?? 0) + 1, bond: r.offendingBond, name })
+fail(kindForVerdict(r.verdict, sameElements), { atom: (r.offendingAtom ?? 0) + 1, bond: r.offendingBond, name, yours: a.formula, expected: analyze(targets[0]).formula, extraRing: a.ringCount > analyze(targets[0]).ringCount ? 1 : undefined })
 ```
 Planar-centre feedback: when `r.verdict === 'UNSPECIFIED'`, the message appends `STEREO_TEXT.flatT` or `flatSquare` according to `a.stereo.centers.find(c => c.atom === r.offendingAtom)?.shape` (`centers` holds one entry per qualifying carbon in ascending id, not one per atom id; `undefined` → `flatT`) (07 also highlights `suggestedHPositions`).
 
@@ -1270,7 +1299,7 @@ if comps.length === 1 and rule.acceptAlso: for alt of rule.acceptAlso:
 if comps.length > expected.length → 'extra-molecule' {formula of the first unmatched comp}
 if comps.length < expected.length → 'missing-molecule' {expected: expected.length, have: comps.length, formula of first unmatched expected}
 // same count, some pair failed: report the best verdict for the first unmatched expected against the first unmatched comp
-r = sameMolecule(comp, exp, {stereo: rule.stereoCheck});  fail(kindForVerdict(r.verdict, sameElements), {...})
+r = sameMolecule(comp, exp, {stereo: rule.stereoCheck});  fail(kindForVerdict(r.verdict, sameElements), {..., extraRing: analyze(comp).ringCount > analyze(exp).ringCount ? 1 : undefined})
 ```
 `greedyMatch` is a maximum bipartite matching by backtracking (≤ 3 expected molecules in v1, so brute force over permutations). `acceptAlso` is checked only after the exact match fails and only when the student built exactly one molecule.
 
@@ -1323,15 +1352,15 @@ Validator rule S1: every select-atom answer set must be non-empty, and for `matc
 |---|---|
 | `correct` | `Correct!{name ? ` That is ${name}.` : ''}{explanation ? ' ' + explanation : ''}{expected ? ` Answer: ${expected}.` : ''}` |
 | `correct-reduced` | `Accepted for half credit: ${note}` |
-| `wrong-formula` | `Wrong formula: yours is ${yours}, the target is ${expected}. Check the atom count and the number of hydrogens the panel shows.` |
-| `constitutional-isomer` | `Right formula (${yours}) but the atoms are connected differently: this is a constitutional isomer of the target${name ? ` (you built ${name})` : ''}.` |
+| `wrong-formula` | `Wrong formula: yours is ${yours}, the target is ${expected}. Check the atom count and the number of hydrogens the panel shows.` + (`extraRing` ? ` ${NO_BOND_HINT}` : ``) |
+| `constitutional-isomer` | `Right formula (${yours}) but the atoms are connected differently: this is a constitutional isomer of the target${name ? ` (you built ${name})` : ''}.` + (`extraRing` ? ` ${NO_BOND_HINT}` : ``) |
 | `enantiomer` | `Right molecule, wrong handedness: your build is the enantiomer (mirror image) of the target. Swap any two groups on C${atom}.` |
 | `diastereomer` | `Right atoms and bonds, but the stereochemistry differs from the target at C${atom}: this is a diastereomer. Check the R/S or cis/trans labels in the panel.` |
 | `unspecified-center` | `C${atom} has no definite configuration yet. ${shapeText}` where `shapeText` = `STEREO_TEXT.flatT` or `STEREO_TEXT.flatSquare` |
 | `invalid-alkene-geometry` | `The C=C double bond${bond !== undefined ? ` at bond ${bond}` : ''} is not laid out flat. Put every substituent beside its alkene carbon (never in line with the C=C) and keep all of them in one plane.` |
 | `missing-group` | `The molecule needs ${what}. The panel lists the functional groups it currently has.` |
 | `forbidden-group` | `The molecule must not contain ${what}.` |
-| `wrong-ring-count` | `Ring count: yours has ${yours}, the target needs ${expected}.` |
+| `wrong-ring-count` | `Ring count: yours has ${yours}, the target needs ${expected}.` + (`yours > expected` ? ` ${NO_BOND_HINT}` : ``) |
 | `wrong-pi-count` | `Pi bonds: yours has ${yours}, the target needs ${expected}. Use the bond wand to change a bond order.` |
 | `wrong-charge` | `Right atoms, wrong charge: the net charge is ${yours}, the target has ${expected}. Use the charge tool (C) on the atom that should carry it.` |
 | `valence-error` | `${el} at position ${atom} has too many bonds. Remove a bond or lower a bond order before submitting.` |
@@ -1345,6 +1374,8 @@ Validator rule S1: every select-atom answer set must be non-empty, and for `matc
 | `wrong-option` | `Not correct. Try again.` |
 | `attempts-exhausted` | `No attempts left. The answer was: ${expected}.${explanation ? ' ' + explanation : ''}${reason ? ' ' + reason : ''}` |
 | `nothing-targeted` | `Nothing is targeted. Look at the molecule you built on the lab pad and press Submit again.` (pad rules only; an empty product zone is `missing-molecule`) |
+
+`NO_BOND_HINT` = `Two touching atoms that should not be bonded have bonded into a ring: point the bond wand (B) at the bar between them and press E until it shows the red x break marker (no bond).` (09 §1.9).
 
 Progress line for isomer sets (not a FeedbackKind, returned in `message` with `kind: 'correct'`, `passed: false`): `Isomer ${done} of ${total} accepted: ${name}. Keep going.`
 
@@ -1367,29 +1398,29 @@ Library (`test/content/library.test.ts`):
 - **L5** no two entries `SAME` under `stereo: 'absolute'`; ids unique; ids kebab-case ASCII.
 - **L6** `ringCount(g) === 0` or every smallest ring has even size (no odd rings).
 - **L7** (roster side) every rule SMILES (`target`, `accept[]`, `molecules[]`, `reactant`, `product`, `expected[]`, `acceptAlso[].smiles`, `isomers[]`, `rx`, `display.smiles`) equals some entry's `smiles`.
-- **L8** `layout`, when present: length = heavy-atom count, induced embedding (pairwise adjacency ⇔ bonded), and `sameMolecule(worldGraphFromLayout, parseEntry(e), {stereo:'absolute'}).verdict === 'SAME'` (no explicit H needed).
+- **L8** `layout`, when present: length = heavy-atom count, every bonded pair face-adjacent, `suppressedPairsOf(g, layout)` equals what `layoutOf` reports (touching unbonded pairs are required suppressions, not errors), and the world graph built from `layout` with those pairs suppressed gives `sameMolecule(..., parseEntry(e), {stereo:'absolute'}).verdict === 'SAME'` (no explicit H needed).
 
 Roster (`test/content/challenges.test.ts`):
 - **R1** JSON matches the `Challenge` shape (every field present, `rule.type` in the union, `topic` in `Topic`, `chapter` in 1..11); `version === 1`.
 - **R2** ids unique; file order non-decreasing in `chapter`; `source` matches `/^MM \d+\.\d+ \(m\d{5}\)$/` and its module number equals `chapterStart + sectionNumber` (§1 table).
-- **R3** `points === POINTS_BY_DIFFICULTY[difficulty]`; `totalPoints(rosterInfo(full, DEFAULT_CONFIG))` equals the sum computed in the test from the JSON (and equals 358 — a literal that lives only in this test's assertion message and in §2 as a cross-check).
-- **R4** `maxAttempts` equals `DEFAULT_MAX_ATTEMPTS` for the rule type; `quiz` `correct` ids exist in `options`; option ids unique; `shuffle` false when option order is meaningful (the formal-charge scale and the E/Z question).
+- **R3** `points === POINTS_BY_DIFFICULTY[difficulty]`; `totalPoints(rosterInfo(full, DEFAULT_CONFIG))` equals the sum computed in the test from the JSON (and equals 378 — a literal that lives only in this test's assertion message and in §2 as a cross-check).
+- **R4** `maxAttempts` equals `DEFAULT_MAX_ATTEMPTS` for the rule type; `quiz` `correct` ids exist in `options`; option ids unique; `shuffle` false when option order is meaningful (the formal-charge scale).
 - **R5** `choose-reagent`: `options ⊆ REAGENT_IDS`, `correct ⊆ options`, `rejections` keys ⊆ `options \ correct`, every card in `options` is enabled by default (or the challenge is disabled in `DEFAULT_CONFIG`), `react(reactant, cardById(correct[0]))` yields a product `SAME` (stereo 'none') as `product`.
 - **R6** `predict-product`: `react(parseEntry(reactant), cardById(reagentId), {equiv, rx: parseEntry(rx), rearrangement: 'warn'})` returns `major` such that, as a multiset under `stereoCheck`, `expected` ⊆ `major` (and equals `major` unless `acceptAlso` lists the remainder or `mixture` is true); every `acceptAlso.smiles` is `SAME` (stereo 'none') as some element of `major ∪ minor`; `stereoCheck !== 'none'` only when every `expected` graph carries a `tet`/`ez` tag. There is **no** `major ∪ minor` exception for `expected` (04 §7.5 / §9.1 row 62 note / §10 item 2 are withdrawn): a challenge whose graded product the engine reports as `minor` is a content bug. `ch11-predict-sn2-inversion-2-bromobutane` therefore uses `SN2_NAI` (decision R4 `R4_sec_sn2` → `[SN2]`, `major = [C[C@@H](I)CC]`, policy `absolute`, inversion through `substituteInvert`; 04 §9.2 row t), not `SN2_NAOH` (R3 `[E2, SN2]`, alcohol in `minor`). Row 62 of 04 §9.1 stays as an engine test vector only.
 - **R7** `select-atom`: answer set non-empty (S1); for `most-acidic-h`/`most-basic-*` every answer site is `verified: true` and the second-lowest distinct pKa (resp. second-highest pKaH) over **all** sites of **all** listed molecules is ≥ `PKA_MIN_MARGIN` away; `answerDescription` non-empty; `target: 'hydrogens'` only with `most-acidic-h`.
 - **R8** `isomer-set`: `count === isomers.length`; every isomer has `rule.formula`; hashes pairwise distinct; `optionalDiagonalIsomers` have the formula, distinct hashes, and contain an odd ring.
 - **R9** `formula-and-groups`: `required ∩ forbidden = ∅`, all ids in `GROUP_IDS`, none of the ungrouped classes (urea, carbamate, nitro, water) is relied on; the accepted-set fixtures listed in §4 pass and the listed negatives fail with the stated kind.
-- **R10** `stereo-exact` / `name-to-structure` / `exact-molecule` targets: `embedOnLattice` succeeds on the full graph (stereo included) for `stereo-exact` and on the stereo-stripped graph otherwise; `names[]` contains both locant spellings when the name has a locant (regex `\d-[a-z]+-\d` ↔ `-\d-` forms) — asserted by listing.
+- **R10** `stereo-exact` / `name-to-structure` / `exact-molecule` targets: `embedOnLattice` (suppressed pairs allowed) succeeds on the full graph (stereo included) for `stereo-exact` and on the stereo-stripped graph otherwise, and `buildReport` lists its `suppressedPairs`; `names[]` contains both locant spellings when the name has a locant (regex `\d-[a-z]+-\d` ↔ `-\d-` forms) — asserted by listing.
 - **R11** every `instruction`, `objective`, `hint`, `title` non-empty ASCII-printable (≡ and degree sign allowed), no reference to "previous", "you are holding", "the last molecule".
-- **R12** no record has `requiresDiagonalBonds: true` (v1); the number of records is 89.
-- **R13** every `quiz` rule with `display` has `layoutOf(entryBySmiles(display.smiles)) !== null` (embeds **with** stereo): 07 §1.1 step 3 places the display as locked blocks through `placeLockedMolecule`, which has no ball-and-stick fallback, so a `NOT-BUILDABLE(stereo)` entry (§6.2) may never be a quiz display; `display.markedAtom`, when present, is `< heavy-atom count`. Negative fixture: `display: {smiles: "C/C=C(\\Cl)C"}` on `ch7-quiz-ez-2-chlorobut-2-ene` → `challenge:ch7-quiz-ez-2-chlorobut-2-ene: display C/C=C(\Cl)C is not buildable with stereo`.
+- **R12** no record has `requiresDiagonalBonds: true` (v1); the number of records is 91.
+- **R13** every `quiz` rule with `display` has `layoutOf(entryBySmiles(display.smiles)) !== null` (embeds **with** stereo, suppressed pairs allowed and placed by `placeLockedMolecule`, 09 §3.3): 07 §1.1 step 3 places the display as locked blocks, which has no ball-and-stick fallback, so only an odd-ring molecule is excluded; `display.markedAtom`, when present, is `< heavy-atom count`. Negative fixture: `display: {smiles: "C1CC1"}` on `ch7-quiz-alkene-stability` → `challenge:ch7-quiz-alkene-stability: display C1CC1 is not buildable`.
 
 Buildability (`test/content/buildable.test.ts`):
-- **B1** every library entry not listed in §6.2 embeds with stereo; the seven §6.2 entries return `null` with stereo and embed after `withoutStereoTags`.
-- **B2** every build-rule SMILES (per R10 policy) embeds within `EMBED_NODE_BUDGET`; record `nodesVisited` and fail if any exceeds 10 000 (regression guard).
-- **B3** end-to-end for every `exact-molecule`, `name-to-structure`, `stereo-exact` and `predict-product` record: place the embedding through `World.setBlock` (plus `hPos` H blocks), `extractMolecules`, `evaluate` → `passed === true`; for every `predict-product` with `acceptAlso`, placing the alternative gives `kind === 'correct-reduced'`.
+- **B1** every library entry embeds; the eight §6.2 entries return exactly the one `suppressedPairs` entry listed in `test/content/fixtures/suppressions.ts` (`NEEDS_SUPPRESSION`) and `null` under `{allowSuppressed: false}`; every other entry returns `suppressedPairs.length === 0`.
+- **B2** every build-rule SMILES (per R10 policy) embeds within `EMBED_NODE_BUDGET`; record `nodesVisited` and fail if any exceeds 10 000 (regression guard); `suppressedPairs.length ≤ 2` for every row of `buildReport`, which the test prints.
+- **B3** end-to-end for every `exact-molecule`, `name-to-structure`, `stereo-exact` and `predict-product` record: place the embedding through `World.setBlock` (plus `hPos` H blocks), call `world.suppressBond` for every `suppressedPairs` entry, set bond orders, `extractMolecules`, `evaluate` → `passed === true` (this covers the four 09 §4.2 records); for every `predict-product` with `acceptAlso`, placing the alternative gives `kind === 'correct-reduced'`; for `ch7-build-z-but-2-ene` the same placement *without* the suppression gives `kind === 'wrong-formula'` with a message ending in `NO_BOND_HINT`.
 
-Acceptance (`test/content/acceptance.test.ts`): per rule type ≥ 1 positive and ≥ 2 negative contexts with the expected `FeedbackKind` (WP-05 note): the negatives named in §4 plus the mirror image of each `stereo-exact` target (`enantiomer`, except meso which passes), a T-shaped 2-bromobutane (`unspecified-center`), a Z but-2-ene for `ch7-build-e-but-2-ene` (`diastereomer`), the cis dibromide for `ch8-predict-br2-cyclohexene-trans` (`diastereomer`), an extra ethanol on the pad for `ch3-isomers-c4h10` (`extra-molecule`), attempt 3 on a select-atom (`attempts-exhausted`, `pointsEarned 0`), attempt 2 correct on a quiz (`pointsEarned === floor(points/2)`).
+Acceptance (`test/content/acceptance.test.ts`): per rule type ≥ 1 positive and ≥ 2 negative contexts with the expected `FeedbackKind` (WP-05 note): the negatives named in §4 plus the mirror image of each `stereo-exact` target (`enantiomer`, except meso which passes), a T-shaped 2-bromobutane (`unspecified-center`), a Z but-2-ene for `ch7-build-e-but-2-ene` (`diastereomer`), an E build for `ch7-build-z-but-2-ene` (`diastereomer`) and a twisted Z build for it (`invalid-alkene-geometry`), the (E)-hex-3-ene product for `ch9-predict-lindlar-z-hex-3-ene` (`diastereomer`), the cis dibromide for `ch8-predict-br2-cyclohexene-trans` (`diastereomer`), an extra ethanol on the pad for `ch3-isomers-c4h10` (`extra-molecule`), attempt 3 on a select-atom (`attempts-exhausted`, `pointsEarned 0`), attempt 2 correct on a quiz (`pointsEarned === floor(points/2)`).
 
 Selectors (`test/content/selectors.test.ts`): one fixture per `Selector.kind` from the roster (expected ids listed in `answerDescription`), plus heavy-atom fallback on the CH3 of ethanol (`no-hydrogens` is impossible there; the O of dimethyl ether under `'hydrogens'` yields `'no-hydrogens'`).
 

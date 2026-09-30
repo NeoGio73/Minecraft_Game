@@ -333,7 +333,7 @@ Examples (roster order = file order; bit 0 = first challenge):
 | same, but ch 4 (a select-atom) was answered wrongly three times (`applyExhausted`) | `v2|1f|f|4|10|16|67|ch1-select-sp2-carbons` |
 | 80 challenges all solved, none reduced, earned 320, raw 100, id 40 chars | `v2|ffffffffffffffffffff|ffffffffffffffffffff|0|0|320|100|<40 chars>` = 2+1+20+1+20+1+1+1+1+1+3+1+3+1+40 = **97 chars** |
 
-Length bound: for `n` challenges the string is at most `2 + 4·(1 + ⌈n/4⌉) + 1 + digits(earned) + 1 + 3 + 1 + 64` characters; with `n = 89` and `earned ≤ 999` that is 2 + 4·24 + 1 + 3 + 1 + 3 + 1 + 64 = 171 — far under `SUSPEND_DATA_BUDGET` (512), which is in turn far under the SCORM 1.2 hard cap (4096). The budget test (§13.1) encodes the all-solved real roster and asserts `< SUSPEND_DATA_BUDGET`.
+Length bound: for `n` challenges the string is at most `2 + 4·(1 + ⌈n/4⌉) + 1 + digits(earned) + 1 + 3 + 1 + 64` characters; with `n = 91` (09-amendment-no-bond.md §4.3; `⌈91/4⌉ = 23`, the same as for 89) and `earned ≤ 999` that is 2 + 4·24 + 1 + 3 + 1 + 3 + 1 + 64 = 171 — far under `SUSPEND_DATA_BUDGET` (512), which is in turn far under the SCORM 1.2 hard cap (4096). The budget test (§13.1) encodes the all-solved real roster and asserts `< SUSPEND_DATA_BUDGET`.
 
 `isomersDone` is **not** in this string (it can hold dozens of 16-char hashes); it lives in the local mirror only (§3.5). After an LMS-only resume on a new device an in-progress isomer set restarts from zero accepted isomers (the solved bit, if set, is untouched).
 

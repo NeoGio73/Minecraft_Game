@@ -643,24 +643,25 @@ The algorithm is `embedOnLattice` (02 §13, port of `tools/reference/embed.py` +
 
 1. **Order.** BFS from the max-degree node; H nodes exist only for atoms whose `tet.order` contains `'H'` (and `ez` refs of `'H'`), so a tagged centre with an implicit H gets an explicit H block in the preview and the student is told to place it (§8.5).
 2. **Candidates.** Six face cells around the parent (straight continuation first), twelve edge-diagonals only with `allowDiagonal` and only for bonds flagged `diagonal`.
-3. **Phantom-bond rule.** `faceAdjacent(p, q) ⇔ bonded(i, q)` for every placed `q`; this is why cyclohexane embeds as the cube's chair hexagon and why any Z-1,2-disubstituted alkene fails (the two cis substituents would be face-adjacent but unbonded).
+3. **Touching rule (09-amendment-no-bond.md §3.1).** Every bonded pair is face-adjacent; a face-adjacent *unbonded* heavy pair is avoided in the first (induced) pass and, when the stereo tags leave no induced embedding, allowed in the second pass and reported in `suppressedPairs` — the pairs the student sets to "no bond" with the wand. Cyclohexane still embeds as the cube's chair hexagon (pass A); a Z-1,2-disubstituted alkene embeds in pass B with its two cis substituents touching and one suppressed pair. H nodes touch only their parent in both passes.
 4. **Seesaw rule (tetrahedral).** When the four tips of a tagged centre `c` are all placed, `V = ((p1−p0)×(p2−p0))·(p3−p0)` over `tet.order` must satisfy `sign(V) === tet.sign`; `V = 0` rejects. On the face lattice `V ≠ 0` ⇔ the two empty octahedral positions around `c` are orthogonal (a *seesaw* quad, 12 of 15) — never opposite (*square-planar*, 3 of 15). With three heavy tips and an H node the same test makes the trio an *octant* with the H in the correct one of the three free cells. The sign therefore fixes the enantiomer in the ghost; `predict-product` with `stereoCheck: 'relative'` then accepts the ghost and its mirror image.
-5. **Coplanar rule (E/Z).** For a bond with `ez` whose ends and refs are placed: `va ⊥ u`, `vb ⊥ u`, `va ∥ vb` (both refs in one plane containing the C=C), and `(va·vb > 0) === cis`. Buildable only for `cis: false` on 1,2-disubstituted alkenes (R3).
+5. **Coplanar rule (E/Z).** For a bond with `ez` whose ends and refs are placed: `va ⊥ u`, `vb ⊥ u`, `va ∥ vb` (both refs in one plane containing the C=C), and `(va·vb > 0) === cis`. Buildable for every `cis` value and substitution pattern: `cis: true` and every tri/tetrasubstituted case need one (two) suppressed pairs (09 §2.1).
 6. **Budget.** `EMBED_NODE_BUDGET = 50 000`; measured need for every v1 product is < 300 nodes.
 7. **Components.** Fragments (ozonolysis) are embedded separately and laid out 4 empty cells apart along +x.
 
 ### 7.2 Bench call
 
 ```
-previewFor(graph): { pos, hPos, buildable }
-  e = embedOnLattice(graph, { origin: [0, 0, 0], nodeBudget: EMBED_NODE_BUDGET })
-  if e: translate so that min(pos ∪ hPos) = PRODUCT_MIN; if max(...) ≤ PRODUCT_MAX → { pos, hPos, buildable: true }
+previewFor(graph): { pos, hPos, suppressedPairs, buildable }
+  e = embedOnLattice(graph, { origin: [0, 0, 0], nodeBudget: EMBED_NODE_BUDGET })      // allowSuppressed defaults to true
+  if e: translate so that min(pos ∪ hPos) = PRODUCT_MIN; if max(...) ≤ PRODUCT_MAX → { pos, hPos, suppressedPairs: e.suppressedPairs, buildable: true }
         else → fall through (too large for the zone; content validation prevents this)
-  layout = relaxedLayout(graph) translated the same way → { pos: layout, hPos: empty, buildable: false }
+  layout = relaxedLayout(graph) translated the same way → { pos: layout, hPos: empty, suppressedPairs: [], buildable: false }   // odd rings only
 ```
+The ghost renderer draws a translucent break marker at every `suppressedPairs` midpoint (09 §5.3) and the panel prints `BENCH.breakHint(n)` under the preview text when `n = Σ suppressedPairs.length > 0`.
 Constants (in `State.ts`): `REACTANT_MIN = [53, 10, 37]`, `REACTANT_MAX = [62, 30, 46]`, `PRODUCT_MIN = [65, 10, 37]`, `PRODUCT_MAX = [74, 30, 46]` (one empty cell inside every zone edge so a ghost never touches the other zone or the pad; `y = 10` leaves a free row above the bench tiles for rings, 00-contracts R15). The reactant uses `MoleculeEntry.layout` when present (translated to `REACTANT_MIN`), else `embedOnLattice`; `rx` is embedded separately and translated so its min `x` = reactant max `x` + 3 (two empty columns: no phantom bonds), same `y`, `z`.
 
-### 7.3 `relaxedLayout(g)` (fallback when embedding fails: Z-alkenes, odd rings)
+### 7.3 `relaxedLayout(g)` (fallback when embedding fails: odd rings; Z-alkenes embed since 09-amendment-no-bond.md)
 
 BFS from the max-degree atom; each atom is placed at the first unoccupied face cell of its BFS parent in the order [straight continuation, then `FACE_DIRS`]; no phantom-bond or stereo check; if no free face exists (cannot happen below degree 6) place at the first free cell in a 3×3×3 shell. Always succeeds, ≤ 6·n candidate tests. The renderer draws every bond of `g` as a stick between the two positions whatever their distance, so ring closures that did not land adjacent still show. The panel prints `STRINGS.previewOnly` (§8.7) for `buildable: false`.
 
@@ -669,14 +670,14 @@ BFS from the max-degree atom; each atom is placed at the first unoccupied face c
 | mode | when | shown |
 |---|---|---|
 | `hidden` | `predict-product` before it is passed | nothing in the product zone; panel shows reactant, card, `equiv`, `rx` and the instruction |
-| `ghost` | `choose-reagent` (the rule's `product`), free play, and a passed `predict-product` ("Show answer") | `GhostRenderer` translucent atom blocks + H studs at `pos`/`hPos`; bonds as translucent bars; charge badges |
-| `sticks` | any `ghost` case whose `buildable` is false | ball-and-stick over `relaxedLayout`, plus `STRINGS.previewOnly` |
+| `ghost` | `choose-reagent` (the rule's `product`), free play, and a passed `predict-product` ("Show answer") | `GhostRenderer` translucent atom blocks + H studs at `pos`/`hPos`; bonds as translucent bars; translucent break markers at `suppressedPairs` (09 §5.3); charge badges |
+| `sticks` | any `ghost` case whose `buildable` is false (odd rings only) | ball-and-stick over `relaxedLayout`, plus `STRINGS.previewOnly` |
 
 Ghost blocks are not solid, not pickable for mining, and do not enter `MoleculeIndex`; placing a real block on a ghost cell is an ordinary placement.
 
 ### 7.5 Content validation hooks (`validateContent`, 05)
 
-For every enabled `predict-product` challenge: every `expected` and `acceptAlso` graph must satisfy `embedOnLattice(...) !== null` when `stereoCheck !== 'none'` (a graded stereo target must be buildable), and every `expected` must fit `PRODUCT_MIN..MAX`. For every `choose-reagent`: `product` need not embed (preview may be `sticks`). For every bench challenge: the reactant (and `rx`) must embed and fit the reactant zone; `react(reactant, card, {equiv, rx}).major` must contain a graph `sameMolecule`-equal (policy = `stereoCheck`) to each `expected` entry (the roster agrees with the engine); `react` must not return `noReaction`.
+For every enabled `predict-product` challenge: every `expected` and `acceptAlso` graph must satisfy `embedOnLattice(...) !== null` (suppressed pairs allowed, 09 §4.4) when `stereoCheck !== 'none'` (a graded stereo target must be buildable), and every `expected` must fit `PRODUCT_MIN..MAX`; `buildReport` (05) lists the required suppressions. For every `choose-reagent`: `product` need not embed (preview may be `sticks` for an odd ring). For every bench challenge: the reactant (and `rx`) must embed and fit the reactant zone; `react(reactant, card, {equiv, rx}).major` must contain a graph `sameMolecule`-equal (policy = `stereoCheck`) to each `expected` entry (the roster agrees with the engine); `react` must not return `noReaction`.
 
 ## 8. Bench interaction protocol
 
@@ -745,7 +746,8 @@ No challenge active and the bench opened: both zones unlocked. Reactant = the si
 | `clearZone` | `Clear product zone` |
 | `equiv(n)` | `${n} equivalent${n === 2 ? 's' : ''}` |
 | `withRx(name)` | `then ${name}` |
-| `previewOnly` | `This product cannot be built on the grid (a cis double bond or a 3-membered ring); preview only.` |
+| `previewOnly` | `This product cannot be built on the grid (it needs a 3-membered ring); preview only.` |
+| `breakHint(n)` | `${n === 1 ? 'One pair of' : `${n} pairs of`} ghost atoms touch but are not bonded (red x marker): after placing the blocks, point the bond wand at the bar between them and press E until the marker appears.` (09 §3.2) |
 | `mixture(n, any)` | `Textbook mixture — ${n} products; ${any ? 'build either one' : 'this challenge names the one to build'}.` |
 | `fragments(n)` | `Build all ${n} products.` |
 | `minor(name)` | `Minor product: ${name}` |
@@ -771,7 +773,7 @@ Products are compared with `sameMolecule(product, parse(expected), { stereo: pol
 | 2 | HX_HBR | `CC1=CCCCC1` | | `CC1(Br)CCCCC1` | | addition | none | none | |
 | 3 | HX_HI | `C=CCCC` | | `CCCC(C)I` | | addition | racemic | none | |
 | 4 | HX_HBR | `C#CCCCC` | | `C=C(Br)CCCC` | | addition | none | none | |
-| 5 | HX_HCL | `CCC#CCC` | | `CC/C(Cl)=C/CC` (Z) | | addition | none | ez | |
+| 5 | HX_HCL | `CCC#CCC` | | `CC/C(Cl)=C/CC` (Z) | | addition | none | ez | embeds, `suppressedPairs [[3,5]]` (09 §2.1) |
 | 6 | HX_2EQ_HBR | `C#CCCCC` | | `CCCCC(C)(Br)Br` | | addition | none | none | |
 | 7 | HX_2EQ_HCL | `CCC#CCC` | | `CCCC(Cl)(Cl)CC` | | addition | none | none | |
 | 8 | HX_2EQ_HBR | `C=C(C)C` | | — | | none | none | | noReaction `twoEquivAlkene` |
@@ -779,7 +781,7 @@ Products are compared with `sameMolecule(product, parse(expected), { stereo: pol
 | 10 | X2_BR2 | `C1=CCCCC1` | | `Br[C@H]1CCCC[C@@H]1Br` (trans; C1 S, C6 S) | | addition | relative | relative | |
 | 11 | X2_BR2 | `C/C=C/C` | | `C[C@H](Br)[C@H](Br)C` (meso) | | addition | relative | absolute | |
 | 12 | X2_CL2 | `C=CC` | | `CC(Cl)CCl` | | addition | racemic | none | |
-| 13 | X2_BR2 | `C#CCC` | | `Br/C=C(/Br)CC` (E) | | addition | none | ez | |
+| 13 | X2_BR2 | `C#CCC` | | `Br/C=C(/Br)CC` (E) | | addition | none | ez | embeds, `suppressedPairs [[0,4]]`; graded by `ch9-predict-br2-1-equiv-but-1-yne` |
 | 14 | X2_BR2 | `C#CCC` | equiv 2 | `BrC(Br)C(Br)(Br)CC` | | addition | none | none | |
 | 15 | HOX_BR2_H2O | `C=C(C)C` | | `CC(C)(O)CBr` | | addition | none | none | |
 | 16 | HOX_CL2_H2O | `C=CC` | | `CC(O)CCl` | | addition | racemic | none | |
@@ -806,7 +808,7 @@ Products are compared with `sameMolecule(product, parse(expected), { stereo: pol
 | 37 | HGSO4_HYDRATION | `CC#CCC` | | `CCC(=O)CC`, `CC(=O)CCC` | | addition | none | none | mix, `hydrationMixture` |
 | 38 | HYDROBORATION_ALKYNE | `C#CCCCC` | | `CCCCCC=O` | | addition | none | none | |
 | 39 | HYDROBORATION_ALKYNE | `CCC#CCC` | | `CCC(=O)CC` | | addition | none | none | |
-| 40 | H2_LINDLAR | `CCCC#CCCC` | | `CCC/C=C\CCC` (Z) | | reduction | none | ez | embed → null (sticks) |
+| 40 | H2_LINDLAR | `CCCC#CCCC` | | `CCC/C=C\CCC` (Z) | | reduction | none | ez | embeds, `suppressedPairs [[2,5]]` (09 §2.1) |
 | 41 | LI_NH3 | `CCCC#CCCC` | | `CCC/C=C/CCC` (E) | | reduction | none | ez | |
 | 42 | NANH2_THEN_RX | `C#CCCCC` | rx `CCCCBr` | `CCCCC#CCCCC` | | SN2 | none | none | |
 | 43 | NANH2_THEN_RX | `C#C` | rx `CCCBr` | `C#CCCC` | | SN2 | none | none | |
@@ -932,7 +934,7 @@ Parities from the tags: meso `s1 = −1, s2 = −1`; (S,S) `s1 = −1, s2 = +1` 
 ### 9.6 Preview and protocol (`test/chem/embed.test.ts` additions, `test/content/buildable.test.ts`, `test/app/state.test.ts`)
 
 1. Every `expected` graph of every enabled `predict-product` challenge with `stereoCheck ≠ 'none'` embeds; every `expected`/`acceptAlso` fits `PRODUCT_MIN..MAX` after translation; every reactant fits the reactant zone.
-2. `CCC/C=C\CCC` → `embedOnLattice` null → `relaxedLayout` returns 8 positions, all bonded pairs at distance ≥ 1, no duplicates; `buildable: false`.
+2. `CCC/C=C\CCC` → `embedOnLattice` non-null with `suppressedPairs = [[2,5]]`, `previewFor` gives `buildable: true` and the ghost carries one break marker; `C1CC1` → `embedOnLattice` null → `relaxedLayout` returns 3 positions, all bonded pairs at distance ≥ 1, no duplicates; `buildable: false`.
 3. `Br[C@H]1CCCC[C@@H]1Br` embedding: both centres have `V` of the tag's sign; translating to `PRODUCT_MIN` keeps every cell in the product zone; extracting the ghost as if built and running `sameMolecule(built, target, {stereo:'absolute'})` gives SAME; the mirror ghost gives ENANTIOMER.
 4. State: entering a `predict-product` challenge locks `['reactant']`, places the reactant with the graph's bond orders in `MoleculeIndex` (`CCC#CCC` reactant → one bond of order 3 in the index), `preview === 'hidden'`; `react` output stored on `bench:reacted`; leaving the challenge removes bench-owned blocks without changing inventory and unlocks.
 5. `evaluatePredictProduct`: RB-12 with two correct fragments → `correct`; one fragment → `missing-molecule`; three components → `extra-molecule`; RB-28 with the (S) alcohol → `enantiomer`; with a T-shaped C2 → `unspecified-center`; RB-31 with 2-methylpropene built → `constitutional-isomer` unless `acceptAlso` lists it.
