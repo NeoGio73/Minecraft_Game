@@ -48,3 +48,15 @@ Decisions recorded from the instructor on 2026-09-30. Everything downstream
   after matching.
 - Some chapter 1-2 objectives need a small quiz panel (multiple choice,
   yes/no) in addition to build challenges.
+
+## Amendment 1 (2026-09-30): "no bond" between touching atom blocks
+
+Placing an atom block still auto-bonds it (order 1) to every face-adjacent
+atom block, but the bond wand can now cycle a bond to order 0 ("no bond"),
+rendered with a visible break marker. Reason: with mandatory bonding, a
+Z-alkene or any alkene with two substituents on the same side forces those
+substituents to touch and bond into a ring, so (Z)-but-2-ene, Lindlar
+products and trisubstituted E/Z targets were unbuildable and had been
+demoted to quiz questions. Suppressed pairs live in the molecule index and
+never reach the chemistry graph, so analysis, stereo and reactions are
+unchanged. See docs/design/09-amendment-no-bond.md.
