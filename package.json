@@ -1,0 +1,30 @@
+{
+  "name": "orgocraft",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A Minecraft-style voxel game for college organic chemistry, built for D2L Brightspace.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package:d2l": "node scripts/package-d2l.mjs",
+    "package:scorm": "node scripts/package-scorm.mjs",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0",
+    "@types/node": "^22.0.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.6",
+    "vitest": "^5.0.3",
+    "playwright-core": "^1.63.0",
+    "archiver": "^7.0.1"
+  }
+}
