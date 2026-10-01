@@ -44,7 +44,8 @@ export const applyRohToRx: RuleFn = (g, card, opts): RuleResult => {
     let major = [unrearranged];
     let stereo = cls === 1 ? 'none' as const : centreStereo(unrearranged, cU);
     let mixture = false;
-    const shift = fast && opts.rearrangement !== 'ignore' ? checkShift(withoutBond(g, s.bond), s.c) : null;
+    // Secondary alcohols also go through a carbocation (slowly): check the 1,2-shift for them too (McMurry 7.11, 10.5).
+    const shift = (fast || cls === 2) && opts.rearrangement !== 'ignore' ? checkShift(withoutBond(g, s.bond), s.c) : null;
     if (shift) {
       const { graph: rearranged } = substituteAt(applyShift(g, shift), s.o, shift.to, X);
       const stereoR = centreStereo(rearranged, remapAfterRemoval(shift.to, s.o));

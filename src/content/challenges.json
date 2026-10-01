@@ -282,7 +282,7 @@
    "source": "MM 2.10 (m00027)",
    "feedback": {
     "wrong-charge": "Right atoms, wrong charge. The acetate ion has a net charge of -1: put a -1 charge on one oxygen (the one without a hydrogen).",
-    "wrong-formula": "Wrong formula: yours is C2H4O2, the target is C2H3O2-. Right skeleton but you left the O-H hydrogen on: target the single-bonded oxygen and press C once to make it O- (the hydrogen disappears and the charge becomes -1)."
+    "wrong-formula": "Wrong formula. Right skeleton but the O-H hydrogen is still there? Target the single-bonded oxygen and press C once to make it O- (the hydrogen disappears and the charge becomes -1)."
    }
   },
   {
@@ -303,7 +303,7 @@
    "requiresDiagonalBonds": false,
    "source": "MM 2.3 (m00020)",
    "feedback": {
-    "wrong-formula": "Wrong formula: yours is C4H10, the target is C4H9+. That is 2-methylpropane (isobutane): target the central carbon and press C once to make it C+ (its hydrogen disappears and the panel shows sp2, trigonal planar)."
+    "wrong-formula": "Wrong formula. Still 2-methylpropane (isobutane)? Target the central carbon and press C once to make it C+ (its hydrogen disappears and the panel shows sp2, trigonal planar)."
    }
   },
   {
@@ -1308,7 +1308,7 @@
    "title": "Which alkene is most stable?",
    "instruction": "Answer the quiz question using McMurry Table 7.2 (heats of hydrogenation).",
    "objective": "Stability: more substituted > less substituted; trans > cis (steric strain between cis substituents).",
-   "hint": "A smaller heat of hydrogenation means a more stable alkene: but-1-ene -127, (Z)-but-2-ene -120, (E)-but-2-ene -116 kJ/mol.",
+   "hint": "A smaller heat of hydrogenation means a more stable alkene: propene (monosubstituted) -125, cis-but-2-ene -119, trans-but-2-ene -115 kJ/mol (Table 7.2).",
    "difficulty": "medium",
    "points": 4,
    "rule": {
@@ -1338,7 +1338,7 @@
     ],
     "shuffle": true,
     "maxAttempts": 2,
-    "explanation": "Disubstituted alkenes are more stable than monosubstituted ones, and the trans isomer is more stable than the cis isomer because the cis methyl groups crowd each other. Heats of hydrogenation (Table 7.2): but-1-ene -127, cis-but-2-ene -120, trans-but-2-ene -116 kJ/mol."
+    "explanation": "Disubstituted alkenes are more stable than monosubstituted ones, and the trans isomer is more stable than the cis isomer because the cis methyl groups crowd each other. Heats of hydrogenation (Table 7.2): propene (monosubstituted) -125, cis-but-2-ene -119, trans-but-2-ene -115 kJ/mol."
    },
    "requiresDiagonalBonds": false,
    "source": "MM 7.6 (m00068)"
@@ -1399,7 +1399,7 @@
    "section": "7.11",
    "topic": "rearrangement",
    "title": "A carbocation rearrangement",
-   "instruction": "Reaction bench: 3-methylbut-1-ene (CH2=CH-CH(CH3)2) is locked in the reactant zone. Apply the HCl card. The first-formed secondary carbocation rearranges by a hydride shift to a tertiary carbocation. Build the REARRANGED product (the chloride from the tertiary cation) in the product zone and submit. The unrearranged product is also formed and earns half credit.",
+   "instruction": "Reaction bench: 3-methylbut-1-ene (CH2=CH-CH(CH3)2) is locked in the reactant zone. Apply the HCl card. The first-formed secondary carbocation rearranges by a hydride shift to a tertiary carbocation. Build either of the two chlorides McMurry reports (about 1:1) in the product zone and submit; the rearranged one shows you understand the hydride shift.",
    "objective": "A 1,2-hydride shift converts a secondary carbocation into a more stable tertiary one before chloride attacks (McMurry 7.11: about a 1:1 mixture).",
    "hint": "After H+ adds to C1, the cation is on C2 (secondary). An H moves from C3 to C2, putting the cation on C3 (tertiary). Cl then bonds to C3: 2-chloro-2-methylbutane.",
    "difficulty": "hard",
@@ -1409,15 +1409,11 @@
     "reactant": "C=CC(C)C",
     "reagentId": "HX_HCL",
     "expected": [
-     "CCC(C)(C)Cl"
+     "CCC(C)(C)Cl",
+     "CC(C)C(C)Cl"
     ],
     "stereoCheck": "none",
-    "acceptAlso": [
-     {
-      "smiles": "CC(C)C(C)Cl",
-      "note": "2-chloro-3-methylbutane, the unrearranged product: also formed (about 1:1, McMurry 7.11). Build 2-chloro-2-methylbutane, the product of the hydride shift, for full credit."
-     }
-    ]
+    "acceptAny": true
    },
    "requiresDiagonalBonds": false,
    "source": "MM 7.11 (m00073)"
@@ -2056,7 +2052,7 @@
    "section": "10.5",
    "topic": "organohalides",
    "title": "Primary alcohol to chloride",
-   "instruction": "At the reaction bench, propan-1-ol is shown as the reactant and 1-chloropropane as the target product. Pick the best reagent card and submit.",
+   "instruction": "At the reaction bench, propan-1-ol is shown as the reactant and 1-chloropropane as the target product. Pick the reagent McMurry 10.5 recommends and submit.",
    "objective": "Primary and secondary alcohols are converted to chlorides with SOCl2 (and to bromides with PBr3); HX works well only for tertiary alcohols.",
    "hint": "HCl is slow with primary alcohols. Which reagent converts a primary alcohol into a chloride under mild conditions?",
    "difficulty": "medium",
@@ -2090,7 +2086,7 @@
    "section": "10.5",
    "topic": "organohalides",
    "title": "Secondary alcohol to bromide",
-   "instruction": "At the reaction bench, butan-2-ol is shown as the reactant and 2-bromobutane as the target product. Pick the best reagent card and submit.",
+   "instruction": "At the reaction bench, butan-2-ol is shown as the reactant and 2-bromobutane as the target product. Pick the reagent McMurry 10.5 recommends and submit.",
    "objective": "PBr3 converts primary and secondary alcohols to alkyl bromides.",
    "hint": "Which reagent delivers Br to a secondary carbon without needing a carbocation?",
    "difficulty": "medium",
@@ -2189,7 +2185,7 @@
     "acceptAlso": [
      {
       "smiles": "C=C(C)C",
-      "note": "2-methylpropene, the E1 elimination product: minor (about 36 % in aqueous ethanol, McMurry 11.10). The SN1 product 2-methylpropan-2-ol earns full credit."
+      "note": "2-methylpropene, the E1 product. McMurry 11.10 reports 36 % elimination for 2-chloro-2-methylpropane in 80 % aqueous ethanol at 65 °C; the same competition applies here."
      }
     ]
    },

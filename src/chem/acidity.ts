@@ -85,7 +85,7 @@ export const PKA: Readonly<Record<string, PkaEntry>> = table([
   ['NH.aniline', 30, 'N–H of an aniline or enamine', S.GENERAL, false],
   ['NH.amine.nh3', 36, 'N–H of ammonia', `${S.APP_B} (MM 9.7 rounds it to 35)`, true],
   ['NH.amine.primary', 36, 'N–H of a primary amine', S.APP_B, true],
-  ['NH.amine.secondary', 40, 'N–H of a secondary amine', S.APP_B, true],
+  ['NH.amine.secondary', 40, 'N–H of a secondary amine', `${S.APP_B} (T22.1 lists 36)`, true],
   ['NH.amide-ion', 99, 'N–H of an amide ion (not acidic)', S.GENERAL, false],
   ['SH.thiol', 10.3, 'S–H of a thiol', `${S.APP_B}; ${S.T17_1}; ${S.S18_8}`, true],
   ['SH.thiol.benzylic', 9.4, 'S–H of an allylic/benzylic thiol', `${S.APP_B} (benzyl mercaptan)`, true],
@@ -191,7 +191,7 @@ export const PKA_MOD: Readonly<Record<string, PkaModifier>> = {
   bI1: { delta: -1.7, verified: false, source: `${S.GENERAL} (as β-Cl)` },
   bI2: { delta: -3.1, verified: false, source: `${S.GENERAL} (as β-Cl)` },
   bI3: { delta: -3.8, verified: false, source: `${S.GENERAL} (as β-Cl)` },
-  allylic: { delta: -0.5, verified: true, source: `${S.APP_B} (allyl 15.5, benzyl 15.4, propargyl 15.5)` },
+  allylic: { delta: -0.5, verified: true, source: `${S.APP_B} (allyl 15.5, benzyl 15.4)` },
 };
 
 const CARBOXYLIC_RANGE: readonly [number, number] = [0.2, 5.2];
@@ -550,8 +550,8 @@ function classifyO(ctx: Ctx, x: number): Env {
   }
   // 5. enol / phenol
   if (heavy.some((y) => hasCCpi(ctx, y))) return plain(pka('OH.enol'));
-  // 6. water
-  if (heavy.length === 0) return plain(pka('OH.water'));
+  // 6. water; hydroxide's O–H (charge −1, no heavy neighbour) is not an acid site this course tabulates
+  if (heavy.length === 0) return plain(pka(chargeOf(ctx, x) === -1 ? 'XH.other' : 'OH.water'));
   const cNb = heavy.find((y) => elOf(ctx, y) === 'C');
   if (cNb === undefined) return plain(pka('XH.other'));
   // 7. gem-diol

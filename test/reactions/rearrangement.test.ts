@@ -97,9 +97,13 @@ describe('rearrangement policies through react', () => {
     expect(same(o.major[0]!, 'CC(C)C(C)O')).toBe(true);
     expect(o.warnings).toEqual([]);
   });
-  it('ROH_HX SN1 on a secondary alcohol does not rearrange (slow path); tertiary allylic does', () => {
+  it('ROH_HX SN1 on a secondary alcohol checks the 1,2-shift too (slow path keeps rohSlow); tertiary allylic does not shift', () => {
     const r = react(parse('CC(C)C(C)O'), defaultCard('ROH_HX_HBR'));
-    expect(r.major.length).toBe(1);
+    expect(r.major.length).toBe(2);
+    expect(r.mixture).toBe(true);
+    expect(r.major.some((p) => same(p, 'CC(C)C(C)Br'))).toBe(true);
+    expect(r.major.some((p) => same(p, 'CCC(C)(C)Br'))).toBe(true);
+    expect(r.warnings).toContain(WARN.rearrangement);
     expect(r.warnings).toContain(WARN.rohSlow);
     const t = react(parse('CC(C)(C)C(C)(C)O'), defaultCard('ROH_HX_HCL'));
     expect(t.major.length).toBe(1);

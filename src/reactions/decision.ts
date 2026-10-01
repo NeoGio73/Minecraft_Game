@@ -57,8 +57,18 @@ export function decide(substrate: MoleculeGraph, cX: number, card: ReagentCard):
         ? done('R3', 'R3_sec', ['E2', 'SN2'])
         : done('R3', 'R3_sec_bulky', ['E2']);
     }
+    // NaNH2 is a base, not a nucleophile, in McMurry ch 1-11 (9.2, 9.7, 11.12): a primary halide gives E2 only and a
+    // methyl halide does not react; the amine is never formed. Acetylide (nuc.atom 'C') keeps the SN2 path (9.8).
+    if (cls <= 1 && baseOnly(nuc) && nuc.atom === 'N') {
+      return cls === 1 ? done('R3', 'R3_prim_baseOnly', ['E2']) : done('R3', 'R3_methyl_baseOnly', []);
+    }
     if (cls === 1 && nuc.bulky) return done('R3', 'R3_bulky', ['E2']);
-    if (cls === 1 && info.neopentyl) return done('R3', 'R3_neopentyl', ['E2']);
+    if (cls === 1 && info.neopentyl) {
+      // A neopentyl CH2–X has no beta hydrogen either: say both things (blocked SN2 and no E2) instead of "no beta-H".
+      return info.betaH === 0 ? done('R3', 'R3_neopentyl_noBetaH', []) : done('R3', 'R3_neopentyl', ['E2']);
+    }
+    // Heat + strong base (KOH/ethanol at reflux) on a primary halide: E2 first, some substitution (McMurry 8.1).
+    if (cls === 1 && card.heat) return done('R3', 'R3_prim_heat', ['E2', 'SN2']);
     if (cls === 1) return done('R3', 'R3_prim', ['SN2', 'E2']);
     return done('R3', 'R3_methyl', ['SN2']);
   }

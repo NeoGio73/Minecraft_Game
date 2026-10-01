@@ -456,8 +456,11 @@ The caller finishes the reaction at `s.to` (attach the nucleophile there, or eli
 | R3 | `nuc.basicity === 'strong'`, `cls 3` | `[E2]` | `R3_tert` |
 | R3 | strong base, `cls 2`, `baseOnly(nuc)` | `[E2]` | `R3_sec_baseOnly` |
 | R3 | strong base, `cls 2` | `nuc.strength === 'strong' && !nuc.bulky ? [E2, SN2] : [E2]` | `R3_sec` / `R3_sec_bulky` |
+| R3 | strong base, `cls 1`, `baseOnly(nuc) && nuc.atom === 'N'` (NANH2_BASE) | `[E2]` (no amine: NaNH2 is a base, not a nucleophile, in ch 1-11) | `R3_prim_baseOnly` |
+| R3 | strong base, `cls 0`, `baseOnly(nuc) && nuc.atom === 'N'` (NANH2_BASE) | none (no β-H, no amination) | `R3_methyl_baseOnly` |
 | R3 | strong base, `cls 1`, `nuc.bulky` | `[E2]` (Hofmann) | `R3_bulky` |
-| R3 | strong base, `cls 1`, `info.neopentyl` | `[E2]` | `R3_neopentyl` |
+| R3 | strong base, `cls 1`, `info.neopentyl` | `info.betaH === 0 ? none : [E2]` (a neopentyl CH2–X never has a β-H, so in practice none, with the justification that names both the blocked backside attack and the missing β-H) | `R3_neopentyl_noBetaH` / `R3_neopentyl` |
+| R3 | strong base, `cls 1`, `card.heat` (KOH_ETOH) | `[E2, SN2]` (reflux favors elimination, McMurry 8.1) | `R3_prim_heat` |
 | R3 | strong base, `cls 1` | `[SN2, E2]` | `R3_prim` |
 | R3 | strong base, `cls 0` | `[SN2]` | `R3_methyl` |
 | R4 | weak base, strength strong/moderate, `cls 0 or 1` | `[SN2]` | `R4_prim` |
@@ -470,7 +473,7 @@ The caller finishes the reaction at `s.to` (attach the nucleophile there, or eli
 | R5 | weak, `cls 1` and (allylic or benzylic) | `[SN1, E1]` | `R5_allylic` |
 | R5 | weak, `cls 0 or 1` | none | `R5_primary` |
 
-`baseOnly(nuc) = nuc.basicity === 'strong' && (nuc.atom === 'N' || nuc.atom === 'C')` — true for exactly `NANH2_BASE` (amide, N⁻) and `SN2_ACETYLIDE` (acetylide, C⁻) among the §2.2 cards (azide and cyanide have `basicity: 'weak'` and never reach R3). McMurry 9.9 and 11.12 say these anions give E2 with secondary halides *instead of* substitution, so no SN2 entry is listed (cls 3 is `[E2]` already; cls 0/1 keep the generic R3 rows — see §10 item 1).
+`baseOnly(nuc) = nuc.basicity === 'strong' && (nuc.atom === 'N' || nuc.atom === 'C')` — true for exactly `NANH2_BASE` (amide, N⁻) and `SN2_ACETYLIDE` (acetylide, C⁻) among the §2.2 cards (azide and cyanide have `basicity: 'weak'` and never reach R3). McMurry 9.9 and 11.12 say these anions give E2 with secondary halides *instead of* substitution, so no SN2 entry is listed (cls 3 is `[E2]` already). For cls 0/1 the two cards differ: amide ion (`nuc.atom === 'N'`) is only ever a base in McMurry ch 1-11 (9.2, 9.7, 11.12; amination with NaNH2 appears nowhere), so 1-bromobutane + NaNH2 gives but-1-ene only (`R3_prim_baseOnly`) and bromomethane + NaNH2 does not react (`R3_methyl_baseOnly`), never the amine; acetylide (`nuc.atom === 'C'`) keeps the generic `R3_prim` / `R3_methyl` SN2 rows (acetylide alkylation, 9.8). The `card.heat` row models KOH/ethanol at reflux (8.1) on primary halides: `[E2, SN2]`, so 1-bromobutane + KOH_ETOH gives but-1-ene major and butan-1-ol minor (no other strong-base card carries `heat`). (This resolves §10 item 1.)
 
 Post-filter: remove `E1`/`E2` when `info.betaH === 0`; if the list becomes empty → noReaction with `JUSTIFY.noBetaH` (the `R3_tert_sn1` row fires before this filter, so a tertiary allylic/benzylic halide without β-H — trityl bromide — substitutes by SN1 instead of reporting no reaction). `Decision.rule` is the R-number of the row that fired. Cyclohexane trans-diaxial requirement: not modelled; when `cX` is in a 6-ring and the mechanism list starts with E2, push `WARN.ringConformation` (informational; menthyl-type substrates are excluded from content).
 

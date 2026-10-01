@@ -32,6 +32,9 @@ const ROWS: readonly Row[] = [
   { tag: 'b', smiles: 'C[C@H](Br)c1ccccc1', card: 'HCOOH_H2O', mechanisms: ['SN1', 'E1'], rule: 'R5', justification: JUSTIFY.R5_sn1 },
   { tag: 'c', smiles: 'CCC(Cl)c1ccccc1', card: 'SN2_NAOAC', mechanisms: ['SN1', 'E1'], rule: 'R4', justification: JUSTIFY.R4_sec_sn1 },
   { tag: 'd', smiles: 'BrCCCc1ccccc1', card: 'SN2_NAOCH3', mechanisms: ['SN2', 'E2'], rule: 'R3', justification: JUSTIFY.R3_prim },
+  { tag: 'd2', smiles: 'CCCCBr', card: 'NANH2_BASE', mechanisms: ['E2'], rule: 'R3', justification: JUSTIFY.R3_prim_baseOnly, warnings: [], orientation: 'zaitsev' },
+  { tag: 'd3', smiles: 'CCCCBr', card: 'SN2_ACETYLIDE', mechanisms: ['SN2', 'E2'], rule: 'R3', justification: JUSTIFY.R3_prim },
+  { tag: 'd4', smiles: 'CCCCBr', card: 'KOH_ETOH', mechanisms: ['E2', 'SN2'], rule: 'R3', justification: JUSTIFY.R3_prim_heat, warnings: [] },
   { tag: 'e', smiles: 'BrC1CCCCC1', card: 'SN2_ACETYLIDE', mechanisms: ['E2'], rule: 'R3', justification: JUSTIFY.R3_sec_baseOnly, warnings: [WARN.ringConformation] },
   { tag: 'e2', smiles: 'CCC(C)Br', card: 'NANH2_BASE', mechanisms: ['E2'], rule: 'R3', justification: JUSTIFY.R3_sec_baseOnly, warnings: [] },
   { tag: 'f', smiles: 'CC(C)(C)Br', card: 'H2O_HEAT', mechanisms: ['SN1', 'E1'], rule: 'R5', justification: JUSTIFY.R5_sn1 },
@@ -41,8 +44,10 @@ const ROWS: readonly Row[] = [
   { tag: 'j', smiles: 'CCCCBr', card: 'H2O_HEAT', mechanisms: [], rule: 'R5', justification: JUSTIFY.R5_primary },
   { tag: 'k', smiles: 'CCCCBr', card: 'SN2_NACN', mechanisms: ['SN2'], rule: 'R4', justification: JUSTIFY.R4_prim },
   { tag: 'l', smiles: 'CBr', card: 'TBUOK', mechanisms: ['SN2'], rule: 'R3', justification: JUSTIFY.R3_methyl, orientation: 'hofmann' },
+  { tag: 'l2', smiles: 'CBr', card: 'NANH2_BASE', mechanisms: [], rule: 'R3', justification: JUSTIFY.R3_methyl_baseOnly, warnings: [] },
+  { tag: 'l3', smiles: 'CBr', card: 'SN2_ACETYLIDE', mechanisms: ['SN2'], rule: 'R3', justification: JUSTIFY.R3_methyl },
   { tag: 'm', smiles: 'CCC(C)(C)Br', card: 'TBUOK', mechanisms: ['E2'], rule: 'R3', orientation: 'hofmann' },
-  { tag: 'n', smiles: 'CC(C)(C)CBr', card: 'SN2_NAOH', mechanisms: [], rule: 'R3', justification: JUSTIFY.noBetaH },
+  { tag: 'n', smiles: 'CC(C)(C)CBr', card: 'SN2_NAOH', mechanisms: [], rule: 'R3', justification: JUSTIFY.R3_neopentyl_noBetaH },
   { tag: 'o', smiles: 'C=CCl', card: 'SN2_NAOH', mechanisms: [], rule: 'R1', justification: JUSTIFY.R1 },
   { tag: 'p', smiles: 'Clc1ccccc1', card: 'SN2_NAOH', mechanisms: [], rule: 'R1', justification: JUSTIFY.R1 },
   { tag: 'q', smiles: 'CCCCF', card: 'SN2_NAI', mechanisms: [], rule: 'R2', justification: JUSTIFY.R2 },
@@ -73,9 +78,31 @@ describe('04 section 9.2 decision table', () => {
     expect(neo.rule).toBe('R3');
     expect(decideOn('CC(C)(C)Br', 'SN2_NAOAC')).toMatchObject({ mechanisms: ['SN1', 'E1'], rule: 'R4', justification: JUSTIFY.R4_tert_protic });
     expect(decideOn('CCC(C)Br', 'TBUOK')).toMatchObject({ mechanisms: ['E2'], rule: 'R3', justification: JUSTIFY.R3_sec_bulky });
-    // R3_neopentyl lists [E2], but a neopentyl carbon has no beta hydrogen: the post-filter empties it
-    expect(decideOn('CCC(C)(C)CBr', 'SN2_NAOH')).toMatchObject({ mechanisms: [], rule: 'R3', justification: JUSTIFY.noBetaH });
+    // a neopentyl CH2–X never has a beta hydrogen: the row itself reports both the blocked backside attack and the missing β-H
+    expect(neo.justification).toBe(JUSTIFY.R3_neopentyl_noBetaH);
+    expect(decideOn('CCC(C)(C)CBr', 'SN2_NAOH')).toMatchObject({ mechanisms: [], rule: 'R3', justification: JUSTIFY.R3_neopentyl_noBetaH });
+    expect(JUSTIFY.R3_neopentyl_noBetaH).toContain('neopentyl');
+    expect(JUSTIFY.R3_neopentyl_noBetaH).toContain('no β-hydrogen');
     expect(JUSTIFY.R3_neopentyl).toContain('neopentyl');
+  });
+  it('NaNH2 is a base only: primary -> [E2], methyl -> none; acetylide keeps the SN2 rows; KOH/EtOH (heat) puts E2 first on primary', () => {
+    expect(decideOn('CCBr', 'NANH2_BASE')).toMatchObject({ mechanisms: ['E2'], rule: 'R3', justification: JUSTIFY.R3_prim_baseOnly });
+    expect(decideOn('BrCCCc1ccccc1', 'NANH2_BASE')).toMatchObject({ mechanisms: ['E2'], rule: 'R3', justification: JUSTIFY.R3_prim_baseOnly });
+    expect(decideOn('CBr', 'NANH2_BASE')).toMatchObject({ mechanisms: [], rule: 'R3', justification: JUSTIFY.R3_methyl_baseOnly });
+    expect(JUSTIFY.R3_prim_baseOnly).toContain('the amine is not formed');
+    // acetylide (nuc.atom 'C'): SN2 alkylation path unchanged (McMurry 9.8)
+    expect(decideOn('CCBr', 'SN2_ACETYLIDE')).toMatchObject({ mechanisms: ['SN2', 'E2'], rule: 'R3', justification: JUSTIFY.R3_prim });
+    expect(decideOn('CBr', 'SN2_ACETYLIDE')).toMatchObject({ mechanisms: ['SN2'], rule: 'R3', justification: JUSTIFY.R3_methyl });
+    // secondary / tertiary rows untouched
+    expect(decideOn('CCC(C)Br', 'NANH2_BASE')).toMatchObject({ mechanisms: ['E2'], justification: JUSTIFY.R3_sec_baseOnly });
+    expect(decideOn('CC(C)(C)Br', 'NANH2_BASE')).toMatchObject({ mechanisms: ['E2'], justification: JUSTIFY.R3_tert });
+    // heat + strong base on a primary halide: E2 first; the same base without heat keeps SN2 first; methyl stays SN2
+    expect(decideOn('CCCCBr', 'KOH_ETOH')).toMatchObject({ mechanisms: ['E2', 'SN2'], rule: 'R3', justification: JUSTIFY.R3_prim_heat });
+    expect(decideOn('CCCCBr', 'SN2_NAOET')).toMatchObject({ mechanisms: ['SN2', 'E2'], rule: 'R3', justification: JUSTIFY.R3_prim });
+    expect(decideOn('CBr', 'KOH_ETOH')).toMatchObject({ mechanisms: ['SN2'], rule: 'R3', justification: JUSTIFY.R3_methyl });
+    expect(decideOn('CCCCBr', 'ETOH_HEAT')).toMatchObject({ mechanisms: [], rule: 'R5' });
+    const strongBaseIds: ReagentId[] = ['SN2_NAOH', 'SN2_NAOCH3', 'SN2_NAOET', 'SN2_ACETYLIDE', 'TBUOK', 'NANH2_BASE', 'KOH_ETOH'];
+    expect(strongBaseIds.filter((id) => defaultCard(id).heat)).toEqual(['KOH_ETOH']);
   });
   it('baseOnly is exactly amide and acetylide among the cards', () => {
     const ids: ReagentId[] = ['SN2_NAOH', 'SN2_NAOCH3', 'SN2_NAOET', 'SN2_NAI', 'SN2_NACN', 'SN2_NAN3', 'SN2_NASH', 'SN2_NH3', 'SN2_NAOAC', 'SN2_ACETYLIDE', 'TBUOK', 'NANH2_BASE', 'KOH_ETOH', 'H2O_HEAT', 'ETOH_HEAT', 'MEOH_HEAT', 'HCOOH_H2O'];

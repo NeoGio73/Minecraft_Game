@@ -871,7 +871,8 @@ describe('acidity.ts: acidity(), ties and validation facts', () => {
     ]);
     expect(unverifiedWarnings(prep('CCO').a)).toEqual([{ kind: 'unverified-pka', classId: 'B.O.alcohol' }]);
     expect(unverifiedWarnings(prep('OCCN').a)).toEqual([]);
-    expect(unverifiedWarnings(prep('[OH-]').a)).toEqual([]);
+    // hydroxide's O–H is XH.other (chemistry review v1.0.0, finding 11a): no tabulated acid site, so the catch-all class is flagged
+    expect(unverifiedWarnings(prep('[OH-]').a)).toEqual([{ kind: 'unverified-pka', classId: 'XH.other' }]);
     // acetate: the carboxylate (verified) is the base, but its alpha C–H (unverified) is the only acid site
     expect(unverifiedWarnings(prep('CC(=O)[O-]').a)).toEqual([{ kind: 'unverified-pka', classId: 'CH.alpha.carboxylic' }]);
     expect(unverifiedWarnings(prep('C/C=C/C').a)).toEqual([{ kind: 'unverified-pka', classId: 'CH.allylic.1' }]);
@@ -956,5 +957,29 @@ describe('acidity.ts: predictAcidBase', () => {
     for (const [acid, base] of pairs) {
       expect(Math.abs(predictAcidBase(g(acid), g(base)).delta), `${acid} + ${base}`).toBeGreaterThanOrEqual(2);
     }
+  });
+});
+
+describe('chemistry review v1.0.0 nits', () => {
+  it('hydroxide has no acidic hydrogen site: its O–H is XH.other (99), never OH.water; water itself is unchanged', () => {
+    expect(hClass('[OH-]', 0)).toMatchObject({ classId: 'XH.other', pKa: 99, verified: false });
+    const { a } = prep('[OH-]');
+    expect(a.hydrogens.length).toBe(1);
+    expect(a.hydrogens.every((s) => s.classId === 'XH.other' && s.pKa === 99)).toBe(true);
+    expect(a.hydrogens.some((s) => s.classId === 'OH.water' || s.pKa < 99)).toBe(false);
+    expect(a.mostAcidic.every((s) => s.classId === 'XH.other')).toBe(true);
+    expect(hClass('O', 0)).toMatchObject({ classId: 'OH.water', pKa: 15.74, verified: true });
+  });
+  it('PKA_MOD.allylic cites allyl 15.5 and benzyl 15.4 (no propargyl), still verified', () => {
+    expect(PKA_MOD.allylic!.source).toBe(`${PKA_SOURCES.APP_B} (allyl 15.5, benzyl 15.4)`);
+    expect(PKA_MOD.allylic!.source).not.toContain('propargyl');
+    expect(PKA_MOD.allylic).toMatchObject({ delta: -0.5, verified: true });
+  });
+  it('NH.amine.secondary keeps App B 40 (verified) and notes that Table 22.1 lists 36', () => {
+    const e = PKA['NH.amine.secondary']!;
+    expect(e).toMatchObject({ pKa: 40, verified: true });
+    expect(e.source).toContain(PKA_SOURCES.APP_B);
+    expect(e.source).toContain('T22.1');
+    expect(e.source).toContain('36');
   });
 });

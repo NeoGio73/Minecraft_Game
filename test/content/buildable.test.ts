@@ -104,34 +104,50 @@ describe('B3 end-to-end: every build challenge passes when its target is placed 
       const r = c.rule;
       const zone = r.type === 'predict-product' ? 'product' : 'pad';
       const origin = zone === 'product' ? PRODUCT_ORIGIN : PAD_ORIGIN;
-      const smilesList = r.type === 'predict-product' ? r.expected : [(r as { target: string }).target];
+      const expected = r.type === 'predict-product' ? r.expected : [(r as { target: string }).target];
       const stereo = r.type === 'stereo-exact' || (r.type === 'predict-product' && r.stereoCheck !== 'none');
-      // several expected molecules (ozonolysis fragments) are laid 4 cells apart along +x by placing each separately
-      const world = (() => {
-        let w: ReturnType<typeof build> | null = null;
-        let x = origin[0];
-        for (const s of smilesList) {
-          const entry = entryBySmiles(s)!;
-          const g = stereo ? parseEntry(entry) : withoutStereoTags(parseEntry(entry));
-          const emb = stereo ? layoutOf(entry)! : embedOnLattice(g)!;
-          if (w === null) {
-            w = build(g, emb, [x, origin[1], origin[2]]);
-          } else {
-            placeInWorld(w.world, g, emb, [x, origin[1], origin[2]]);
+      // acceptAny: any one expected product alone passes with full credit, so each is placed and graded on its own
+      const sets = r.type === 'predict-product' && r.acceptAny === true ? expected.map((s) => [s]) : [expected];
+      for (const smilesList of sets) {
+        // several expected molecules (ozonolysis fragments) are laid 4 cells apart along +x by placing each separately
+        const world = (() => {
+          let w: ReturnType<typeof build> | null = null;
+          let x = origin[0];
+          for (const s of smilesList) {
+            const entry = entryBySmiles(s)!;
+            const g = stereo ? parseEntry(entry) : withoutStereoTags(parseEntry(entry));
+            const emb = stereo ? layoutOf(entry)! : embedOnLattice(g)!;
+            if (w === null) {
+              w = build(g, emb, [x, origin[1], origin[2]]);
+            } else {
+              placeInWorld(w.world, g, emb, [x, origin[1], origin[2]]);
+            }
+            const width = Math.max(...emb.pos.map((p) => p[0])) - Math.min(...emb.pos.map((p) => p[0])) + 1;
+            x += width + 2;
           }
-          const width = Math.max(...emb.pos.map((p) => p[0])) - Math.min(...emb.pos.map((p) => p[0])) + 1;
-          x += width + 2;
-        }
-        return w!;
-      })();
-      const ctx = ctxFor(zone, world);
-      expect(ctx.padMolecules.length).toBe(smilesList.length);
-      const result = evaluate(c, ctx);
-      expect(result.kind, result.message).toBe('correct');
-      expect(result.passed).toBe(true);
-      expect(result.pointsEarned).toBe(c.points);
+          return w!;
+        })();
+        const ctx = ctxFor(zone, world);
+        expect(ctx.padMolecules.length).toBe(smilesList.length);
+        const result = evaluate(c, ctx);
+        expect(result.kind, `${smilesList.join(' ')}: ${result.message}`).toBe('correct');
+        expect(result.passed).toBe(true);
+        expect(result.pointsEarned).toBe(c.points);
+      }
     });
   }
+
+  it('acceptAny predict-product challenges: the rearrangement challenge only, two or more expected products, no acceptAlso', () => {
+    const anyRules = full.filter((c) => c.rule.type === 'predict-product' && c.rule.acceptAny === true);
+    expect(anyRules.map((c) => c.id)).toEqual(['ch7-predict-rearrangement-3-methylbut-1-ene-hcl']);
+    for (const c of anyRules) {
+      const r = c.rule;
+      if (r.type !== 'predict-product') throw new Error('unreachable');
+      expect(r.expected.length).toBeGreaterThanOrEqual(2);
+      expect(r.acceptAlso).toBeUndefined();
+      expect(c.instruction).not.toContain('half credit');
+    }
+  });
 
   it('every predict-product acceptAlso alternative is accepted for half credit', () => {
     let n = 0;
@@ -149,7 +165,7 @@ describe('B3 end-to-end: every build challenge passes when its target is placed 
         expect(result.message).toBe(`Accepted for half credit: ${alt.note}`);
       }
     }
-    expect(n).toBe(6);
+    expect(n).toBe(5);
   });
 
   it('ch7-build-z-but-2-ene without the suppression is a ring: wrong-formula ending in NO_BOND_HINT', () => {

@@ -3862,7 +3862,8 @@
    "formula": "C2H6OS",
    "smiles": "C[S+](C)[O-]",
    "chapters": [
-    2
+    2,
+    11
    ],
    "requiresDiagonalBonds": false
   },

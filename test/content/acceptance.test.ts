@@ -473,13 +473,27 @@ describe('predict-product', () => {
     expect(evaluate(c, padCtx([acetone, ethanal, stereoBuild('C', {}, 'product')])).kind).toBe('extra-molecule');
   });
 
-  it('acceptAlso: the unrearranged chloride earns half credit; the full product still earns full', () => {
+  it('acceptAny: either chloride of the ~1:1 rearrangement mixture earns full credit; acceptAlso (E2 minor) still earns half', () => {
     const c = ch('ch7-predict-rearrangement-3-methylbut-1-ene-hcl');
-    const half = evaluate(c, padCtx([stereoBuild('CC(C)C(C)Cl', {}, 'product')]));
-    expect(half).toMatchObject({ passed: true, kind: 'correct-reduced', pointsEarned: 4 });
-    expect(half.message.startsWith('Accepted for half credit: 2-chloro-3-methylbutane')).toBe(true);
-    expect(evaluate(c, padCtx([stereoBuild('CCC(C)(C)Cl', {}, 'product')])).pointsEarned).toBe(8);
+    const rule = c.rule;
+    if (rule.type !== 'predict-product') throw new Error('unreachable');
+    expect(rule.acceptAny).toBe(true);
+    expect(rule.expected).toEqual(['CCC(C)(C)Cl', 'CC(C)C(C)Cl']);
+    expect(rule.acceptAlso).toBeUndefined();
+    const rearranged = evaluate(c, padCtx([stereoBuild('CCC(C)(C)Cl', {}, 'product')]));
+    expect(rearranged).toMatchObject({ passed: true, kind: 'correct', pointsEarned: 8 });
+    expect(rearranged.message).toBe('Correct! That is 2-chloro-2-methylbutane.');
+    const unrearranged = evaluate(c, padCtx([stereoBuild('CC(C)C(C)Cl', {}, 'product')]));
+    expect(unrearranged).toMatchObject({ passed: true, kind: 'correct', pointsEarned: 8 });
+    expect(unrearranged.message).toBe('Correct! That is 2-chloro-3-methylbutane.');
+    // one product only: a second molecule (even the other chloride) is an extra molecule
     expect(evaluate(c, padCtx([stereoBuild('CC(C)C(C)Cl', {}, 'product'), stereoBuild('C', {}, 'product')])).kind).toBe('extra-molecule');
+    expect(evaluate(c, padCtx([stereoBuild('CCC(C)(C)Cl', {}, 'product'), stereoBuild('CC(C)C(C)Cl', {}, 'product')])).kind).toBe('extra-molecule');
+    // diagnostics compare against the best-matching expected product
+    const wrong = evaluate(c, padCtx([stereoBuild('CC(C)C(C)Br', {}, 'product')]));
+    expect(wrong.passed).toBe(false);
+    expect(wrong.kind).toBe('wrong-formula');
+    expect(evaluate(c, padCtx([stereoBuild('CCCC(C)Cl', {}, 'product')])).kind).toBe('constitutional-isomer');
     const e2 = ch('ch11-predict-e2-2-bromobutane');
     expect(evaluate(e2, padCtx([stereoBuild('C/C=C\\C', {}, 'product')])).passed).toBe(true);
     expect(evaluate(e2, padCtx([stereoBuild('C=CCC', {}, 'product')])).kind).toBe('correct-reduced');

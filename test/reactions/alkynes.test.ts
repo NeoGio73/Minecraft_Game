@@ -194,3 +194,28 @@ describe('04 section 9.1 alkyne hydration, reduction, acetylide', () => {
     expectMajor(v, ['CC#CC']);
   });
 });
+
+describe('chemistry review v1.0.0: no cycloalkynes from small-ring vicinal dihalides', () => {
+  it('49 NANH2_2EQ_DIHALIDE 1,2-dibromocyclohexane -> no reaction (no cyclohexyne); 1-bromocyclohexene and the cyclopentane too', () => {
+    const r = run('NANH2_2EQ_DIHALIDE', 'BrC1CCCCC1Br');
+    expect(r.noReaction).toBe(true);
+    expect(r.major).toEqual([]);
+    expect(r.mechanism).toBe('none');
+    expect(r.justification).toBe(JUSTIFY.doubleE2SmallRing);
+    expect(r.justification).toBe('A ring smaller than eight carbons cannot hold a linear C≡C; vicinal dihalides on small rings do not give cycloalkynes.');
+    const v = run('NANH2_2EQ_DIHALIDE', 'BrC1=CCCCC1');
+    expect(v.noReaction).toBe(true);
+    expect(v.justification).toBe(JUSTIFY.doubleE2SmallRing);
+    const p = run('NANH2_2EQ_DIHALIDE', 'BrC1CCCC1Br');
+    expect(p.noReaction).toBe(true);
+    expect(p.justification).toBe(JUSTIFY.doubleE2SmallRing);
+  });
+  it('an eight-membered ring (cyclooctyne) and a dihalide exocyclic to a ring still react', () => {
+    const r = run('NANH2_2EQ_DIHALIDE', 'BrC1CCCCCCC1Br');
+    expectMajor(r, ['C1#CCCCCCC1']);
+    expect(r.justification).toBe(JUSTIFY.DOUBLE_E2);
+    const s = run('NANH2_2EQ_DIHALIDE', 'BrCC(Br)C1CCCCC1');
+    expectMajor(s, ['C#CC1CCCCC1']);
+    expect(s.warnings).toContain(WARN.acetylideWorkup);
+  });
+});

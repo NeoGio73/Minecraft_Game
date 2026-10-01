@@ -4,7 +4,7 @@
  * See docs/design/04-reaction-bench.md section 5.2.
  */
 import type { MoleculeGraph } from '../chem/types';
-import { bondBetween, neighborsOf, withBondOrder, withTet, withoutAtom } from '../chem/graph';
+import { bondBetween, neighborsOf, ringsThrough, withBondOrder, withTet, withoutAtom } from '../chem/graph';
 import {
   JUSTIFY, WARN, addAcross, ezTag, findAlkenes, findAlkynes, findCX, graftGraph, hydrogensOf, markovnikov,
   noReaction, pushWarning, remapAfterRemoval, sameProduct, sp3, substrateInfo, tautomerize,
@@ -117,12 +117,16 @@ export const applyDoubleE2: RuleFn = (g, card): RuleResult => {
   const hyd = hydrogensOf(g);
   const H = (i: number) => hyd[i] ?? 0;
   const cx = findCX(g);
+  /** A C≡C is linear: a ring smaller than eight carbons cannot hold it (no cyclohexyne); cyclooctyne is the smallest isolable one. */
+  const inSmallRing = (a: number, b: number): boolean => ringsThrough(g, a, b).some((r) => r.length < 8);
+  let blockedBySmallRing = false;
   let product: MoleculeGraph | null = null;
   for (const s of cx) {
     if (!sp3(g, s.c) || H(s.c) < 1) continue;
     for (const t of cx) {
       if (t === s || t.c === s.c || !sp3(g, t.c) || H(t.c) < 1) continue;
       if (bondBetween(g, s.c, t.c) === undefined) continue;
+      if (inSmallRing(s.c, t.c)) { blockedBySmallRing = true; continue; }
       const [hi, lo] = s.x > t.x ? [s, t] : [t, s];
       let g1 = withoutAtom(g, hi.x);
       g1 = withoutAtom(g1, lo.x);
@@ -139,13 +143,14 @@ export const applyDoubleE2: RuleFn = (g, card): RuleResult => {
       if (!pi) continue;
       const partner = pi.a === s.c ? pi.b : pi.a;
       if (H(partner) < 1) continue;
+      if (inSmallRing(s.c, partner)) { blockedBySmallRing = true; continue; }
       const g1 = withoutAtom(g, s.x);
       const k = bondBetween(g1, remapAfterRemoval(s.c, s.x), remapAfterRemoval(partner, s.x))!;
       product = withBondOrder(g1, k, 3);
       break;
     }
   }
-  if (!product) return noReaction(JUSTIFY.noSubstrate(card));
+  if (!product) return noReaction(blockedBySmallRing ? JUSTIFY.doubleE2SmallRing : JUSTIFY.noSubstrate(card));
   const warnings: string[] = [];
   const hyd2 = hydrogensOf(product);
   if (findAlkynes(product).some((p) => (hyd2[p.a] ?? 0) === 1 || (hyd2[p.b] ?? 0) === 1)) warnings.push(WARN.acetylideWorkup);

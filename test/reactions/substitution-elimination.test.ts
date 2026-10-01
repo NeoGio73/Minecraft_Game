@@ -316,10 +316,81 @@ describe('04 section 9.1 substitution / elimination', () => {
     expectMajor(r, ['ICCCCBr']);
     const n = run('SN2_NAOH', 'CC(C)(C)CBr');
     expect(n.noReaction).toBe(true);
-    expect(n.justification).toBe(JUSTIFY.noBetaH);
+    expect(n.justification).toBe(JUSTIFY.R3_neopentyl_noBetaH);
     const b = run('TBUOK', 'CCCCBr');
     expectMajor(b, ['C=CCC']);
     expect(b.justification).toBe(JUSTIFY.R3_bulky);
+  });
+});
+
+describe('chemistry review v1.0.0: NaNH2 base-only, KOH/EtOH heat, neopentyl, secondary-alcohol shifts, HX slow text', () => {
+  it('NANH2_BASE 1-bromobutane -> but-1-ene only (E2); the amine appears nowhere', () => {
+    const r = run('NANH2_BASE', 'CCCCBr');
+    expectMajor(r, ['C=CCC']);
+    expect(r).toMatchObject({ mechanism: 'E2', stereo: 'none', justification: JUSTIFY.R3_prim_baseOnly });
+    expect(r.minor ?? []).toEqual([]);
+    expect([...r.major, ...(r.minor ?? [])].some((m) => same(m, 'CCCCN'))).toBe(false);
+    const e = run('NANH2_BASE', 'CCBr');
+    expectMajor(e, ['C=C']);
+    expect(e.minor ?? []).toEqual([]);
+    expect([...e.major, ...(e.minor ?? [])].some((m) => same(m, 'CCN'))).toBe(false);
+  });
+  it('NANH2_BASE bromomethane -> no reaction with the methyl justification (no methylamine)', () => {
+    expectNoReaction(run('NANH2_BASE', 'CBr'), JUSTIFY.R3_methyl_baseOnly);
+    expect(JUSTIFY.R3_methyl_baseOnly).toContain('no β-hydrogen');
+  });
+  it('acetylide (nuc.atom C) keeps the SN2 alkylation path on methyl / primary halides', () => {
+    const r = run('SN2_ACETYLIDE', 'CCCCBr');
+    expectMajor(r, ['CCCCC#CC']);
+    expect(r).toMatchObject({ mechanism: 'SN2', justification: JUSTIFY.R3_prim });
+    expectList(r.minor, ['C=CCC']);
+    const m = run('SN2_ACETYLIDE', 'CBr');
+    expectMajor(m, ['CC#CC']);
+    expect(m).toMatchObject({ mechanism: 'SN2', justification: JUSTIFY.R3_methyl });
+  });
+  it('KOH_ETOH 1-bromobutane -> but-1-ene major (E2 first), butan-1-ol minor', () => {
+    const r = run('KOH_ETOH', 'CCCCBr');
+    expectMajor(r, ['C=CCC']);
+    expectList(r.minor, ['CCCCO']);
+    expect(r).toMatchObject({ mechanism: 'E2', justification: JUSTIFY.R3_prim_heat });
+    expect(JUSTIFY.R3_prim_heat).toBe('KOH/ethanol at reflux favors E2 (McMurry 8.1); some substitution.');
+    // the same hydroxide without heat keeps SN2 first (row 63)
+    expect(run('SN2_NAOH', 'CCCCBr')).toMatchObject({ mechanism: 'SN2', justification: JUSTIFY.R3_prim });
+  });
+  it('neopentyl bromide + NaOH -> no reaction, explained by the blocked backside attack and the missing β-H', () => {
+    const r = run('SN2_NAOH', 'CC(C)(C)CBr');
+    expectNoReaction(r, JUSTIFY.R3_neopentyl_noBetaH);
+    expect(r.justification).toContain('neopentyl');
+    expect(r.justification).toContain('no β-hydrogen');
+    expect(r.justification).not.toBe(JUSTIFY.noBetaH);
+    expectNoReaction(run('SN2_NAOET', 'CCC(C)(C)CBr'), JUSTIFY.R3_neopentyl_noBetaH);
+  });
+  it('3-methylbutan-2-ol + HBr: the secondary cation shifts; both bromides listed (warn), rohSlow kept', () => {
+    const r = run('ROH_HX_HBR', 'CC(C)C(C)O');
+    expectMajor(r, ['CC(C)C(C)Br', 'CCC(C)(C)Br']);
+    expect(r).toMatchObject({ mechanism: 'SN1', mixture: true, justification: JUSTIFY.rohSlow });
+    expect(r.warnings).toContain(WARN.rearrangement);
+    expect(r.warnings).toContain(WARN.rohSlow);
+    const a = run('ROH_HX_HBR', 'CC(C)C(C)O', { rearrangement: 'apply' });
+    expectMajor(a, ['CCC(C)(C)Br']);
+    expect(a.warnings).toContain(WARN.rearrangementApplied);
+    expect(a.warnings).toContain(WARN.rohSlow);
+    const i = run('ROH_HX_HBR', 'CC(C)C(C)O', { rearrangement: 'ignore' });
+    expectMajor(i, ['CC(C)C(C)Br']);
+    expect(i.warnings).not.toContain(WARN.rearrangement);
+    // a secondary alcohol with no better cation next door still gives the one bromide (row 56)
+    const b = run('ROH_HX_HBR', 'CCC(C)O');
+    expectMajor(b, ['CCC(C)Br']);
+    expect(b.mixture ?? false).toBe(false);
+  });
+  it('HX on a primary / secondary alcohol: the justification itself says slow, low-yield, SOCl2/PBr3 (McMurry 10.5)', () => {
+    const r = run('ROH_HX_HCL', 'CCCO');
+    expectMajor(r, ['CCCCl']);
+    expect(r.justification).toBe(JUSTIFY.rohSlow);
+    expect(r.warnings).toContain(WARN.rohSlow);
+    for (const word of ['slow, low-yield', 'SOCl2', 'PBr3', 'McMurry 10.5']) expect(JUSTIFY.rohSlow).toContain(word);
+    const s = run('ROH_HX_HBR', 'CCC(C)O');
+    expect(s.justification).toBe(JUSTIFY.rohSlow);
   });
 });
 
