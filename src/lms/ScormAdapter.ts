@@ -115,6 +115,11 @@ export const ENDED_BADGE =
 export { RESUME_ATTEMPT_FLOOR } from './Progress';
 
 const LESSON_STATUSES: readonly LessonStatus[] = ['passed', 'completed', 'failed', 'incomplete', 'browsed', 'not attempted'];
+/** SCORM 1.2 has no "already initialized" code: an LMS whose player already
+ *  initialised the session answers LMSInitialize with 'false' and error 101
+ *  (general exception). The data model is readable then, so the adapter
+ *  continues as initialized instead of falling back to standalone. */
+const ERR_ALREADY_INITIALIZED = '101';
 
 function isLessonStatus(s: string): s is LessonStatus {
   return (LESSON_STATUSES as readonly string[]).includes(s);
@@ -137,6 +142,10 @@ export class ScormAdapter {
   private currentMode: AdapterMode = 'discovering';
   private currentStudentId: string | null = null;
   private readOnly = false;
+  /** false in review/browse mode: the device mirror is neither written nor
+   *  discarded there, so a later normal launch cannot restore and report work
+   *  done outside the graded window. */
+  private mirrorEnabled = true;
   private finished = false;
   private disposed = false;
   private startPromise: Promise<AdapterMode> | null = null;
@@ -299,7 +308,7 @@ export class ScormAdapter {
     if (this.disposed) return this.currentMode;
     if (!api) return this.enterStandalone();
     this.api = api;
-    if (!this.call('LMSInitialize', '')) {
+    if (!this.initialize()) {
       this.api = null; // the API is not used again
       return this.enterStandalone();
     }
@@ -309,6 +318,7 @@ export class ScormAdapter {
     if (studentId === UNKNOWN_STUDENT_ID) this.deps.log('warn', 'cmi.core.student_id is empty; local mirror disabled');
     const lessonMode = this.get('cmi.core.lesson_mode');
     this.readOnly = lessonMode === 'review' || lessonMode === 'browse';
+    this.mirrorEnabled = !this.readOnly;
     const initialStatus = this.get('cmi.core.lesson_status');
     this.lastStatusWritten = isLessonStatus(initialStatus) ? initialStatus : null;
     const entry = this.get('cmi.core.entry');
@@ -335,11 +345,14 @@ export class ScormAdapter {
       this.call('LMSCommit', '');
     }
 
-    // 7. mirror and merge
+    // 7. mirror and merge (a new attempt in review/browse mode also starts
+    //    fresh, but the stored mirror is left alone: it is disabled there)
     let mirror = readProgressMirror(this.deps.storage, studentId);
     if (isNewAttempt(entry, initialStatus, lmsString, lmsRaw)) {
-      clearProgressMirror(this.deps.storage, studentId);
-      if (mirror !== null) this.deps.log('info', 'new attempt; mirror discarded');
+      if (this.mirrorEnabled) {
+        clearProgressMirror(this.deps.storage, studentId);
+        if (mirror !== null) this.deps.log('info', 'new attempt; mirror discarded');
+      }
       mirror = null;
     }
     const decision = resume(lmsString, mirror, studentId, this.deps.roster);
@@ -363,7 +376,7 @@ export class ScormAdapter {
     }
     this.currentState = state;
 
-    // 10. the mirror now equals the merged record
+    // 10. the mirror now equals the merged record (skipped in review/browse mode: writeMirror is a no-op there)
     this.writeMirror();
 
     // 11. status floor; the LMS may keep 'passed' while dropping suspend data
@@ -520,7 +533,7 @@ export class ScormAdapter {
   }
 
   private writeMirror(): void {
-    if (this.currentStudentId === null) return;
+    if (!this.mirrorEnabled || this.currentStudentId === null) return;
     writeProgressMirror(this.deps.storage, this.currentStudentId, encodeLocal(this.currentState));
   }
 
@@ -549,7 +562,29 @@ export class ScormAdapter {
 
   // -- call wrappers (§6.7) --------------------------------------------------
 
-  private call(fn: 'LMSInitialize' | 'LMSCommit' | 'LMSFinish', arg: ''): boolean {
+  /** §6.2 step 4. A 'false' whose LMSGetLastError() is 101 (already
+   *  initialized by the player) is treated as initialized with a warning; any
+   *  other 'false', or a throw, means there is no usable LMS. */
+  private initialize(): boolean {
+    let r: unknown;
+    try {
+      r = this.api?.LMSInitialize('');
+    } catch (e) {
+      this.errors++;
+      this.deps.log('error', 'LMSInitialize threw', e);
+      return false;
+    }
+    if (r === 'true') return true;
+    const code = this.lastErrorCode();
+    if (code === ERR_ALREADY_INITIALIZED) {
+      this.deps.log('warn', `LMSInitialize returned false with error ${code} (already initialized); continuing`);
+      return true;
+    }
+    this.logLmsError('LMSInitialize', code);
+    return false;
+  }
+
+  private call(fn: 'LMSCommit' | 'LMSFinish', arg: ''): boolean {
     try {
       const r = this.api?.[fn](arg);
       if (r === 'true') return true;
@@ -586,19 +621,28 @@ export class ScormAdapter {
     }
   }
 
-  private logLmsError(what: string): void {
+  /** LMSGetLastError() as a string; '' when the call throws. */
+  private lastErrorCode(): string {
+    try {
+      return String(this.api?.LMSGetLastError() ?? '');
+    } catch {
+      return '';
+    }
+  }
+
+  /** `code` is passed when the caller already read LMSGetLastError(). */
+  private logLmsError(what: string, code?: string): void {
     this.errors++;
-    let code = '';
+    const c = code ?? this.lastErrorCode();
     let text = '';
     let diag = '';
     try {
-      code = String(this.api?.LMSGetLastError() ?? '');
-      text = String(this.api?.LMSGetErrorString(code) ?? '');
-      diag = String(this.api?.LMSGetDiagnostic(code) ?? '');
+      text = String(this.api?.LMSGetErrorString(c) ?? '');
+      diag = String(this.api?.LMSGetDiagnostic(c) ?? '');
     } catch {
       /* ignore: diagnostics are best effort */
     }
-    this.deps.log('error', `${what} returned false: ${code} ${text} ${diag}`.trim());
+    this.deps.log('error', `${what} returned false: ${c} ${text} ${diag}`.trim());
   }
 }
 

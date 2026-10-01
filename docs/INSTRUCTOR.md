@@ -20,6 +20,10 @@ Use Path B when the game counts toward a grade. Use Path A for practice or if SC
 4. Tick `orgocraft-v<version>/index.html` → **Add Content Topics** → choose the module and give the topic a title (for example "OrgoCraft — build molecules").
 5. Open the topic once to confirm the game loads and the badge says "Progress saved on this device".
 
+In the New Content Experience use *Add Existing → Upload/Course files*.
+
+Path A keeps progress per browser, not per student: on shared computers students will see each other's progress; use Path B for anything graded.
+
 Do **not** click **Edit HTML** on the topic: the Brightspace editor removes the game's script tag and the page goes blank. To update the game later, upload the new zip (it unzips into a new `orgocraft-v<newversion>/` folder), then on the topic choose **Change File** and pick the new `index.html`. Never overwrite files inside the old folder — students' browsers may keep the old `index.html` and show a blank page.
 
 ## 2. Path B — upload as a SCORM package with a grade item
@@ -35,6 +39,8 @@ Use the **new SCORM player** (Content Service). Do not import the zip through Co
 7. **Save**.
 8. Grades → **Manage Grades** → open the new item → set **Maximum Points** to **100**, put it in the category you want, and set its weight. The game reports a 0–100 score, so 100 points makes the gradebook value equal to the game's percentage.
 
+In the New Content Experience the same dialog is reached with *Create New → SCORM/xAPI*; the options are identical.
+
 If you answered No in step 4, you can still attach a grade item later: open the topic's action menu → **Edit** → grade item settings. Menu labels may differ slightly between Brightspace versions; look for the equivalent wording.
 
 ## 3. How the score works
@@ -42,9 +48,9 @@ If you answered No in step 4, you can still attach a grade item later: open the 
 - Every challenge is worth 2 (easy), 4 (medium) or 8 (hard) points. The score is the percentage of points earned over all enabled challenges, rounded to a whole number. The total is shown in the game's challenge panel.
 - Build challenges can be retried without penalty. Quizzes, "select the atom" and "choose the reagent" challenges earn full points on the first try, half on the second, nothing after that.
 - The score is sent to the gradebook every time a challenge is solved, and again when the student clicks **Save & Exit**. It never goes down within an attempt.
-- The pass mark is **70 %** (the package's `masteryscore`). The game sets the SCORM status to *passed* at 70 % and *incomplete* below; *failed* is written only when the student clicks Save & Exit after attempting every challenge (every build challenge submitted at least once, every quiz and selection answered or out of attempts) without reaching 70 %. Brightspace's completion indicator for the topic follows this status.
+- The pass mark is **70 %** (the package's `masteryscore`). The game sets the SCORM status to *passed* at 70 % and *incomplete* below; *failed* is written only when the student clicks Save & Exit after attempting every challenge (every build challenge submitted at least once, every quiz and selection answered or out of attempts) without reaching 70 %. Brightspace's completion indicator for the topic follows this status. Brightspace may also mark the attempt *failed* on its own whenever a student exits below 70 % (SCORM mastery rule); this does not change the score and the student can still resume.
 - Students can leave and come back: the game asks Brightspace to *suspend* the attempt, and progress resumes from where they were. When every challenge is solved the attempt ends normally.
-- Progress is also kept in the student's browser, keyed to their Brightspace user id, as a safety copy. Another student on the same computer never sees it. A restored safety copy is never sent to the gradebook by itself — not on Save & Exit, not when the window is closed — it is reported the next time that student solves a challenge.
+- In Path B, progress is also kept in the student's browser, keyed to their Brightspace user id, as a safety copy. Another student on the same computer never sees it. A restored safety copy is never sent to the gradebook by itself — not on Save & Exit, not when the window is closed — it is reported the next time that student solves a challenge.
 - Resetting a student's attempt in Brightspace also discards the safety copy on their next launch (a launch with no saved progress, no status and no score is treated as a genuinely new attempt), so a reset really starts them over. If Brightspace keeps the status or score but loses the progress string, the safety copy is used instead.
 
 ### Changing the pass mark or hiding challenges
@@ -53,8 +59,8 @@ The pass mark, the list of disabled challenge ids and the enabled reagent cards 
 
 ## 4. Embedded player or new window?
 
-- **Open player in new window** (recommended): the game gets the whole window, the mouse can be captured for looking around, and Fullscreen works. Students must allow pop-ups for your Brightspace site; the game shows an "Open in new tab" link only when it is not connected to the gradebook, so tell students to use the player's own **Exit** button when done (the game shows "Progress saved — use the player's Exit button" after Save & Exit).
-- **Embedded player**: the game runs in a fixed-height frame inside the Content page. It still works (the panels shrink and can be collapsed to their title bars below 640 px of height, and a **Fullscreen** button appears when the player allows fullscreen), but it is cramped on laptops.
+- **Open player in new window** (recommended): the game gets the whole window, the mouse can be captured for looking around, and Fullscreen works. Students must allow pop-ups for your Brightspace site; the game shows an "Open in new tab" link only when it is not connected to the gradebook, so tell students to use the player's own **Exit** button when done (the game shows "Progress saved — you can close this window, or go back to the course" after Save & Exit).
+- **Embedded player**: the game runs in a fixed-height frame inside the Content page. It still works (the panels shrink and can be collapsed to their title bars below 640 px of height, and a **Fullscreen** button appears when the player allows fullscreen), but it is cramped on laptops, and the browser safety copy may be unavailable in Safari or with third-party cookies blocked; new-window mode is unaffected.
 
 In both modes, when a student simply closes the window the game saves first (Brightspace is told to suspend the attempt), but closing the pop-up without Save & Exit has been reported to start a new attempt in some Brightspace versions. Highest Attempt grading protects the score either way.
 
@@ -63,16 +69,17 @@ In both modes, when a student simply closes the window the game saves first (Bri
 Log in as a **test student** with the Learner role. "View as Learner" does not exercise SCORM resume or grading.
 
 1. Path A only: open the topic; in the browser's developer tools (F12 → Console) there are no red errors and no 404 for `assets/index-….js`.
-2. The game fills the frame or window; the toolbar, hotbar (bottom), challenge panel (left) and molecule panel (right) are all visible and nothing covers the hotbar; the page behind does not scroll when pressing Space or the arrow keys while playing.
+2. The game fills the frame or window; the toolbar, hotbar (bottom), challenge panel (left) and molecule panel (right) are all visible and nothing covers the hotbar; the page behind does not scroll when pressing Space or the arrow keys while playing. In the embedded player, watch the frame for ~30 s: its height must not keep growing.
 3. Click the world: the mouse is captured; Esc releases it and opens the pause menu. If capture is refused, dragging turns the view and a "Drag to look" hint appears.
 4. Path B: the badge reads "Connected to course gradebook".
 5. Solve the first challenge (place one carbon block on the lab pad for "Build methane", press Enter). The panel shows "Solved" and the score line updates.
-6. Click **Save & Exit** → confirm → the overlay says "Progress saved". Close the window with the player's Exit button.
+6. Click **Save & Exit** → confirm → the overlay says "Progress saved". Close the window (new-window mode) or return to the course (embedded).
 7. Grades → the test student's grade for the item shows the percentage the game displayed.
-8. Open the activity again as the same test student: the solved challenge is still marked solved and the score is unchanged.
-9. Shared-computer check: on the same browser, log out and log in as a second test student, open the activity: no progress is shown and no grade appears for the second student until they solve something.
-10. Try once in Chrome with third-party cookies blocked and once in Safari; note any pop-up blocking in new-window mode.
-11. Optional: the free SCORM Cloud sandbox (scorm.com) shows every API call the package makes; upload the same zip there if Brightspace shows no score.
+8. Save & Exit at a low score, then look at the SCORM report: status is *incomplete* (game) or *failed* (Brightspace mastery rule); either is fine.
+9. Open the activity again as the same test student: the solved challenge is still marked solved and the score is unchanged.
+10. Shared-computer check: on the same browser, log out and log in as a second test student, open the activity: no progress is shown and no grade appears for the second student until they solve something.
+11. Try once in Chrome with third-party cookies blocked and once in Safari; note any pop-up blocking in new-window mode, and confirm resume still works there (it relies on Brightspace, not the safety copy).
+12. Optional: the free SCORM Cloud sandbox (scorm.com) shows every API call the package makes; upload the same zip there if Brightspace shows no score.
 
 ## 6. Troubleshooting
 
@@ -80,7 +87,7 @@ Log in as a **test student** with the Learner role. "View as Learner" does not e
 |---|---|---|
 | Blank page, console shows 404 for `assets/…` | The topic points at an `index.html` from an old folder, or files were edited in place | Upload a new versioned folder; on the topic use Change File |
 | Blank page after clicking "Edit HTML" | The Brightspace editor removed the script tag | Delete the topic and add it again from Manage Files (do not edit) |
-| Badge says "Progress saved on this device" in Path B | The SCORM API was not found within 2 s | Make sure the topic was added as a SCORM/xAPI Object (new player), not through Import Components; try "Open player in new window"; check that pop-ups are allowed |
+| Badge says "Progress saved on this device" in Path B | The SCORM API was not found within 2 s; progress made in that state is not graded and is shared on that computer | Make sure the topic was added as a SCORM/xAPI Object (new player), not through Import Components; try "Open player in new window"; check that pop-ups are allowed |
 | Badge says "Review mode" | The topic was opened in review/browse mode (for example after the due date, or as an instructor) | Scores are not recorded in review mode; open it as a Learner during the availability window |
 | Badge says "last save failed, retrying" | Brightspace rejected a call (session expired, network) | The game keeps a local copy; the next solved challenge retries. If it persists, Save & Exit, reopen the activity |
 | Grade never appears | The student never solved a challenge (the game does not write a score of 0), or the grade item is not associated | Solve one challenge and Save & Exit; check the topic's grade item association |

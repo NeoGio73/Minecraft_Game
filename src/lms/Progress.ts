@@ -414,11 +414,18 @@ function tryDecodeLocal(s: string | null, studentId: string): ProgressStateV2 | 
 }
 
 /** true when the LMS launch is a brand-new attempt (instructor reset or first
- *  launch): empty suspend_data, entry 'ab-initio', status 'not attempted' or
- *  '', score.raw 0. The adapter then discards the mirror (§6.2 step 7). */
+ *  launch): empty suspend_data, entry 'ab-initio' or '' (SCORM 1.2 allows an
+ *  empty entry on a fresh attempt), status 'not attempted' or '', score.raw 0.
+ *  Only entry 'resume' blocks the discard: this SCO writes 'incomplete' and
+ *  commits at step 6 of every session, so 'not attempted' with no score and no
+ *  suspend string alone proves a new attempt. The adapter then discards the
+ *  mirror (§6.2 step 7). */
 export function isNewAttempt(entry: string, initialStatus: string, lmsString: string, lmsRaw: number): boolean {
   return (
-    lmsString === '' && entry === 'ab-initio' && (initialStatus === 'not attempted' || initialStatus === '') && lmsRaw === 0
+    lmsString === '' &&
+    (entry === 'ab-initio' || entry === '') &&
+    (initialStatus === 'not attempted' || initialStatus === '') &&
+    lmsRaw === 0
   );
 }
 

@@ -628,7 +628,13 @@ describe('resume', () => {
     expect(isNewAttempt('ab-initio', 'not attempted', '', 0)).toBe(true);
     expect(isNewAttempt('ab-initio', '', '', 0)).toBe(true);
     expect(isNewAttempt('resume', 'not attempted', '', 0)).toBe(false);
-    expect(isNewAttempt('', 'not attempted', '', 0)).toBe(false);
+    expect(isNewAttempt('resume', '', '', 0)).toBe(false);
+    // SCORM 1.2 allows an empty entry on a fresh attempt: only 'resume' blocks the discard
+    expect(isNewAttempt('', 'not attempted', '', 0)).toBe(true);
+    expect(isNewAttempt('', '', '', 0)).toBe(true);
+    expect(isNewAttempt('', 'incomplete', '', 0)).toBe(false);
+    expect(isNewAttempt('', 'not attempted', '', 33)).toBe(false);
+    expect(isNewAttempt('', 'not attempted', 'v2|0|0|0|0|0|0|', 0)).toBe(false);
     expect(isNewAttempt('ab-initio', 'incomplete', '', 0)).toBe(false);
     expect(isNewAttempt('ab-initio', 'not attempted', '', 33)).toBe(false);
     expect(isNewAttempt('ab-initio', 'not attempted', 'v2|0|0|0|0|0|0|', 0)).toBe(false);

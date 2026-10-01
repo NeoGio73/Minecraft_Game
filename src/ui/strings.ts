@@ -245,7 +245,7 @@ export const STRINGS = {
   toolbarLabel: 'Game toolbar', hotbarLabel: 'Hotbar',
   savedLocally: 'Progress saved on this device.',
   savedToGradebook: (raw: number | null) => (raw === null ? 'Progress saved to the course.' : `Progress saved to the course gradebook: score ${raw}.`),
-  finishedTitle: 'Progress saved', finishedBody: "Use the player's Exit button to close this window.",
+  finishedTitle: 'Progress saved', finishedBody: 'You can close this window, or go back to the course.',
   confirmSaveExit: 'Save your progress to the gradebook and end this session? You can come back later and continue where you left off.',
   confirmClearPad: 'Return every atom you placed on the lab pad to your inventory? Molecules placed by a challenge stay.',
   confirmTitle: 'Please confirm',

@@ -402,7 +402,7 @@ export function resume(lmsString: string, localString: string | null, studentId:
 
 ```ts
 export function isNewAttempt(entry: string, initialStatus: string, lmsString: string, lmsRaw: number): boolean {
-  return lmsString === '' && entry === 'ab-initio' && (initialStatus === 'not attempted' || initialStatus === '') && lmsRaw === 0;
+  return lmsString === '' && (entry === 'ab-initio' || entry === '') && (initialStatus === 'not attempted' || initialStatus === '') && lmsRaw === 0;
 }
 ```
 
@@ -410,14 +410,14 @@ Decision table (`rank = [popcount(solved), popcount(attempted), earned]`, lexico
 
 | LMS launch | lms string | local (same student) | Result | `scoreGate` |
 |---|---|---|---|---|
-| `isNewAttempt` (entry `ab-initio`, status `not attempted`/`''`, `score.raw` empty/0, suspend `''`) | empty | any | mirror **cleared** (`clearProgressMirror`), then `fresh`, empty state; log `info: new attempt; mirror discarded` when a mirror existed | `false` |
+| `isNewAttempt` (entry `ab-initio` or `''` — only `resume` blocks the discard; status `not attempted`/`''`, `score.raw` empty/0, suspend `''`) | empty | any | mirror **cleared** (`clearProgressMirror`), then `fresh`, empty state; log `info: new attempt; mirror discarded` when a mirror existed | `false` |
 | otherwise | empty/invalid | none/invalid/other student | `fresh`, empty state | `false` |
 | otherwise | present | none | `lms` | `false` |
 | otherwise (entry `resume`, or a status/score the LMS kept while dropping `suspend_data`) | empty | present | `local`, `restoredFromLocal = true`, `reportedRaw = 0` (then `max(·, lmsRaw)` in step 8) | `true` until the next `milestone` |
 | otherwise | present | present, `rank(local) ≤ rank(lms)` | `lms` (+ `isomersDone` from the mirror) | `false` |
 | otherwise | present | present, `rank(local) > rank(lms)` | `local`, `restoredFromLocal = true`, `reportedRaw = lms.reportedRaw` | `true` until the next `milestone` |
 
-Why the first row: when an instructor resets a learner's attempt in Brightspace, the new attempt launches with empty `suspend_data`, `lesson_status` `not attempted`, no score and `cmi.core.entry` `ab-initio`; without the row the learner's mirror would silently restore the reset progress. `entry` is the one signal that separates "fresh attempt" from "the LMS lost my suspend data" (`resume`), and a kept status or score also proves a previous session, so those launches keep the merge. Consequence, stated in INSTRUCTOR.md §3 and §6: a genuinely new attempt (some D2L versions start one when the pop-up is closed without Save & Exit) restarts the game from zero; the previous attempt's score is protected by Highest Attempt grading, not by the mirror. Standalone mode never sees an `entry` and always merges.
+Why the first row: when an instructor resets a learner's attempt in Brightspace, the new attempt launches with empty `suspend_data`, `lesson_status` `not attempted`, no score and `cmi.core.entry` `ab-initio` or `''`; without the row the learner's mirror would silently restore the reset progress. SCORM 1.2 allows `entry` to be `''` on a fresh attempt, so an empty entry counts like `ab-initio` and only `resume` blocks the discard; a kept status or score also proves a previous session (this SCO writes `incomplete` and commits at §6.2 step 6 of every session, so `not attempted` with no score and no string is never a resumed attempt), so those launches keep the merge. Consequence, stated in INSTRUCTOR.md §3 and §6: a genuinely new attempt (some D2L versions start one when the pop-up is closed without Save & Exit) restarts the game from zero; the previous attempt's score is protected by Highest Attempt grading, not by the mirror. Standalone mode never sees an `entry` and always merges.
 
 Why not a union of bitmasks: both strings belong to the same learner, but a union could combine a stale mirror from a previous *attempt* (instructor reset) with the new attempt and the outcome would be untestable by inspection; picking one whole record keeps provenance. `reportedRaw` always reflects **what this LMS attempt actually holds** (0 when the LMS string was empty): so the next milestone writes `score.raw` as soon as `raw > 0` and above the LMS value. No score is written by `resume` itself, and none by any later write path while `scoreGate` is set — `update()`/`commit()`/`flush()` (throttled commit, tab switch), `endSession` (`pagehide`, Save & Exit) all call `lmsWrite(…, scoreGate)` and W9 blanks `scoreRaw`, `passed` and `failed` (critic blocker 2.6, 00-contracts R11). The first `score.raw` after a local restore is written at the next `milestone`, which clears the gate first, from the merged state (so the learner is not penalised: the write carries the full raw).
 

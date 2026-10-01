@@ -55,6 +55,8 @@ export interface FakeApi extends ScormApi12 {
   data: Record<string, string>;
   failNext: Set<string>;
   throwNext: Set<string>;
+  /** What LMSGetLastError returns; a failing LMSSetValue sets it to '405'. */
+  lastError: string;
 }
 
 const allApis: FakeApi[] = [];
@@ -74,12 +76,12 @@ export function fakeApi(initial: Partial<Record<string, string>> = {}): FakeApi 
   const calls: FakeApi['calls'] = [];
   const failNext = new Set<string>();
   const throwNext = new Set<string>();
-  let lastError = '0';
   const api: FakeApi = {
     calls,
     data,
     failNext,
     throwNext,
+    lastError: '0',
     LMSInitialize: (p) => {
       calls.push(['LMSInitialize', p]);
       return failNext.delete('LMSInitialize') ? 'false' : 'true';
@@ -96,7 +98,7 @@ export function fakeApi(initial: Partial<Record<string, string>> = {}): FakeApi 
       calls.push(['LMSSetValue', k, v]);
       if (throwNext.delete(k)) throw new Error(`boom ${k}`);
       if (failNext.delete(k)) {
-        lastError = '405';
+        api.lastError = '405';
         return 'false';
       }
       data[k] = v;
@@ -108,7 +110,7 @@ export function fakeApi(initial: Partial<Record<string, string>> = {}): FakeApi 
     },
     LMSGetLastError: () => {
       calls.push(['LMSGetLastError']);
-      return lastError;
+      return api.lastError;
     },
     LMSGetErrorString: (c) => `error ${c}`,
     LMSGetDiagnostic: (c) => `diag ${c}`,
@@ -386,6 +388,33 @@ describe('ScormAdapter.start', () => {
     expect(api.calls).toHaveLength(2);
   });
 
+  it('A-S4b LMSInitialize false with error 101 (already initialized): continues as initialized, warn logged', async () => {
+    const api = fakeApi();
+    api.failNext.add('LMSInitialize');
+    api.lastError = '101';
+    const h = harness(api);
+    const { adapter, mode } = await startLms(h);
+    expect(mode).toBe('lms');
+    expect(adapter.snapshot.errors).toBe(0);
+    expect(h.logs).toContain('warn: LMSInitialize returned false with error 101 (already initialized); continuing');
+    expect(h.logs.some((l) => l.startsWith('error:'))).toBe(false);
+    expect(api.calls.slice(0, 3)).toEqual([['LMSInitialize', ''], ['LMSGetLastError'], ['LMSGetValue', 'cmi.core.student_id']]);
+    expect(countCalls(api, 'LMSInitialize')).toBe(1);
+    expect(statusEvents(h)[statusEvents(h).length - 1]).toBe(MODE_BADGE.lms);
+    adapter.milestone(full(adapter.state, 0, 2));
+    expect(setsOf(api, 'cmi.core.score.raw')).toEqual(['8']);
+    await adapter.saveAndExit();
+    expect(countCalls(api, 'LMSFinish')).toBe(1);
+    // any other error code is still "no LMS"
+    const api2 = fakeApi();
+    api2.failNext.add('LMSInitialize');
+    api2.lastError = '201';
+    const h2 = harness(api2);
+    expect((await startLms(h2)).mode).toBe('standalone');
+    expect(h2.logs).toContain('error: LMSInitialize returned false: 201 error 201 diag 201');
+    expect(api2.calls).toEqual([['LMSInitialize', ''], ['LMSGetLastError']]);
+  });
+
   it('A-S5 an existing lesson_status is not rewritten at start', async () => {
     const api = fakeApi({ 'cmi.core.lesson_status': 'incomplete' });
     const h = harness(api);
@@ -409,6 +438,36 @@ describe('ScormAdapter.start', () => {
     expect(countCalls(api, 'LMSCommit')).toBe(0);
     expect(countCalls(api, 'LMSFinish')).toBe(1);
     expect(adapter.snapshot.finished).toBe(true);
+  });
+
+  it('A-S6b review mode writes no mirror', async () => {
+    for (const lessonMode of ['review', 'browse']) {
+      // a fresh launch: no storage key is written at start, milestone, update, flush, tab switch or Save & Exit
+      const api = fakeApi({ 'cmi.core.lesson_mode': lessonMode });
+      const h = harness(api);
+      const { adapter, mode } = await startLms(h);
+      expect(mode).toBe('lms');
+      expect(adapter.snapshot.readOnly).toBe(true);
+      expect(h.storage!.size).toBe(0);
+      adapter.milestone(full(adapter.state, 0, 2));
+      adapter.update(withCurrent(adapter.state, 'b'));
+      adapter.flush();
+      h.fire.hidden();
+      h.advance(60_000);
+      await adapter.saveAndExit();
+      expect(h.storage!.size).toBe(0);
+      expect(adapter.state.solved).toBe(1n); // the session itself still tracks the work
+      // a mirror from a normal session is neither overwritten nor discarded, even by a new-attempt launch
+      const mirror = encodeLocal(threeSolvedFull());
+      const api2 = fakeApi({ 'cmi.core.lesson_mode': lessonMode });
+      const h2 = harness(api2, { mirror: [KEY, mirror] });
+      const { adapter: a2 } = await startLms(h2);
+      expect(a2.snapshot.source).toBe('fresh');
+      a2.milestone(full(a2.state, 3, 8));
+      h2.fire.pagehide();
+      expect([...h2.storage!.entries()]).toEqual([[KEY, mirror]]);
+      expect(h2.logs).not.toContain('info: new attempt; mirror discarded');
+    }
   });
 
   it('A-S7 empty student id: no mirror, warning logged', async () => {
@@ -585,20 +644,26 @@ describe('ScormAdapter mirror merge and score gate', () => {
     expect(again.snapshot.source).toBe('lms');
   });
 
-  it('A-M11 a brand-new LMS attempt discards the mirror; a kept status, score or resume entry keeps it', async () => {
+  it('A-M11 a brand-new LMS attempt (entry ab-initio or empty) discards the mirror; a kept status, score or resume entry keeps it', async () => {
     const mirror = encodeLocal(threeSolvedFull());
-    const a = harness(fakeApi(), { mirror: [KEY, mirror] });
-    const { adapter: aa } = await startLms(a);
-    expect(aa.snapshot.source).toBe('fresh');
-    expect(aa.snapshot.restoredFromLocal).toBe(false);
-    expect(aa.snapshot.scoreGated).toBe(false);
-    expect(a.logs).toContain('info: new attempt; mirror discarded');
-    expect(a.storage!.get(KEY)).toBe(encodeLocal(emptyState('stu-1')));
+    // the default launch (entry 'ab-initio'), and the same with an empty entry, which SCORM 1.2 allows on a fresh attempt
+    for (const entry of ['ab-initio', '']) {
+      const a = harness(fakeApi({ 'cmi.core.entry': entry }), { mirror: [KEY, mirror] });
+      const { adapter: aa } = await startLms(a);
+      expect(aa.snapshot.source).toBe('fresh');
+      expect(aa.snapshot.restoredFromLocal).toBe(false);
+      expect(aa.snapshot.scoreGated).toBe(false);
+      expect(aa.state.solved).toBe(0n);
+      expect(a.logs).toContain('info: new attempt; mirror discarded');
+      expect(a.storage!.get(KEY)).toBe(encodeLocal(emptyState('stu-1')));
+    }
 
     const variants: Partial<Record<string, string>>[] = [
       { 'cmi.core.entry': 'resume' },
       { 'cmi.core.score.raw': '33' },
       { 'cmi.core.lesson_status': 'incomplete' },
+      { 'cmi.core.entry': '', 'cmi.core.score.raw': '33' },
+      { 'cmi.core.entry': '', 'cmi.core.lesson_status': 'incomplete' },
     ];
     for (const v of variants) {
       const h = harness(fakeApi(v), { mirror: [KEY, mirror] });
