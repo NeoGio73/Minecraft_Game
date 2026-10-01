@@ -80,6 +80,8 @@ export const FEEDBACK: Readonly<Record<FeedbackKind, (p: FeedbackParams) => stri
   'wrong-option': () => 'Not correct. Try again.',
   'attempts-exhausted': (p) =>
     `No attempts left. The answer was: ${has(p, 'expected') ? p['expected'] : 'shown in the panel'}.${has(p, 'explanation') ? ` ${p['explanation']}` : ''}${has(p, 'reason') ? ` ${p['reason']}` : ''}`,
+  'nothing-selected': () =>
+    'Nothing is selected. Point at an atom of the challenge molecule (or one of its hydrogens), press E to select it, then submit again.',
   'nothing-targeted': () => 'Nothing is targeted. Look at the molecule you built on the lab pad and press Submit again.',
 };
 

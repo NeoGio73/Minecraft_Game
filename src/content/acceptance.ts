@@ -352,7 +352,9 @@ export function evaluateSelectAtom(rule: SelectAtomRule, ctx: SubmissionContext,
   const A = answerSet(rule.selector, graphs, analyses);
   const S = normalizeSelection(ctx.selection, rule.target, analyses);
   if (S === 'no-hydrogens') return ev.fail('no-hydrogens');
-  if (S.length === 0) return ev.fail('wrong-atom', { expected: rule.answerDescription });
+  // An empty selection is not an answer: it neither consumes an attempt nor can it exhaust the challenge
+  // (engineering review finding 4; State.finish treats the kind as non-consuming like nothing-targeted).
+  if (S.length === 0) return ev.fail('nothing-selected', { expected: rule.answerDescription });
   const keysA = new Set(A.map(itemKey));
   const keysS = new Set(S.map(itemKey));
   let ok: boolean;

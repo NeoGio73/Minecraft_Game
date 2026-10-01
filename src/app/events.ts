@@ -28,6 +28,12 @@ export interface EngineEvents {
   'bond:suppressed': { pair: PairKey; previous: BondOrder };
   /** The pair is bonded again (order 1 through the wand). */
   'bond:restored': { pair: PairKey; order: BondOrder };
+  /**
+   * Without an analysis worker, a component whose analysis exceeded HEAVY_ANALYSIS_MS is not re-analysed after
+   * every edit (engineering review finding 1b): `deferred: true` means the stored analysis is stale until an
+   * explicit Analyze (F) or a submission refreshes it; `false` is emitted when it does.
+   */
+  'analysis:deferred': { component: ComponentId; deferred: boolean };
 }
 
 export interface GameEvents extends EngineEvents {

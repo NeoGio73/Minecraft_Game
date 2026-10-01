@@ -41,7 +41,7 @@ function toneOf(r: SubmitResult): { tone: Tone; glyph: string; prefix: string } 
   if (r.kind === 'correct') return { tone: 'info', glyph: STRINGS.feedbackGlyph.info, prefix: STRINGS.feedbackPrefix.info };
   if (r.kind === 'correct-reduced') return { tone: 'ok', glyph: STRINGS.feedbackGlyph.ok, prefix: STRINGS.feedbackPrefix.reduced };
   if (r.kind === 'attempts-exhausted') return { tone: 'warn', glyph: STRINGS.feedbackGlyph.warn, prefix: STRINGS.feedbackPrefix.warn };
-  if (r.kind === 'nothing-targeted' || r.kind === 'no-hydrogens') return { tone: 'info', glyph: STRINGS.feedbackGlyph.info, prefix: STRINGS.feedbackPrefix.first };
+  if (r.kind === 'nothing-targeted' || r.kind === 'nothing-selected' || r.kind === 'no-hydrogens') return { tone: 'info', glyph: STRINGS.feedbackGlyph.info, prefix: STRINGS.feedbackPrefix.first };
   return { tone: 'err', glyph: STRINGS.feedbackGlyph.err, prefix: STRINGS.feedbackPrefix.err };
 }
 
@@ -235,8 +235,15 @@ export function mountChallengePanel(root: HTMLElement, ctx: HudContext): Challen
     return parts.join(', ');
   }
 
+  /** Submit is unavailable after Save & Exit and, on a select-atom challenge, while nothing is selected (finding 4). */
+  function syncSubmit(): void {
+    const rule = state.current.challenge.rule;
+    submit.disabled = state.finished || (rule.type === 'select-atom' && state.selection.length === 0);
+  }
+
   function refreshSelection(): void {
     const rule = state.current.challenge.rule;
+    syncSubmit();
     if (rule.type !== 'select-atom') {
       setHidden(selection, true);
       return;
@@ -370,7 +377,7 @@ export function mountChallengePanel(root: HTMLElement, ctx: HudContext): Challen
     setText(submit, rule.type === 'select-atom' ? STRINGS.submitSelection : rule.type === 'predict-product' ? STRINGS.submitProduct : STRINGS.submitMolecule);
     setHidden(answerBtn, rule.type !== 'quiz');
     setHidden(benchBtn, !(rule.type === 'predict-product' || rule.type === 'choose-reagent'));
-    submit.disabled = state.finished;
+    syncSubmit();
     answerBtn.disabled = state.finished;
     refreshShortcuts();
     refreshFooter();

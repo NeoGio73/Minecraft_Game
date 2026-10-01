@@ -14,6 +14,8 @@ export interface MoleculePanel extends Panel {
   /** Plain-text copy of the rendered panel for the scene mirror (§16.3); '' when nothing is targeted. */
   plainText(): string;
   setCollapsed(collapsed: boolean): void;
+  /** The student's current Collapse / Expand choice (the bench panel restores it when it closes). */
+  isCollapsed(): boolean;
   /** The targeted component changed: clear the group highlight and the warning memory. */
   onComponentChanged(): void;
 }
@@ -40,6 +42,8 @@ export function mountMoleculePanel(root: HTMLElement, ctx: HudContext): Molecule
 
   const empty = h('p', { class: 'mp-empty' }, STRINGS.noTarget);
   const name = h('p', { class: 'mp-name' }, '');
+  /** Shown while automatic re-analysis of a large component is deferred (engineering review finding 1b). */
+  const note = h('p', { class: 'mp-note hint', hidden: true }, STRINGS.analysisDeferredNote);
   const facts = h('dl', { class: 'mp-facts' });
   const ddFormula = h('dd', null);
   const ddCharge = h('dd', null);
@@ -78,7 +82,7 @@ export function mountMoleculePanel(root: HTMLElement, ctx: HudContext): Molecule
   const atoms = h('section', { class: 'mp-atoms' }, h('h3', null, STRINGS.atoms), targetedAtom, h('details', null, h('summary', null, STRINGS.perAtomTable), atomTable));
   const warnList = h('ul', null);
   const warnings = h('section', { class: 'mp-warnings' }, h('h3', null, STRINGS.warnings), warnList);
-  body.append(empty, name, facts, groups, stereo, acidity, atoms, warnings);
+  body.append(empty, name, note, facts, groups, stereo, acidity, atoms, warnings);
 
   const content = [name, facts, groups, stereo, acidity, atoms, warnings];
 
@@ -113,6 +117,7 @@ export function mountMoleculePanel(root: HTMLElement, ctx: HudContext): Molecule
     setText(title, locked ? STRINGS.panelTitleLocked : STRINGS.panelTitle);
     if (!a) {
       setHidden(empty, false);
+      setHidden(note, true);
       for (const el of content) setHidden(el, true);
       if (pressedGroup !== null) {
         pressedGroup = null;
@@ -122,6 +127,8 @@ export function mountMoleculePanel(root: HTMLElement, ctx: HudContext): Molecule
     }
     setHidden(empty, true);
     for (const el of content) setHidden(el, false);
+    setHidden(note, !state.target.analysisDeferred);
+    if (state.target.analysisDeferred) lines.push(STRINGS.analysisDeferredNote);
 
     // 2. name and formula
     const nm = a.name ?? STRINGS.unnamed;
@@ -359,6 +366,7 @@ export function mountMoleculePanel(root: HTMLElement, ctx: HudContext): Molecule
     refresh,
     plainText: () => lines.join(' | '),
     setCollapsed,
+    isCollapsed: () => collapsed,
     onComponentChanged() {
       prevWarnings = new Set();
       if (pressedGroup !== null) {

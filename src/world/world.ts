@@ -15,6 +15,11 @@ import { Chunk, chunkIndex } from './chunk';
 import { createMoleculeIndex } from './molecule-index';
 import type { MoleculeIndexExt } from './molecule-index';
 
+/** Air and atom blocks: neither contributes a face to the chunk mesh nor hides a neighbour's (06 §2.2, §5.2). */
+function isMeshless(id: number): boolean {
+  return id === Block.Air || isAtom(id);
+}
+
 export interface WorldEdit {
   readonly kind: 'block' | 'bond' | 'charge';
   /** Cells whose component may have changed. */
@@ -66,11 +71,18 @@ export class World {
     const cz = z >> 4;
     const lx = x & 15;
     const lz = z & 15;
-    (this.chunks[chunkIndex(cx, cz)] as Chunk).set(lx, y, lz, id);
-    if (lx === 0 && cx > 0) this.markDirty(cx - 1, cz);
-    if (lx === CHUNK_W - 1 && cx < WORLD_CX - 1) this.markDirty(cx + 1, cz);
-    if (lz === 0 && cz > 0) this.markDirty(cx, cz - 1);
-    if (lz === CHUNK_D - 1 && cz < WORLD_CZ - 1) this.markDirty(cx, cz + 1);
+    const chunk = this.chunks[chunkIndex(cx, cz)] as Chunk;
+    if (isMeshless(old) && isMeshless(id)) {
+      // Atom placement / removal never changes a chunk mesh (atoms are instanced, not meshed, and not opaque):
+      // write the cell and bump the version, but mark nothing dirty (engineering review finding 10).
+      chunk.setUnmeshed(lx, y, lz, id);
+    } else {
+      chunk.set(lx, y, lz, id);
+      if (lx === 0 && cx > 0) this.markDirty(cx - 1, cz);
+      if (lx === CHUNK_W - 1 && cx < WORLD_CX - 1) this.markDirty(cx + 1, cz);
+      if (lz === 0 && cz > 0) this.markDirty(cx, cz - 1);
+      if (lz === CHUNK_D - 1 && cz < WORLD_CZ - 1) this.markDirty(cx, cz + 1);
+    }
     this.editVersion++;
     const cells: CellKey[] = [key];
     for (const d of FACE_DIRS) {

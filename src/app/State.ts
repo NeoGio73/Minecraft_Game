@@ -25,7 +25,7 @@ import type { AdapterMode, ProgressState, RosterInfo, ScoreSummary } from '../lm
 import { RESUME_ATTEMPT_FLOOR, applyExhausted, applyOutcome, summarize, withCurrent, withIsomers } from '../lms/Progress';
 import { react } from '../reactions/react';
 import { relaxedLayout } from '../reactions/helpers';
-import { BLOCK_ELEMENTS } from '../world/types';
+import { BLOCK_ELEMENTS, cellIndex } from '../world/types';
 import type { BlockElement, CellKey, ComponentId, PairKey, Zone } from '../world/types';
 import { createEmitter } from './events';
 import type { Emitter, GameEvents } from './events';
@@ -58,6 +58,8 @@ export interface TargetState {
   readonly cell: CellKey | null;
   readonly pair: PairKey | null;
   readonly analysis: Analysis | null;
+  /** true when `analysis` is stale because automatic re-analysis is deferred for this large component ('analysis:deferred'). */
+  readonly analysisDeferred: boolean;
   /** cell -> atom id inside `analysis` (world extraction order). */
   readonly cellToAtom: ReadonlyMap<CellKey, number>;
   readonly atomToCell: readonly CellKey[];
@@ -169,6 +171,69 @@ export function lockedCells(s: Pick<StateView, 'locked'>): ReadonlySet<CellKey> 
 }
 
 // ---------------------------------------------------------------------------
+// Reserved boxes (06 §10.6 anchor table; engineering review finding 2)
+// ---------------------------------------------------------------------------
+
+/** A box of cells reserved for a challenge-owned molecule: `min` corner and `extent` (cell counts per axis). */
+export interface ReservedBox {
+  readonly min: Vec3;
+  readonly extent: Vec3;
+}
+
+/** Cells around a reserved box that student atoms must also keep clear, so nothing can bond into the locked molecule. */
+export const RESERVED_MARGIN = 1;
+
+/** The slot boxes the current rule's locked molecules occupy: select-atom slots, the quiz display slot, the bench reactant zone. */
+export function reservedBoxesFor(rule: ChallengeRule): ReservedBox[] {
+  const boxes: ReservedBox[] = [];
+  if (rule.type === 'select-atom') {
+    rule.molecules.forEach((_, i) => {
+      const o = LOCKED_ORIGINS[i];
+      if (o) boxes.push({ min: o, extent: LOCKED_EXTENT });
+    });
+  } else if (rule.type === 'quiz' && rule.display) {
+    boxes.push({ min: LOCKED_ORIGINS[0] as Vec3, extent: LOCKED_EXTENT });
+  } else if (rule.type === 'predict-product' || rule.type === 'choose-reagent') {
+    boxes.push({
+      min: REACTANT_MIN,
+      extent: [REACTANT_MAX[0] - REACTANT_MIN[0] + 1, REACTANT_MAX[1] - REACTANT_MIN[1] + 1, REACTANT_MAX[2] - REACTANT_MIN[2] + 1],
+    });
+  }
+  return boxes;
+}
+
+/** true when cell (x, y, z) lies inside `box` expanded by `margin` cells on every side. */
+export function inReservedBox(box: ReservedBox, x: number, y: number, z: number, margin = RESERVED_MARGIN): boolean {
+  return x >= box.min[0] - margin && x < box.min[0] + box.extent[0] + margin
+    && y >= box.min[1] - margin && y < box.min[1] + box.extent[1] + margin
+    && z >= box.min[2] - margin && z < box.min[2] + box.extent[2] + margin;
+}
+
+/** true when (x, y, z) lies inside any of `boxes` (each expanded by `margin`). */
+export function inReservedBoxes(boxes: readonly ReservedBox[], x: number, y: number, z: number, margin = RESERVED_MARGIN): boolean {
+  return boxes.some((b) => inReservedBox(b, x, y, z, margin));
+}
+
+/**
+ * Cells of non-locked atom blocks (heavy atoms and explicit H blocks) inside `boxes` expanded by `margin`, in
+ * cellIndex order. The engine removes them, crediting the inventory, before a challenge molecule is placed.
+ */
+export function studentCellsInBoxes(
+  atoms: ReadonlyMap<CellKey, { readonly x: number; readonly y: number; readonly z: number }>,
+  boxes: readonly ReservedBox[],
+  locked: ReadonlySet<CellKey>,
+  margin = RESERVED_MARGIN,
+): CellKey[] {
+  const out: { key: CellKey; order: number }[] = [];
+  for (const [key, a] of atoms) {
+    if (locked.has(key)) continue;
+    if (!inReservedBoxes(boxes, a.x, a.y, a.z, margin)) continue;
+    out.push({ key, order: cellIndex(a.x, a.y, a.z) });
+  }
+  return out.sort((p, q) => p.order - q.order).map((e) => e.key);
+}
+
+// ---------------------------------------------------------------------------
 // Engine-side contract (06 §1)
 // ---------------------------------------------------------------------------
 
@@ -188,6 +253,8 @@ export interface EngineStateCommands {
   setAnalysis(component: ComponentId, analysis: Analysis | null, zone: Zone, suppressed?: readonly PairKey[], detail?: ComponentDetail): void;
   /** Drops analyses whose component id is no longer in `live` (after a world edit). */
   pruneAnalyses(live: ReadonlySet<ComponentId>): void;
+  /** Marks a component's stored analysis stale (automatic re-analysis deferred) or fresh again; emits 'analysis:deferred' on change. */
+  setAnalysisDeferred(component: ComponentId, deferred: boolean): void;
   setLocked(placements: readonly LockedPlacement[]): void;
   /** Emits inventory:changed; H ignored. */
   addInventory(el: BlockElement, n: number): void;
@@ -239,7 +306,9 @@ interface AnalysisRecord {
   readonly hCells: readonly (readonly CellKey[])[];
 }
 
-const NO_TARGET: TargetState = { component: null, cell: null, pair: null, analysis: null, cellToAtom: new Map(), atomToCell: [], suppressed: [] };
+const NO_TARGET: TargetState = {
+  component: null, cell: null, pair: null, analysis: null, analysisDeferred: false, cellToAtom: new Map(), atomToCell: [], suppressed: [],
+};
 
 const IDLE_BENCH: BenchState = {
   mode: 'idle', challengeId: null, reactant: null, rx: null, cardId: null, equiv: 1, result: null, preview: 'hidden', previews: [],
@@ -309,6 +378,7 @@ export class State implements EngineState {
   private slotValue = 0;
   private targetValue: TargetState = NO_TARGET;
   private readonly analyses = new Map<ComponentId, AnalysisRecord>();
+  private readonly deferred = new Set<ComponentId>();
   private lockedValue: readonly LockedPlacement[] = [];
   private lockedSet: ReadonlySet<CellKey> = new Set();
   private selectionValue: readonly SelectionItem[] = [];
@@ -514,7 +584,11 @@ export class State implements EngineState {
   private finish(c: Challenge, raw: SubmitResult, targeted: MoleculeGraph | null, hadCard: boolean): SubmitResult {
     const idx = this.bitOf.get(c.id);
     let result = raw;
-    const consuming = raw.kind !== 'nothing-targeted' && raw.kind !== 'no-hydrogens' && !(raw.kind === 'wrong-reagent' && !hadCard);
+    // Non-consuming results: nothing targeted / selected, an H pick on an atom without hydrogens, a bench submit
+    // without a card, and (belt and braces for finding 4) any select-atom submit made with an empty selection.
+    const consuming = raw.kind !== 'nothing-targeted' && raw.kind !== 'nothing-selected' && raw.kind !== 'no-hydrogens'
+      && !(raw.kind === 'wrong-reagent' && !hadCard)
+      && !(c.rule.type === 'select-atom' && this.selectionValue.length === 0);
     if (isAttemptLimited(c.rule) && consuming) this.sessionAttempts.set(c.id, (this.sessionAttempts.get(c.id) ?? 0) + 1);
     let passedEvent: { pointsEarned: number } | null = null;
     if (idx !== undefined && raw.passed) {
@@ -772,10 +846,11 @@ export class State implements EngineState {
 
   private buildTarget(component: ComponentId | null, cell: CellKey | null, pair: PairKey | null): TargetState {
     const rec = component === null ? undefined : this.analyses.get(component);
-    if (!rec) return { ...NO_TARGET, component, cell, pair };
+    const analysisDeferred = component !== null && this.deferred.has(component);
+    if (!rec) return { ...NO_TARGET, component, cell, pair, analysisDeferred };
     const cellToAtom = new Map<CellKey, number>();
     rec.cells.forEach((c, i) => cellToAtom.set(c, i));
-    return { component, cell, pair, analysis: rec.analysis, cellToAtom, atomToCell: rec.cells, suppressed: rec.suppressed };
+    return { component, cell, pair, analysis: rec.analysis, analysisDeferred, cellToAtom, atomToCell: rec.cells, suppressed: rec.suppressed };
   }
 
   setAnalysis(component: ComponentId, analysis: Analysis | null, zone: Zone, suppressed: readonly PairKey[] = [], detail?: ComponentDetail): void {
@@ -793,8 +868,20 @@ export class State implements EngineState {
     if (analysis !== null) this.events.emit('molecule:analyzed', { component, analysis, zone });
   }
 
+  setAnalysisDeferred(component: ComponentId, deferred: boolean): void {
+    if (this.deferred.has(component) === deferred) return;
+    if (deferred) this.deferred.add(component);
+    else this.deferred.delete(component);
+    if (this.targetValue.component === component) {
+      const t = this.targetValue;
+      this.targetValue = this.buildTarget(t.component, t.cell, t.pair);
+    }
+    this.events.emit('analysis:deferred', { component, deferred });
+  }
+
   pruneAnalyses(live: ReadonlySet<ComponentId>): void {
     for (const id of Array.from(this.analyses.keys())) if (!live.has(id)) this.analyses.delete(id);
+    for (const id of Array.from(this.deferred)) if (!live.has(id)) this.deferred.delete(id);
     const t = this.targetValue;
     if (t.component !== null && !live.has(t.component)) {
       this.targetValue = NO_TARGET;

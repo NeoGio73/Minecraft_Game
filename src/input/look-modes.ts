@@ -179,6 +179,10 @@ export class LookModes {
       // Esc, tab switch or a dialog: never auto-relock; the next click re-attempts after the cooldown.
       this.lastUnlockAt = nowMs();
       this.setMode('drag');
+      // Chromium consumes the Escape that releases the lock (no keydown reaches InputManager), so an unlock while
+      // the game is still the active, visible, focused surface is the student's pause request (engineering review
+      // finding 12). A dialog opening (modal), a tab switch (hidden) or a lost window focus is not.
+      if (!this.input.modal && this.input.active() && !document.hidden && document.hasFocus()) this.input.inject('pause');
     }
   };
 

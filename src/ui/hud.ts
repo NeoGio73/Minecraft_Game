@@ -105,6 +105,10 @@ export interface RenderHooks {
   ghostCellInfo?(cell: CellKey): { readonly el: BlockElement; readonly breakEndpoint: boolean } | null;
   /** Optional: on-screen touch controls feed the InputManager through these (07 §2.2, §21.9). */
   readonly touch?: { setHeld(action: KeyAction, down: boolean): void; inject(action: KeyAction): void };
+  /** `?debug=1`: the stocked debug inventory is never persisted (engineering review finding 8). */
+  readonly debug: boolean;
+  /** Mirrors the dialog stack into InputManager.modal: keys, wheel and buttons are ignored while a dialog is open (finding 11). */
+  setModal(on: boolean): void;
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +159,8 @@ export interface HudContext {
   showFinished(): void;
   /** Collapses the molecule panel to its title bar (used while the bench panel is open, §2.2). */
   setMoleculeCollapsed(collapsed: boolean): void;
+  /** The molecule panel's current Collapse state (the bench panel restores it when it closes, finding 15). */
+  isMoleculeCollapsed(): boolean;
   /** Sets the visual look hint (`#look-hint`); ms = null keeps it until replaced, '' clears it. */
   showLookHint(text: string, ms: number | null): void;
 }
@@ -417,6 +423,8 @@ export function mountHud(stage: HTMLElement, state: UiState, hooks: RenderHooks,
   const dialogs: DialogHost = {
     push(dialog, opener) {
       if (stack.some((s) => s.dialog === dialog)) return;
+      // modal first: the pointerlockchange that the exitPointerLock below raises must not read as a pause request
+      hooks.setModal(true);
       try {
         if (doc.pointerLockElement) doc.exitPointerLock();
       } catch {
@@ -442,6 +450,7 @@ export function mountHud(stage: HTMLElement, state: UiState, hooks: RenderHooks,
       } else {
         setInert(hud, false);
         setInert(canvas, false);
+        hooks.setModal(false);
       }
       const opener = entry?.opener ?? null;
       const target = opener && opener.isConnected && isVisible(opener) && !(opener as HTMLButtonElement).disabled ? opener : top ? null : canvas;
@@ -556,6 +565,7 @@ export function mountHud(stage: HTMLElement, state: UiState, hooks: RenderHooks,
     openBench: (opener) => bench.open(opener),
     showFinished: () => { showFinishedOverlay(dialogsRoot, dialogs); live.announce(`${STRINGS.finishedTitle} ${STRINGS.finishedBody}`, 'assertive'); },
     setMoleculeCollapsed: (c) => molecule.setCollapsed(c),
+    isMoleculeCollapsed: () => molecule.isCollapsed(),
     showLookHint,
   };
 
@@ -784,6 +794,10 @@ export function mountHud(stage: HTMLElement, state: UiState, hooks: RenderHooks,
     state.announce(STRINGS.bondRestored(labelOfCell(a), labelOfCell(b)), 'polite');
   });
   on('charge:changed', () => { markDirty('molecule'); markDirty('target'); mirrorDirty = true; });
+  on('analysis:deferred', (e) => {
+    if (e.component === state.target.component) markDirty('molecule');
+    if (e.deferred) state.announce(ENGINE_TEXT.analysisDeferred, 'polite');
+  });
   on('molecule:analyzed', (e) => {
     if (e.component === state.target.component) { markDirty('molecule'); markDirty('target'); }
     if (state.padComponents.some((c) => c.id === e.component && c.locked) || state.locked.length) { select.rebuild(); syncMarkedAtom(); }
@@ -799,7 +813,7 @@ export function mountHud(stage: HTMLElement, state: UiState, hooks: RenderHooks,
   let lastSlot = state.slot;
   on('inventory:changed', (e) => {
     markDirty('hotbar'); markDirty('target');
-    saveInventory(e.counts);
+    if (!hooks.debug) saveInventory(e.counts);   // the ?debug=1 stock of 99 never leaks into a normal session (finding 8)
     if (e.slot !== lastSlot) {
       lastSlot = e.slot;
       const entry = HOTBAR[e.slot];
@@ -935,6 +949,11 @@ export function mountHud(stage: HTMLElement, state: UiState, hooks: RenderHooks,
       case 'slotPrev': if (select.active) { select.cycle(-1); refreshTarget(); return true; } return false;
       case 'slotNext': if (select.active) { select.cycle(1); refreshTarget(); return true; } return false;
       case 'place': return select.active ? select.place() : false;
+      case 'toggleHydrogens':
+        // T goes through updateSettings so the HUD's own settings copy, the stored record and the settings
+        // checkbox agree (engineering review finding 5); ignored while select mode forces the H view (07 §11.1).
+        if (!select.forcesHydrogens()) ctx.updateSettings({ showHydrogens: !current.showHydrogens });
+        return true;
       case 'hint': challenge.toggleHint(); return true;
       case 'roster': challenge.toggleRoster(); return true;
       case 'help': if (help.isOpen) help.close(); else help.open(canvas); return true;
@@ -960,6 +979,7 @@ export function mountHud(stage: HTMLElement, state: UiState, hooks: RenderHooks,
       live.dispose();
       setInert(hud, false);
       setInert(canvas, false);
+      hooks.setModal(false);
       hud.remove();
       dialogsRoot.remove();
     },

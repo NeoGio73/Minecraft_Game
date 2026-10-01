@@ -28,6 +28,16 @@ export class Chunk {
     this.dirty = true;
     this.version++;
   }
+
+  /**
+   * Writes a cell whose change never alters the chunk mesh (Air <-> atom block, atom <-> atom: atoms are drawn by
+   * the AtomRenderer and are not opaque, so no terrain face appears or disappears) and bumps `version` without
+   * marking the chunk dirty (engineering review finding 10).
+   */
+  setUnmeshed(lx: number, ly: number, lz: number, id: number): void {
+    this.data[cidx(lx, ly, lz)] = id;
+    this.version++;
+  }
 }
 
 /** cx + WORLD_CX * cz */

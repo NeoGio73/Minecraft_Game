@@ -161,7 +161,7 @@ describe('exact-molecule and name-to-structure', () => {
     expect(r.kind).toBe('wrong-formula');
     // the override keeps its hint but opens with the concrete formula sentence (chemistry review minor 10)
     expect(r.message.startsWith('Wrong formula: yours is C2H4O2, the target is C2H3O2')).toBe(true);
-    expect(r.message.endsWith(c.feedback!['wrong-formula'].slice('Wrong formula.'.length))).toBe(true);
+    expect(r.message.endsWith(c.feedback!['wrong-formula']!.slice('Wrong formula.'.length))).toBe(true);
     const r2 = evaluate(c, padCtx([flatBuild('[CH2-]C(=O)O')]));
     expect(r2.kind).toBe('constitutional-isomer');
   });
@@ -174,7 +174,7 @@ describe('exact-molecule and name-to-structure', () => {
     expect(r.message).toContain('the net charge is -1, the target has 1');
     const r3 = evaluate(c, padCtx([flatBuild('CC(C)C')]));
     expect(r3.message.startsWith('Wrong formula: yours is C4H10, the target is C4H9')).toBe(true);
-    expect(r3.message.endsWith(c.feedback!['wrong-formula'].slice('Wrong formula.'.length))).toBe(true);
+    expect(r3.message.endsWith(c.feedback!['wrong-formula']!.slice('Wrong formula.'.length))).toBe(true);
   });
 
   it('name-to-structure: the name is reported; a T-shaped flat build still passes (constitution only)', () => {
@@ -409,7 +409,9 @@ describe('select-atom', () => {
     expect(partial).toMatchObject({ passed: false, kind: 'wrong-atom', pointsEarned: 0 });
     expect(partial.message).toBe('Not that one. You picked C1. Think again and try another selection.');
     expect(evaluate(c, ctx({ selection: [{ molecule: 0, atom: 0 }, { molecule: 0, atom: 1 }, { molecule: 0, atom: 2 }] })).kind).toBe('wrong-atom');
-    expect(evaluate(c, ctx({ selection: [] })).kind).toBe('wrong-atom');
+    expect(evaluate(c, ctx({ selection: [] })).kind).toBe('nothing-selected');
+    // an empty selection never exhausts the challenge, whatever the attempt number
+    expect(evaluate(c, ctx({ selection: [], attempt: 3 })).kind).toBe('nothing-selected');
     expect(evaluate(c, ctx({ selection: [{ molecule: 0, atom: 0 }, { molecule: 0, atom: 1 }], attempt: 2 })).pointsEarned).toBe(2);
     const out = evaluate(c, ctx({ selection: [{ molecule: 0, atom: 2 }], attempt: 3 }));
     expect(out).toMatchObject({ passed: false, kind: 'attempts-exhausted', pointsEarned: 0, attempt: 3 });

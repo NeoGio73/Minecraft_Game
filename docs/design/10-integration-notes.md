@@ -167,3 +167,69 @@ Each item names the package that raised it.
   (axe `region`, moderate); the live regions and `#dialogs` are unchanged.
 - `scripts/smoke.mjs`: `CHROMIUM_PATH` (alias `CHROME_PATH`) names the browser binary; CI installs it through the
   `playwright` devDependency (`npx playwright install --with-deps chromium`, 08 §12) under `PLAYWRIGHT_BROWSERS_PATH`.
+
+## From engineering fixes (docs/reviews/engineering-review.md, findings 1-15)
+
+Every item is a deviation from, or an addition to, 06-engine.md / 07-ui.md introduced by the review fixes.
+
+- **Analysis worker (06 §14.2, §14.4; finding 1b).** `analyze()` no longer runs unbounded on the main thread.
+  `src/chem/analyze.worker.ts` (a pure module worker that also calls `loadLibrary()` so names match) is created by
+  `Game` through `new Worker(new URL('../chem/analyze.worker.ts', import.meta.url), { type: 'module' })`; Vite emits
+  it as `assets/analyze.worker-<hash>.js`, referenced relatively (`base: './'`), and `check:paths` passes.
+  Scheduler: a component with at most `SYNC_ANALYSIS_ATOMS` (8) heavy atoms that is not known to be slow is
+  analysed synchronously inside the 4 ms budget as before, so the panel still updates in the same frame; anything
+  larger, or any component whose last synchronous analysis exceeded `HEAVY_ANALYSIS_MS` (50 ms), is posted to the
+  worker and applied in `runAnalyses` when the reply arrives (replies for a superseded job, or for a component whose
+  §14.3 signature changed meanwhile, are dropped). Analyze (F) and a submission still analyse the target
+  synchronously (explicit, cap-bounded). Without `Worker` (or after a worker error / a reply missing for
+  `ANALYSIS_WORKER_TIMEOUT_MS`), analysis falls back to the main thread with the review's heavy guard: a slow
+  component is re-analysed only on F or submit, `State.setAnalysisDeferred` marks it stale, `TargetState.analysisDeferred`
+  / the new `'analysis:deferred'` event show the note `STRINGS.analysisDeferredNote` in the molecule panel and announce
+  `ENGINE_TEXT.analysisDeferred`. DebugApi gains `analysisWorker`, `hydrogenMode`, `redraws` and (debug) `hoverOutline()`.
+- **CIP node budget (03 §1; finding 1a).** `cip.ts` charges every digraph node to `CipCtx.nodes`; past
+  `CIP_NODE_BUDGET` (4000, nested Rule-1a probes included) the call sets `capHit` and `assignRS` reports
+  CANNOT_ASSIGN ("digraph size cap"). Measured `analyze()`: 5x5 carbon sheet 18.8 s -> 0.15 s; 3x2x3 carbon block
+  killed after 150 s -> 0.11 s; 4x4 sheet 130 -> 52 ms; 2x2x2 cube 89 -> 59 ms; 3x2x2 block 1475 -> 92 ms. No
+  library or roster molecule reaches the budget (all chemistry suites unchanged).
+- **Reserved slot boxes (06 §10.6; finding 2).** `State.reservedBoxesFor(rule)` lists the boxes of the anchor table
+  the current rule occupies (select-atom slots, the quiz display slot, the bench reactant zone). On
+  `challenge:changed`, `Game.clearReservedBoxes` removes every non-locked atom block inside them expanded by
+  `RESERVED_MARGIN` (1 cell), crediting the inventory through `removeAtomCell` and announcing
+  `ENGINE_TEXT.reservedCleared(n)`; `placeAtom` refuses those cells with `ENGINE_TEXT.lockedMolecule`. The engine
+  never overwrites a student atom any more.
+- **Select tool (06 §10.4; finding 3).** While select mode is active (every select-atom challenge), Place / Mine
+  with the select tool never reach `selectHovered`; outside it, the student's own selection items carry the
+  sentinel `molecule: -1` so `State.emitSelection` resolves them through the target, never through locked molecule 0.
+- **Empty-selection submit (05 §7.3, 07 §9.4; finding 4).** New non-consuming `FeedbackKind` `'nothing-selected'`
+  (`FEEDBACK` template added); `State.finish` also treats any select-atom submit with an empty selection as
+  non-consuming; `#cp-submit` is disabled while a select-atom challenge has nothing selected.
+- **T key (07 §3; finding 5).** `Game` forwards `toggleHydrogens` to `Hud.handleAction`, which goes through
+  `HudContext.updateSettings`, so the HUD's settings copy, the stored record and the settings checkbox agree.
+- **Bond pick box (06 §10.2, §12.4; finding 6).** The pick instance is `PICK_LEN = BAR_LEN - ATOM_SCALE` long
+  (the visible segment only, never the part inside an atom cube); `BOND_PICK_MARGIN` is 0.45 and a pick hit whose
+  point lies inside the voxel-hit atom's drawn cube is discarded (`Game.insideHitAtom`).
+- **Hidden / off-screen frames (06 §11.4, §14.2; findings 7, 13).** The hidden branch also consumes the frame's
+  input, and an `IntersectionObserver` on `#stage` (guarded; absent = always visible) sets `stageVisible`; an
+  out-of-view stage skips physics, input and rendering exactly like `document.hidden` (the loop keeps ticking the HUD).
+- **Debug inventory (06 §10.1; finding 8).** `RenderHooks.debug` is true under `?debug=1`; `hud.ts` then never calls
+  `saveInventory`, so the stocked inventory stays in memory.
+- **Select-mode rebuild (07 §11.3; finding 9).** `rebuild()` keeps `cycledIndex` / `keyboardHover` when the candidate
+  keys are unchanged.
+- **No remesh for atoms (06 §4; finding 10).** `Chunk.setUnmeshed` writes the cell and bumps `version` without
+  `dirty`; `World.setBlock` uses it when both the old and the new id are Air or an atom block (atoms are instanced,
+  not meshed, and not opaque), so placements never remesh a chunk.
+- **Wheel and modal (06 §9.2; finding 11).** `onWheel` applies rule 2 (`active()` and not modal); the HUD's dialog
+  stack drives `InputManager.modal` through the new `RenderHooks.setModal`.
+- **Escape under pointer lock (06 §9.4; finding 12).** `LookModes.onLockChange` injects `'pause'` on an unlock when
+  no dialog is open, the canvas is active, the document is visible and focused.
+- **Hover path (06 §14.2; finding 14).** A hover or selection change sets `highlightDirty` and redraws only
+  `Highlight.update` (`Game.redrawHighlight`); `sceneDirty` (full instanced rebuild) is reserved for world edits,
+  target / analysis / inventory / settings changes. DebugApi `redraws` counts full rebuilds.
+- **Bench panel (07 §2.2; finding 15).** `open()` remembers `MoleculePanel.isCollapsed()` and `close()` restores it
+  (`HudContext.isMoleculeCollapsed`).
+- **Smoke (06 §15.2).** Steps 23-27: the 5x5 sheet built one atom per frame through `place` with an in-page rAF gap
+  watchdog (no gap over 500 ms, page round trips under 500 ms, `analysisWorker` true, CANNOT_ASSIGN listed);
+  select-atom Place on the student's own atom and the empty submit; T and the settings checkbox; the hover outline
+  following the crosshair with `redraws` unchanged; the IntersectionObserver pause through `display: none` on `#stage`.
+- **Tests.** `test/chem/analyze-lattice.test.ts`, `test/app/state.test.ts`, `test/world/world.test.ts`,
+  `test/input/input-manager.test.ts` (DOM stubbed); `acceptance.test.ts` / `strings.test.ts` updated for the new kind.

@@ -19,6 +19,16 @@ import { otherEnd } from './graph';
  *  200; neither is reachable at <= 30 heavy atoms). */
 export const CIP_SPHERE_CAP = 500;
 
+/**
+ * Total digraph nodes one `cipRank` call may create, nested Rule-1a probes
+ * included, before it gives up with `capHit` (engineering review, finding 1).
+ * On a lattice build every square is a 4-ring and the hierarchical digraph
+ * enumerates self-avoiding paths, so the per-sphere cap alone is reached only
+ * after seconds of work (a 5x5 carbon sheet took 16 s, a 3x2x3 block minutes);
+ * `assignRS` turns `capHit` into CANNOT_ASSIGN ("digraph size cap").
+ */
+export const CIP_NODE_BUDGET = 4000;
+
 /** Node of the hierarchical digraph. */
 export interface DNode {
   /** -1 = hydrogen node (implicit or collapsed explicit H). */
@@ -41,23 +51,28 @@ export interface CipCtx {
   readonly memo: Map<string, -1 | 0 | 1>;
   /** Sorted child lists by node path (children depend only on the path). */
   readonly kids: Map<string, readonly DNode[]>;
+  /** DNodes created so far by this `cipRank` call (its nested Rule-1a probes share the count). */
+  nodes: number;
+  /** A sphere list exceeded CIP_SPHERE_CAP or the call exceeded CIP_NODE_BUDGET: the result is unusable. */
   capHit: boolean;
 }
 
 /** `cipRank` returns CipRank plus `capHit` (assignable to CipRank). */
 export type CipRankResult = CipRank & { readonly capHit: boolean };
 
-function makeCtx(g: MoleculeGraph, hydrogens: readonly number[], exclude: number | undefined): CipCtx {
-  return { g, hydrogens, exclude, memo: new Map(), kids: new Map(), capHit: false };
+function makeCtx(g: MoleculeGraph, hydrogens: readonly number[], exclude: number | undefined, nodes = 0): CipCtx {
+  return { g, hydrogens, exclude, memo: new Map(), kids: new Map(), nodes, capHit: false };
 }
 
 function zOf(g: MoleculeGraph, atom: number): number {
   return atom === -1 ? 1 : ATOMIC_NUMBER[g.atoms[atom]!.el];
 }
 
-function node(g: MoleculeGraph, atom: number, parent: DNode | null, dup: boolean): DNode {
+/** Creates a digraph node and charges it to the call's node budget. */
+function node(ctx: CipCtx, atom: number, parent: DNode | null, dup: boolean): DNode {
+  ctx.nodes++;
   const path = `${parent ? parent.path + '>' : ''}${atom}${dup ? 'd' : 'r'}`;
-  return { atom, dup, parent, Z: zOf(g, atom), path };
+  return { atom, dup, parent, Z: zOf(ctx.g, atom), path };
 }
 
 /**
@@ -68,7 +83,7 @@ function node(g: MoleculeGraph, atom: number, parent: DNode | null, dup: boolean
  * node per hydrogen. Duplicate and hydrogen nodes have no children.
  */
 function children(ctx: CipCtx, n: DNode): DNode[] {
-  if (n.dup || n.atom === -1) return [];
+  if (n.dup || n.atom === -1 || ctx.capHit) return [];
   const { g } = ctx;
   const i = n.atom;
   const ancestors = new Set<number>();
@@ -80,14 +95,20 @@ function children(ctx: CipCtx, n: DNode): DNode[] {
     const o = bond.order;
     if (n.parent === null && j === ctx.exclude) continue;
     if (n.parent !== null && j === n.parent.atom && !n.parent.dup) {
-      for (let k = 1; k < o; k++) kids.push(node(g, j, n, true));
+      for (let k = 1; k < o; k++) kids.push(node(ctx, j, n, true));
       continue;
     }
-    kids.push(node(g, j, n, ancestors.has(j)));
-    for (let k = 1; k < o; k++) kids.push(node(g, j, n, true));
+    kids.push(node(ctx, j, n, ancestors.has(j)));
+    for (let k = 1; k < o; k++) kids.push(node(ctx, j, n, true));
   }
   const nH = ctx.hydrogens[i] ?? 0;
-  for (let k = 0; k < nH; k++) kids.push(node(g, -1, n, false));
+  for (let k = 0; k < nH; k++) kids.push(node(ctx, -1, n, false));
+  // Budget check after the expansion so a node's children are never half-listed; once the cap is hit no
+  // node expands any further and every pending comparison settles to 0 (the caller reports CANNOT_ASSIGN).
+  if (ctx.nodes > CIP_NODE_BUDGET) {
+    ctx.capHit = true;
+    return [];
+  }
   return kids;
 }
 
@@ -115,6 +136,7 @@ export function compareLigands(ctx: CipCtx, a: DNode, b: DNode): -1 | 0 | 1 {
   const key = `${a.path}|${b.path}`;
   const hit = ctx.memo.get(key);
   if (hit !== undefined) return hit;
+  if (ctx.capHit) return 0;
   let la: readonly DNode[] = [a];
   let lb: readonly DNode[] = [b];
   for (;;) {
@@ -141,6 +163,7 @@ export function compareLigands(ctx: CipCtx, a: DNode, b: DNode): -1 | 0 | 1 {
     }
     la = ca.flat();
     lb = cb.flat();
+    if (ctx.capHit) return 0;   // not memoised: the lists were cut short
     if (la.length === 0 && lb.length === 0) return memo(ctx, key, 0);
     if (la.length > CIP_SPHERE_CAP || lb.length > CIP_SPHERE_CAP) {
       ctx.capHit = true;
@@ -155,10 +178,15 @@ interface BasicRank {
   readonly ctx: CipCtx;
 }
 
-/** Steps 1–3 of `cipRank` (no advanced-rule detection, hence no recursion). */
-function cipRankBasic(g: MoleculeGraph, hydrogens: readonly number[], center: number, exclude: number | undefined): BasicRank {
-  const ctx = makeCtx(g, hydrogens, exclude);
-  const root = node(g, center, null, false);
+/**
+ * Steps 1–3 of `cipRank` (no advanced-rule detection, hence no recursion).
+ * `parent` is the context of the enclosing `cipRank` call when this is a
+ * Rule-1a probe of a tied branch: the probe draws on the parent's node budget
+ * and a cap hit inside it is the parent's cap hit.
+ */
+function cipRankBasic(g: MoleculeGraph, hydrogens: readonly number[], center: number, exclude: number | undefined, parent?: CipCtx): BasicRank {
+  const ctx = makeCtx(g, hydrogens, exclude, parent?.nodes ?? 0);
+  const root = node(ctx, center, null, false);
   const ligs = sortedChildren(ctx, root);
   let tie = false;
   for (let i = 0; i + 1 < ligs.length; i++) {
@@ -166,6 +194,10 @@ function cipRankBasic(g: MoleculeGraph, hydrogens: readonly number[], center: nu
       tie = true;
       break;
     }
+  }
+  if (parent) {
+    parent.nodes = ctx.nodes;
+    if (ctx.capHit) parent.capHit = true;
   }
   return { ligs, tie, ctx };
 }
@@ -176,24 +208,29 @@ function piOf(g: MoleculeGraph, atom: number): number {
   return pi;
 }
 
-/** A carbon that Rule 1a alone makes a chirality centre. */
-function isRule1aCenter(g: MoleculeGraph, hydrogens: readonly number[], a: number): boolean {
+/** A carbon that Rule 1a alone makes a chirality centre (a probe charged to `parent`'s budget). */
+function isRule1aCenter(parent: CipCtx, a: number): boolean {
+  const { g, hydrogens } = parent;
+  if (parent.capHit) return false;
   const atom = g.atoms[a]!;
   const nH = hydrogens[a] ?? 0;
   if (atom.el !== 'C' || piOf(g, a) !== 0 || g.adj[a]!.length + nH !== 4 || nH > 1) return false;
-  return !cipRankBasic(g, hydrogens, a, undefined).tie;
+  const r = cipRankBasic(g, hydrogens, a, undefined, parent);
+  return !r.ctx.capHit && !r.tie;
 }
 
-/** A non-aromatic C=C whose ends each carry two Rule-1a-distinct ligands. */
-function isRule1aAlkene(g: MoleculeGraph, hydrogens: readonly number[], bondIndex: number): boolean {
+/** A non-aromatic C=C whose ends each carry two Rule-1a-distinct ligands (a probe charged to `parent`'s budget). */
+function isRule1aAlkene(parent: CipCtx, bondIndex: number): boolean {
+  const { g, hydrogens } = parent;
+  if (parent.capHit) return false;
   const bond = g.bonds[bondIndex]!;
   if (bond.order !== 2 || bond.aromatic) return false;
   const A = g.atoms[bond.a]!;
   const B = g.atoms[bond.b]!;
   if (A.el !== 'C' || B.el !== 'C' || A.aromatic || B.aromatic) return false;
   for (const [end, other] of [[bond.a, bond.b], [bond.b, bond.a]] as const) {
-    const r = cipRankBasic(g, hydrogens, end, other);
-    if (r.ligs.length !== 2 || r.tie) return false;
+    const r = cipRankBasic(g, hydrogens, end, other, parent);
+    if (r.ctx.capHit || r.ligs.length !== 2 || r.tie) return false;
   }
   return true;
 }
@@ -205,7 +242,7 @@ function isRule1aAlkene(g: MoleculeGraph, hydrogens: readonly number[], bondInde
  */
 function subtreeHasStereoElement(ctx: CipCtx, center: number, p: DNode): boolean {
   if (p.atom === -1) return false;
-  const { g, hydrogens } = ctx;
+  const { g } = ctx;
   const blocked = new Set<number>([center]);
   if (ctx.exclude !== undefined) blocked.add(ctx.exclude);
   if (blocked.has(p.atom)) return false;
@@ -221,10 +258,14 @@ function subtreeHasStereoElement(ctx: CipCtx, center: number, p: DNode): boolean
       queue.push(v);
     }
   }
-  for (const a of seen) if (isRule1aCenter(g, hydrogens, a)) return true;
+  for (const a of seen) {
+    if (ctx.capHit) return false;
+    if (isRule1aCenter(ctx, a)) return true;
+  }
   for (let k = 0; k < g.bonds.length; k++) {
+    if (ctx.capHit) return false;
     const b = g.bonds[k]!;
-    if (seen.has(b.a) && seen.has(b.b) && isRule1aAlkene(g, hydrogens, k)) return true;
+    if (seen.has(b.a) && seen.has(b.b) && isRule1aAlkene(ctx, k)) return true;
   }
   return false;
 }
@@ -239,8 +280,10 @@ export function cipRank(g: MoleculeGraph, hydrogens: readonly number[], center: 
   if (!Number.isInteger(center) || center < 0 || center >= g.atoms.length) throw new RangeError(`no atom ${center}`);
   const { ligs, tie, ctx } = cipRankBasic(g, hydrogens, center, exclude);
   let tieNeedsAdvancedRules = false;
-  if (tie) {
-    for (let i = 0; i + 1 < ligs.length && !tieNeedsAdvancedRules; i++) {
+  // A capped ranking is unusable (every pending comparison settled to 0), so the advanced-rule probes are skipped:
+  // the caller reports CANNOT_ASSIGN from `capHit` alone.
+  if (tie && !ctx.capHit) {
+    for (let i = 0; i + 1 < ligs.length && !tieNeedsAdvancedRules && !ctx.capHit; i++) {
       const p = ligs[i]!;
       const q = ligs[i + 1]!;
       if (compareLigands(ctx, p, q) !== 0) continue;
@@ -250,7 +293,7 @@ export function cipRank(g: MoleculeGraph, hydrogens: readonly number[], center: 
   return {
     ligands: ligs.map((n) => (n.atom === -1 ? 'H' : n.atom)),
     tie,
-    tieNeedsAdvancedRules,
+    tieNeedsAdvancedRules: tieNeedsAdvancedRules && !ctx.capHit,
     capHit: ctx.capHit,
   };
 }

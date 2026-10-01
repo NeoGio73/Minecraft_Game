@@ -279,6 +279,12 @@ export class Highlight {
     this.redraw(nowMs());
   }
 
+  /** Diagnostics (DebugApi.hoverOutline): whether the hover outline is drawn and the cell it marks. */
+  outlineInfo(): { visible: boolean; x: number; y: number; z: number } {
+    const p = this.outline.colour.position;
+    return { visible: this.outline.colour.visible, x: Math.floor(p.x), y: Math.floor(p.y), z: Math.floor(p.z) };
+  }
+
   // ---------------------------------------------------------------------
   // Per-frame animation
   // ---------------------------------------------------------------------

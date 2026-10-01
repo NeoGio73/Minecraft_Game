@@ -8,7 +8,8 @@
  * raycast — the Raycaster tests layers, never `visible`. One instance per bond
  * (sorted by PairKey) followed by one per suppressed pair (sorted by PairKey),
  * so `pairOf(instanceId)` resolves both kinds and ids are stable for equal
- * content.
+ * content. Each pick instance covers only the visible bar segment between the
+ * two atom cubes (PICK_LEN), never the part hidden inside an atom.
  */
 import { BoxGeometry, Color, Matrix4, MeshBasicMaterial, MeshLambertMaterial, Quaternion, Sprite, SpriteMaterial, Vector3 } from 'three';
 import type { InstancedMesh, Material, Object3D } from 'three';
@@ -17,6 +18,7 @@ import { parseCellKey, splitPairKey } from '../world/types';
 import type { PairKey } from '../world/types';
 import type { MoleculeIndexExt } from '../world/molecule-index';
 import { BREAK_MARKER_RED, breakTexture, makeGlyphTexture } from './element-texture';
+import { ATOM_SCALE } from './AtomRenderer';
 import { InstancedPool, WHITE } from './Renderer';
 
 export const BAR_W = 0.11;
@@ -25,6 +27,12 @@ export const BAR_LEN = 1.0;
 export const OFFSET_2 = 0.13;
 export const OFFSET_3 = 0.17;
 export const PICK_W = 0.3;
+/**
+ * Length of the pick box along the bond axis: only the segment of the bar that is visible between the two atom
+ * cubes (engineering review finding 6). A full-length box reached into both cubes, so aiming at an atom's outer
+ * face along the bond axis picked the bond hidden behind the atom.
+ */
+export const PICK_LEN = BAR_LEN - ATOM_SCALE;
 export const BOND_GREY = 0x9a9a9a;
 export const BOND_WARN = 0xef5350;
 /** Break marker (09 §5.2): a thin red plate with a white "x" at the pair midpoint. */
@@ -154,7 +162,7 @@ export class BondRenderer {
     this.barMaterial = new MeshLambertMaterial({ color: 0xffffff });
     this.barMaterial.name = 'bars';
     this.bars = new InstancedPool(parent, this.barGeometry, this.barMaterial, BAR_CAPACITY, { useColor: true, name: 'bars' });
-    this.pickGeometry = new BoxGeometry(PICK_W, PICK_W, BAR_LEN);
+    this.pickGeometry = new BoxGeometry(PICK_W, PICK_W, PICK_LEN);
     this.pickMaterial = new MeshBasicMaterial();
     this.pickMaterial.name = 'bond-pick';
     this.pick = new InstancedPool(parent, this.pickGeometry, this.pickMaterial, BAR_CAPACITY, { visible: false, name: 'bond-pick' });

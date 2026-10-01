@@ -68,6 +68,8 @@ export function mountBenchPanel(root: HTMLElement, ctx: HudContext): BenchPanel 
   const { state } = ctx;
   let isOpen = false;
   let opener: HTMLElement | null = null;
+  /** The molecule panel's Collapse state when the bench opened; restored on close (engineering review finding 15). */
+  let moleculeWasCollapsed = false;
   let chosen: ReagentId | null = null;
   let correctCards: ReagentId[] = [];
   let rxOptionsBuilt = false;
@@ -342,6 +344,7 @@ export function mountBenchPanel(root: HTMLElement, ctx: HudContext): BenchPanel 
     if (!isOpen) {
       isOpen = true;
       setHidden(root, false);
+      moleculeWasCollapsed = ctx.isMoleculeCollapsed();
       ctx.setMoleculeCollapsed(true);
       ctx.setSheet('bench');
     }
@@ -354,7 +357,7 @@ export function mountBenchPanel(root: HTMLElement, ctx: HudContext): BenchPanel 
     if (!isOpen) return;
     isOpen = false;
     setHidden(root, true);
-    ctx.setMoleculeCollapsed(false);
+    ctx.setMoleculeCollapsed(moleculeWasCollapsed);
     ctx.setSheet(null);
     const target = opener && opener.isConnected ? opener : ctx.canvas;
     target.focus({ preventScroll: true });

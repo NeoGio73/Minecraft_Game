@@ -4,11 +4,18 @@
  * extract -> analyze -> State -> panels, the tool actions of 06 §10, the
  * bench flow (04/09 §3.2), locked molecules (06 §10.6), context loss (06 §14.7)
  * and the DebugApi on window.__orgocraft (06 §1, §14.8). docs/design/06-engine.md §14.
+ *
+ * Analysis runs in a Web Worker for every component above SYNC_ANALYSIS_ATOMS
+ * heavy atoms (or one that proved slow), so no frame can stall on a ring-dense
+ * build; small components keep the synchronous same-frame path. Without a
+ * worker, slow components are re-analysed only on Analyze (F) or a submission
+ * (docs/design/10-integration-notes.md, "From engineering fixes").
  */
 import { Raycaster, Vector3 } from 'three';
-import type { MoleculeGraph, Vec3, WorldGraph } from '../chem/types';
+import type { Analysis, MoleculeGraph, Vec3, WorldGraph } from '../chem/types';
 import { TARGET_VALENCE } from '../chem/types';
 import { analyze } from '../chem/analyze';
+import type { AnalysisJob, AnalysisReply } from '../chem/analysis-protocol';
 import { embedOnLattice } from '../chem/embed';
 import type { Challenge, ChallengeRule } from '../content/types';
 import { loadConfig, loadFullRoster, rosterInfo } from '../content/challenges';
@@ -19,6 +26,7 @@ import { emptyState } from '../lms/Progress';
 import { World } from '../world/world';
 import { generate } from '../world/worldgen';
 import { extractAll, extractComponentDetailed, suppressedPairsOfComponent } from '../world/extract';
+import type { ExtractedComponent } from '../world/extract';
 import { validateBondChange, validateChargeChange, validatePlacement } from '../world/molecule-index';
 import { raycastVoxels } from '../world/raycast';
 import {
@@ -37,7 +45,7 @@ import type { LookMode, LookSettings } from '../input/look-modes';
 import type { InputAction } from '../input/keymap';
 import { Renderer, detectLowGfx } from '../render/Renderer';
 import { ChunkRenderer } from '../render/ChunkRenderer';
-import { AtomRenderer } from '../render/AtomRenderer';
+import { ATOM_SCALE, AtomRenderer, EXPLICIT_H_SCALE } from '../render/AtomRenderer';
 import type { HydrogenMode } from '../render/AtomRenderer';
 import { BondRenderer } from '../render/BondRenderer';
 import { GhostRenderer } from '../render/GhostRenderer';
@@ -48,13 +56,14 @@ import { addLights } from '../render/lights';
 import { mountHud } from '../ui/hud';
 import type { Hud, RenderHooks } from '../ui/hud';
 import { ENGINE_TEXT, STRINGS } from '../ui/strings';
-import { effectiveKeys, loadInventory, loadSettings, reducedMotionActive, saveSettings, wasStored } from './Settings';
+import { effectiveKeys, loadInventory, loadSettings, reducedMotionActive, wasStored } from './Settings';
 import type { Settings } from './Settings';
 import type { Emitter, GameEvents, HoverInfo } from './events';
 import {
-  HOTBAR, LOCKED_ORIGINS, PRODUCT_MIN, REACTANT_MAX, REACTANT_MIN, State, lockedCells,
+  HOTBAR, LOCKED_ORIGINS, PRODUCT_MIN, REACTANT_MAX, REACTANT_MIN, State, inReservedBoxes, lockedCells, reservedBoxesFor,
+  studentCellsInBoxes,
 } from './State';
-import type { HotbarTool, LockedPlacement, UiState } from './State';
+import type { HotbarTool, LockedPlacement, ReservedBox, UiState } from './State';
 import { Interval, RollingMean } from '../util/throttle';
 
 // ---------------------------------------------------------------------------
@@ -77,11 +86,17 @@ export function toolOf(entry: BlockElement | HotbarTool): Tool {
 export interface DebugApi {
   readonly version: string;
   frames: number;
+  /** Full scene rebuilds (atoms, bonds, highlight, stereo overlay); a hover change alone never increments it. */
+  redraws: number;
   triangles: number;
   calls: number;
   lookMode: LookMode;
   lowGfx: boolean;
   pixelRatio: number;
+  /** Hydrogen display mode after the last scene redraw ('studs' | 'blocks' | 'select'). */
+  hydrogenMode: HydrogenMode;
+  /** true while analyses of large components run in the Web Worker (false: synchronous fallback). */
+  analysisWorker: boolean;
   /** true once the first frame rendered (the smoke test waits for it together with `frames`). */
   ready: boolean;
   readonly events: Emitter<GameEvents>;
@@ -94,6 +109,8 @@ export interface DebugApi {
   goToChallenge?(id: string): void;
   press?(action: InputAction): void;
   state?(): UiState;
+  /** The hover outline the Highlight draws (visible flag and cell), for the smoke test's hover check. */
+  hoverOutline?(): { visible: boolean; x: number; y: number; z: number };
 }
 
 declare global {
@@ -116,13 +133,46 @@ export const DEBUG_INVENTORY = 99;
 /**
  * A bond bar wins over the voxel hit when its pick box is at most this far behind the cell face the ray
  * entered (06 §10.2 says 0.2, but a 0.3-wide pick box centred on the cell boundary starts 0.35 behind the
- * face, so 0.2 could never select a bar between two atoms; 0.6 covers an oblique approach too).
+ * face, so 0.2 could never select a bar between two atoms). The pick box covers only the visible bar segment
+ * (BondRenderer.PICK_LEN), so a bond hidden behind the aimed-at atom starts 0.81 behind the face and never
+ * wins at this margin; a hit inside the aimed-at atom's cube is discarded as well (engineering review finding 6).
  */
-export const BOND_PICK_MARGIN = 0.6;
+export const BOND_PICK_MARGIN = 0.45;
+/** Components with at most this many heavy atoms are analysed synchronously, so the panel updates in the same frame. */
+export const SYNC_ANALYSIS_ATOMS = 8;
+/**
+ * A synchronous analysis slower than this marks its component "heavy": later automatic re-analyses go to the
+ * worker, or without one wait for an explicit Analyze (F) / submission (engineering review finding 1b).
+ */
+export const HEAVY_ANALYSIS_MS = 50;
+/** A worker job unanswered for this long is presumed lost: the worker is dropped and analysis falls back to the main thread. */
+export const ANALYSIS_WORKER_TIMEOUT_MS = 15_000;
 /** Debug overlay refresh. */
 export const DEBUG_REFRESH_MS = 250;
 
 const NO_HOVER: HoverInfo = { kind: 'none' };
+
+/** A worker job in flight: its number, the component signature it was computed for and the extraction it belongs to. */
+interface PendingAnalysis {
+  readonly job: number;
+  readonly sig: string;
+  readonly detail: ExtractedComponent;
+  readonly since: number;
+}
+
+/**
+ * The analysis Web Worker, or null when workers are unavailable (the synchronous path then applies). The
+ * `new URL(..., import.meta.url)` literal is what Vite recognises: the worker is emitted as its own chunk.
+ */
+function createAnalysisWorker(): Worker | null {
+  try {
+    if (typeof Worker !== 'function') return null;
+    return new Worker(new URL('../chem/analyze.worker.ts', import.meta.url), { type: 'module', name: 'orgocraft-analysis' });
+  } catch (e) {
+    console.warn('[game] analysis worker unavailable; analysing on the main thread', e);
+    return null;
+  }
+}
 
 function copyPlayer(p: PlayerState): PlayerState {
   return { x: p.x, y: p.y, z: p.z, vx: p.vx, vy: p.vy, vz: p.vz, yaw: p.yaw, pitch: p.pitch, onGround: p.onGround };
@@ -200,12 +250,28 @@ export class Game {
   private last = 0;
   private acc = 0;
   private frames = 0;
+  private redraws = 0;
   private sceneDirty = true;
+  /** Only the hover / selection view changed: Highlight.update alone, no instanced atom/bond rebuild (finding 14). */
+  private highlightDirty = false;
   private hover: HoverInfo = NO_HOVER;
   private voxelHit: VoxelHit | null = null;
   private seenVersion = -1;
   private readonly analysisSig = new Map<ComponentId, string>();
   private readonly queue = new Set<ComponentId>();
+  private worker: Worker | null = null;
+  private jobSeq = 0;
+  private readonly pendingJobs = new Map<ComponentId, PendingAnalysis>();
+  /** Components whose last synchronous analysis exceeded HEAVY_ANALYSIS_MS. */
+  private readonly heavyComponents = new Set<ComponentId>();
+  /** Heavy components (no worker) whose automatic re-analysis is withheld until Analyze / submit. */
+  private readonly deferredComponents = new Set<ComponentId>();
+  private reservedBoxes: readonly ReservedBox[] = [];
+  /** The target component the last full scene redraw was built for. */
+  private drawnTarget: ComponentId | null = null;
+  /** false while #stage is scrolled out of view (IntersectionObserver): rendering and physics pause like document.hidden. */
+  private stageVisible = true;
+  private intersection: IntersectionObserver | null = null;
   private hydrogenMode: HydrogenMode = 'studs';
   private reducedMotion = false;
   private selectedCells: readonly CellKey[] = [];
@@ -265,6 +331,24 @@ export class Game {
     this.renderer.attachCamera(this.camera.camera);
     this.input = new InputManager(this.canvas, () => effectiveKeys(this.settings), this.events);
     this.look = new LookModes(this.canvas, this.input, this.events, () => lookSettingsOf(this.settings));
+    this.worker = createAnalysisWorker();
+    if (this.worker) {
+      this.worker.onmessage = this.onWorkerMessage;
+      this.worker.onerror = (e) => this.dropWorker(e instanceof ErrorEvent ? e.message : 'error event');
+      this.worker.onmessageerror = () => this.dropWorker('message could not be deserialised');
+    }
+    // 06 §11.4: a stage scrolled out of view (the D2L page around the iframe) stops rendering until it is back.
+    if (typeof IntersectionObserver === 'function') {
+      try {
+        this.intersection = new IntersectionObserver((entries) => {
+          const last = entries[entries.length - 1];
+          if (last) this.stageVisible = last.isIntersecting || last.intersectionRatio > 0;
+        });
+        this.intersection.observe(this.stage);
+      } catch {
+        this.intersection = null;
+      }
+    }
 
     // 4. renderers
     const scene = this.renderer.scene;
@@ -314,6 +398,11 @@ export class Game {
     if (this.disposed) return;
     this.disposed = true;
     cancelAnimationFrame(this.raf);
+    this.intersection?.disconnect();
+    this.intersection = null;
+    this.worker?.terminate();
+    this.worker = null;
+    this.pendingJobs.clear();
     this.hud?.dispose();
     this.look.dispose();
     this.input.dispose();
@@ -344,7 +433,10 @@ export class Game {
       this.sceneDirty = true;
     }
     hud.tick(tNow);
-    if (document.hidden || this.renderer.contextLost) {
+    if (document.hidden || !this.stageVisible || this.renderer.contextLost) {
+      // Drop the input accumulated while hidden, off-screen or without a context, so a yaw jump or queued
+      // place actions never fire in one frame on resume (engineering review finding 7).
+      this.input.consumeFrame();
       this.last = tNow;
       return;
     }
@@ -378,7 +470,7 @@ export class Game {
     const hover = this.resolveHover();
     if (!sameHover(hover, this.hover)) {
       this.hover = hover;
-      this.sceneDirty = true;
+      this.highlightDirty = true;   // looking around redraws the highlight only (finding 14)
       this.events.emit('hover:changed', { hover });
     }
     if (!paused) this.applyActions(inp.pressed);
@@ -390,7 +482,11 @@ export class Game {
     this.chunks.rebuildDirty(this.world, this.player, this.renderer.profile.chunkRebuildsPerFrame);
     if (this.sceneDirty) {
       this.sceneDirty = false;
+      this.highlightDirty = false;
       this.redrawScene();
+    } else if (this.highlightDirty) {
+      this.highlightDirty = false;
+      this.redrawHighlight();
     }
     this.highlight.tick(tNow);
     this.ghost.tick(dt, this.reducedMotion);
@@ -399,19 +495,24 @@ export class Game {
     const stats = this.renderer.stats();
     const api = this.debugApi;
     api.frames = this.frames;
+    api.redraws = this.redraws;
     api.triangles = stats.triangles;
     api.calls = stats.calls;
     api.lookMode = this.look.mode;
     api.lowGfx = this.renderer.lowGfx;
     api.pixelRatio = this.renderer.pixelRatio;
+    api.hydrogenMode = this.atoms.hydrogenMode;
+    api.analysisWorker = this.worker !== null;
     api.ready = true;
     if (this.renderer.timingCheck(dt)) this.camera.setFar(this.renderer.profile.cameraFar);
     if (this.debugVisible && this.debugTick.due(tNow)) this.refreshDebugOverlay();
   };
 
   private redrawScene(): void {
+    this.redraws++;
     const index = this.world.index;
     const t = this.state.target;
+    this.drawnTarget = t.component;
     const dim = new Set<CellKey>();
     for (const lp of this.state.locked) {
       if (lp.zone !== 'reactant') continue;
@@ -421,14 +522,20 @@ export class Game {
     this.atoms.update(index, { hydrogenMode: this.hydrogenMode, dimCells: dim }, this.world.getBlock);
     const tool = this.tool();
     this.bonds.update(index, warnPairsOf(t.analysis?.stereo, t.atomToCell), tool.kind === 'bond');
-    this.highlight.update(index, this.world.getBlock, {
+    this.redrawHighlight();
+    this.stereo.update(t.analysis ? { analysis: t.analysis, atomToCell: t.atomToCell } : null);
+  }
+
+  /** The hover / target / selection overlay alone (06 §12.6); every hover change takes this path, not redrawScene. */
+  private redrawHighlight(): void {
+    const t = this.state.target;
+    this.highlight.update(this.world.index, this.world.getBlock, {
       hover: this.hover,
       targetCells: t.atomToCell,
       selectedCells: this.selectedCells,
       selectedHydrogens: this.selectedHydrogens,
       reducedMotion: this.reducedMotion,
     });
-    this.stereo.update(t.analysis ? { analysis: t.analysis, atomToCell: t.atomToCell } : null);
   }
 
   private tool(): Tool {
@@ -452,7 +559,7 @@ export class Game {
     const selectMode = tool.kind === 'select' || (this.hud?.select.active ?? false);
     if (tool.kind === 'bond') {
       const hit = this.pick(this.bonds.pickMesh, eye, dir);
-      if (hit && (!vh || hit.distance < vh.t + BOND_PICK_MARGIN)) {
+      if (hit && (!vh || hit.distance < vh.t + BOND_PICK_MARGIN) && !this.insideHitAtom(vh, eye, dir, hit.distance)) {
         const pair = this.bonds.pairOf(hit.instanceId);
         if (pair) return { kind: 'bond', pair, order: index.wandOrder(pair) ?? 1 };
       }
@@ -485,6 +592,16 @@ export class Game {
       };
     }
     return { kind: 'block', x: vh.x, y: vh.y, z: vh.z, id: vh.id, face };
+  }
+
+  /** true when the point `distance` along the ray lies inside the drawn cube of the voxel-hit atom (finding 6). */
+  private insideHitAtom(vh: VoxelHit | null, eye: readonly number[], dir: readonly number[], distance: number): boolean {
+    if (!vh || !isAtom(vh.id)) return false;
+    const half = (vh.id === Block.AtomH ? EXPLICIT_H_SCALE : ATOM_SCALE) / 2;
+    const px = (eye[0] ?? 0) + (dir[0] ?? 0) * distance;
+    const py = (eye[1] ?? 0) + (dir[1] ?? 0) * distance;
+    const pz = (eye[2] ?? 0) + (dir[2] ?? 0) * distance;
+    return Math.abs(px - (vh.x + 0.5)) <= half && Math.abs(py - (vh.y + 0.5)) <= half && Math.abs(pz - (vh.z + 0.5)) <= half;
   }
 
   private pick(mesh: import('three').Object3D, eye: readonly number[], dir: readonly number[]): { distance: number; instanceId: number } | null {
@@ -572,12 +689,16 @@ export class Game {
       }
     }
     for (const id of Array.from(this.analysisSig.keys())) if (!live.has(id)) { this.analysisSig.delete(id); this.queue.delete(id); }
+    for (const id of Array.from(this.pendingJobs.keys())) if (!live.has(id)) this.pendingJobs.delete(id);
+    for (const id of Array.from(this.heavyComponents)) if (!live.has(id)) this.heavyComponents.delete(id);
+    for (const id of Array.from(this.deferredComponents)) if (!live.has(id)) this.deferredComponents.delete(id);
     this.state.pruneAnalyses(live);
     this.seenVersion = world.editVersion;
     this.sceneDirty = true;
   }
 
   private runAnalyses(budgetMs: number): void {
+    this.reapLostJobs(performance.now());
     if (this.queue.size === 0) return;
     const t0 = performance.now();
     while (this.queue.size > 0 && performance.now() - t0 < budgetMs) {
@@ -586,21 +707,98 @@ export class Game {
       if (target !== null && this.queue.has(target)) id = target;
       else id = Math.min(...this.queue);
       this.queue.delete(id);
-      this.runOne(id);
+      this.runOne(id, false);
     }
   }
 
-  private runOne(id: ComponentId): void {
+  /**
+   * Analyses one component. Small components (<= SYNC_ANALYSIS_ATOMS heavy atoms, not known to be slow) run here,
+   * so the panel reflects an edit in the same frame. Larger or slow ones go to the worker; without a worker a
+   * slow component is re-analysed only when `explicit` (Analyze / submit) and is marked deferred otherwise.
+   */
+  private runOne(id: ComponentId, explicit: boolean): void {
     const index = this.world.index;
     if (!index.components().has(id)) return;
-    let detail;
+    let detail: ExtractedComponent;
     try {
       detail = extractComponentDetailed(index, id);
     } catch {
       return; // a component without a heavy atom (orphan H)
     }
+    const heavy = this.heavyComponents.has(id);
+    if (!explicit && (detail.graph.atoms.length > SYNC_ANALYSIS_ATOMS || heavy)) {
+      if (this.worker) {
+        this.postAnalysis(id, detail);
+        return;
+      }
+      if (heavy) {
+        this.deferredComponents.add(id);
+        this.state.setAnalysisDeferred(id, true);
+        return;
+      }
+    }
+    this.pendingJobs.delete(id);   // an explicit run supersedes a job in flight
+    const t0 = performance.now();
     const analysis = analyze(detail.graph, detail.warnings);
+    if (performance.now() - t0 > HEAVY_ANALYSIS_MS) this.heavyComponents.add(id);
+    else this.heavyComponents.delete(id);
+    this.applyAnalysis(id, analysis, detail);
+  }
+
+  private postAnalysis(id: ComponentId, detail: ExtractedComponent): void {
+    const worker = this.worker;
+    if (!worker) return;
+    const job = ++this.jobSeq;
+    this.pendingJobs.set(id, { job, sig: this.analysisSig.get(id) ?? '', detail, since: performance.now() });
+    const message: AnalysisJob = { job, component: id, graph: detail.graph, warnings: detail.warnings };
+    try {
+      worker.postMessage(message);
+    } catch (e) {
+      this.dropWorker(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  private readonly onWorkerMessage = (e: MessageEvent<AnalysisReply>): void => {
+    if (this.disposed) return;
+    const r = e.data;
+    const pending = this.pendingJobs.get(r.component);
+    if (!pending || pending.job !== r.job) return;   // superseded by a newer job or an explicit run
+    this.pendingJobs.delete(r.component);
+    if (!r.ok) {
+      console.error('[game] analysis worker failed on component', r.component, r.error);
+      this.queue.add(r.component);
+      this.dropWorker('analysis threw');
+      return;
+    }
+    // The component may have changed while the job ran: syncComponents re-queued it and a newer job is coming.
+    if (this.analysisSig.get(r.component) !== pending.sig || !this.world.index.components().has(r.component)) return;
+    this.applyAnalysis(r.component, r.analysis, pending.detail);
+  };
+
+  /** Falls back to the main thread: the worker is terminated and every job in flight is re-queued. */
+  private dropWorker(reason: string): void {
+    if (!this.worker) return;
+    console.warn('[game] analysis worker dropped (' + reason + '); analysing on the main thread');
+    this.worker.terminate();
+    this.worker = null;
+    for (const id of this.pendingJobs.keys()) this.queue.add(id);
+    this.pendingJobs.clear();
+  }
+
+  private reapLostJobs(now: number): void {
+    if (!this.worker || this.pendingJobs.size === 0) return;
+    for (const p of this.pendingJobs.values()) {
+      if (now - p.since > ANALYSIS_WORKER_TIMEOUT_MS) {
+        this.dropWorker('no reply within ' + ANALYSIS_WORKER_TIMEOUT_MS + ' ms');
+        return;
+      }
+    }
+  }
+
+  private applyAnalysis(id: ComponentId, analysis: Analysis, detail: ExtractedComponent): void {
+    const index = this.world.index;
     this.state.setAnalysis(id, analysis, detail.zone, suppressedPairsOfComponent(index, id), { cells: detail.cells, hCells: detail.hCells });
+    if (this.deferredComponents.delete(id)) this.state.setAnalysisDeferred(id, false);
     this.sceneDirty = true;
   }
 
@@ -642,14 +840,7 @@ export class Game {
         case 'selectTool': state.selectSlot(11); break;
         case 'slotPrev': if (!hud.handleAction(a)) state.cycleSlot(-1); break;
         case 'slotNext': if (!hud.handleAction(a)) state.cycleSlot(1); break;
-        case 'toggleHydrogens':
-          if (!hud.select.forcesHydrogens()) {
-            const next = { ...this.settings, showHydrogens: !this.settings.showHydrogens };
-            saveSettings(next);
-            this.settings = next;
-            this.events.emit('settings:changed', { key: 'showHydrogens', value: next.showHydrogens });
-          }
-          break;
+        case 'toggleHydrogens': hud.handleAction('toggleHydrogens'); break;   // through the HUD's settings copy (finding 5)
         case 'analyze': case 'submit': deferred.push(a); break;
         case 'nextChallenge': state.nextChallenge(); break;
         case 'prevChallenge': state.prevChallenge(); break;
@@ -682,12 +873,19 @@ export class Game {
     for (const a of pressed) {
       if (a === 'analyze') {
         const t = state.target.component;
-        if (t !== null) { this.queue.delete(t); this.runOne(t); }
+        if (t !== null) { this.queue.delete(t); this.runOne(t, true); }
         this.events.emit('analyze:requested', { component: t });
       } else if (a === 'submit') {
+        this.refreshDeferredTarget();
         state.submit();
       }
     }
+  }
+
+  /** A submission re-analyses a deferred (stale) target first, so the panel and result highlights match what was judged. */
+  private refreshDeferredTarget(): void {
+    const t = this.state.target.component;
+    if (t !== null && this.deferredComponents.has(t)) { this.queue.delete(t); this.runOne(t, true); }
   }
 
   private applyActions(pressed: readonly InputAction[]): void {
@@ -736,6 +934,7 @@ export class Game {
         else this.state.announce(ENGINE_TEXT.noAtomHere, 'polite');
         return;
       case 'select':
+        if (hud?.select.active) return;   // select mode owns every pick (finding 3)
         this.selectHovered();
         return;
       default:
@@ -771,6 +970,9 @@ export class Game {
         else this.state.announce(ENGINE_TEXT.noAtomHere, 'polite');
         return;
       case 'select':
+        // In a select-atom challenge select.place() above consumed the press (or there was no candidate); a
+        // student's own atom must never become a selection in the locked molecule (finding 3).
+        if (hud?.select.active) return;
         this.selectHovered();
         return;
       default:
@@ -791,6 +993,11 @@ export class Game {
 
   private placeAtom(x: number, y: number, z: number, el: BlockElement): PlacementResult {
     const index = this.world.index;
+    if (inReservedBoxes(this.reservedBoxes, x, y, z)) {
+      // the slot box of a challenge molecule plus one cell around it (finding 2)
+      this.refuse(x, y, z, ENGINE_TEXT.lockedMolecule);
+      return { ok: false, refusal: { reason: 'locked-zone', zone: zoneOf(x, y, z) }, message: ENGINE_TEXT.lockedMolecule };
+    }
     const r = validatePlacement(index, x, y, z, el, this.placementContext());
     if (!r.ok) {
       this.refuse(x, y, z, r.message);
@@ -886,14 +1093,18 @@ export class Game {
     this.refuse(x, y, z, firstMessage ?? REFUSAL_TEXT.chargeUnsupported(atom.el, first));
   }
 
-  /** Select tool outside select-atom mode: toggles the hovered atom of the targeted molecule (06 §10.4). */
+  /**
+   * Select tool outside select-atom mode: toggles the hovered atom of the targeted molecule (06 §10.4). The item
+   * carries the sentinel molecule -1 so State resolves it through the target, never through locked molecule 0
+   * (with a bench challenge that would highlight the reactant's atom instead; finding 3).
+   */
   private selectHovered(): void {
     const h = this.hover;
     if (h.kind !== 'atom') return;
     const t = this.state.target;
     const atom = t.cellToAtom.get(h.cell);
     if (atom === undefined) return;
-    this.state.toggleSelection({ molecule: 0, atom });
+    this.state.toggleSelection({ molecule: -1, atom });
   }
 
   // ---------------------------------------------------------------------------
@@ -990,6 +1201,11 @@ export class Game {
       }
     };
     this.lockedZones = [];
+    // Finding 2: a challenge molecule is stamped into its slot box; student atoms there (plus one cell around, so
+    // nothing bonds into the locked molecule) are returned to the inventory first, and the box refuses placement.
+    this.reservedBoxes = reservedBoxesFor(rule);
+    const cleared = this.clearReservedBoxes(this.reservedBoxes);
+    if (cleared > 0) this.state.announce(ENGINE_TEXT.reservedCleared(cleared), 'polite');
     if (rule.type === 'select-atom') {
       rule.molecules.forEach((s, i) => { const o = LOCKED_ORIGINS[i]; if (o) place(s, o, 'pad', i); });
     } else if (rule.type === 'quiz' && rule.display) {
@@ -1012,6 +1228,26 @@ export class Game {
     this.lastBench = null;
   }
 
+  /** Removes every non-locked atom block inside `boxes` (+ RESERVED_MARGIN), crediting heavy atoms; returns the count. */
+  private clearReservedBoxes(boxes: readonly ReservedBox[]): number {
+    if (boxes.length === 0) return 0;
+    const index = this.world.index;
+    const locked = lockedCells(this.state);
+    let n = 0;
+    for (const cell of studentCellsInBoxes(index.atoms, boxes, locked)) {
+      const atom = index.atoms.get(cell);
+      if (!atom) continue;   // removed with its parent already (an orphaned H block)
+      if (atom.el !== 'H') {
+        this.removeAtomCell(cell);
+      } else {
+        this.world.setBlock(atom.x, atom.y, atom.z, Block.Air);
+        this.events.emit('block:removed', { x: atom.x, y: atom.y, z: atom.z, id: Block.AtomH, el: 'H', zone: zoneOf(atom.x, atom.y, atom.z) });
+      }
+      n++;
+    }
+    return n;
+  }
+
   private syncBench(): void {
     const b = this.state.bench;
     if (b === this.lastBench) return;
@@ -1030,9 +1266,18 @@ export class Game {
     on('selection:changed', (e) => {
       this.selectedCells = e.cells;
       this.selectedHydrogens = e.hydrogens;
-      this.sceneDirty = true;
+      this.highlightDirty = true;
     });
-    on('target:changed', () => { this.sceneDirty = true; });
+    on('target:changed', (e) => {
+      // Only a different component changes what the instanced renderers draw (target shells, warn bars, stereo
+      // overlay); a new targeted cell or pair inside the same component is a highlight-only change (finding 14).
+      if (e.component !== this.drawnTarget) {
+        this.drawnTarget = e.component;
+        this.sceneDirty = true;
+      } else {
+        this.highlightDirty = true;
+      }
+    });
     on('molecule:analyzed', () => { this.sceneDirty = true; });
     on('inventory:changed', () => { this.sceneDirty = true; });
     on('settings:changed', (e) => {
@@ -1041,6 +1286,7 @@ export class Game {
     });
     on('look:mode', (e) => this.state.setLookMode(e.mode));
     on('challenge:submitted', (e) => {
+      this.refreshDeferredTarget();   // the panel's Submit button bypasses handleTargetActions
       const rule = this.state.current.challenge.rule;
       const build = rule.type !== 'quiz' && rule.type !== 'select-atom' && rule.type !== 'choose-reagent';
       const cells = this.state.target.atomToCell;
@@ -1092,6 +1338,8 @@ export class Game {
         return g ? { el: g.el, breakEndpoint: g.breakEndpoint } : null;
       },
       touch: { setHeld: (action, down) => this.input.setHeld(action, down), inject: (action) => this.input.inject(action) },
+      debug: this.debug,
+      setModal: (on) => { this.input.modal = on; },
     };
   }
 
@@ -1128,11 +1376,14 @@ export class Game {
     const api: DebugApi = {
       version,
       frames: 0,
+      redraws: 0,
       triangles: 0,
       calls: 0,
       lookMode: 'keys',
       lowGfx: this.renderer.lowGfx,
       pixelRatio: this.renderer.pixelRatio,
+      hydrogenMode: this.atoms.hydrogenMode,
+      analysisWorker: this.worker !== null,
       ready: false,
       events: this.events,
       getBlock: this.world.getBlock,
@@ -1170,6 +1421,7 @@ export class Game {
     };
     api.press = (action) => this.input.inject(action);
     api.state = () => this.state;
+    api.hoverOutline = () => this.highlight.outlineInfo();
     return api;
   }
 }

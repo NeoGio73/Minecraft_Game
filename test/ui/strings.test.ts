@@ -133,7 +133,7 @@ describe('STRINGS table (07 §19, §20)', () => {
     expect(REACTION_STEREO_TEXT.racemic).toBe(BENCH.stereoRacemic);
     for (const mode of ['discovering', 'lms', 'standalone'] as const) expect(MODE_BADGE[mode].length).toBeGreaterThan(0);
     for (const g of GROUP_IDS) expect(GROUP_LABEL[g].length, g).toBeGreaterThan(0);
-    expect(FEEDBACK_KINDS.length).toBe(24);
+    expect(FEEDBACK_KINDS.length).toBe(25);
     for (const k of FEEDBACK_KINDS) expect(FEEDBACK[k as keyof typeof FEEDBACK]({}).length, k).toBeGreaterThan(0);
     expect(REVIEW_BADGE.length).toBeGreaterThan(0);
     expect(DEGRADED_BADGE.length).toBeGreaterThan(0);

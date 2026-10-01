@@ -159,6 +159,9 @@ export function mountSelectMode(ctx: HudContext): SelectMode {
   }
 
   function rebuild(): void {
+    const prevKeys = cycled.map(keyOf);
+    const prevIndex = cycledIndex;
+    const prevKeyboard = keyboardHover !== null;
     cycled = [];
     fallbacks = [];
     if (!active || !rule) return;
@@ -194,8 +197,19 @@ export function mountSelectMode(ctx: HudContext): SelectMode {
         fallbacks.push({ molecule: m, atom, cell, center: [x + 0.5, y + 0.5, z + 0.5], half: 0.31, hydrogens: n, fallback: true });
       }
     }
-    if (cycledIndex >= cycled.length) cycledIndex = -1;
-    keyboardHover = null;
+    // Analyze (F) and every molecule:analyzed rebuild the lists; when the candidates are unchanged the keyboard-cycled
+    // position survives, re-pointed at the fresh candidate objects (engineering review finding 9).
+    const sameCandidates = prevKeys.length === cycled.length && prevKeys.every((k, i) => k === keyOf(cycled[i]!));
+    if (sameCandidates && prevIndex >= 0 && prevIndex < cycled.length) {
+      cycledIndex = prevIndex;
+      if (prevKeyboard) {
+        keyboardHover = cycled[prevIndex]!;
+        hoveredC = keyboardHover;
+      }
+    } else {
+      if (cycledIndex >= cycled.length) cycledIndex = -1;
+      keyboardHover = null;
+    }
     pushHighlights();
   }
 

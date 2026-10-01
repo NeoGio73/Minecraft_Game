@@ -214,6 +214,11 @@ export const ENGINE_TEXT = {
   contextLost: 'Graphics paused while the browser restores WebGL. Nothing is lost.',
   contextRestored: 'Graphics restored.',
   selectNoHydrogens: 'This atom has no hydrogens.',
+  /** Student atoms removed from a reserved slot box when a challenge places its molecule (finding 2). */
+  reservedCleared: (n: number) =>
+    `${n} of your atom${n === 1 ? '' : 's'} near the challenge molecule ${n === 1 ? 'was' : 'were'} returned to your inventory.`,
+  /** A large molecule (no analysis worker) is not re-analysed after every edit (finding 1b, heavy guard). */
+  analysisDeferred: 'Large molecule: the panel updates when you press F to analyze it or when you submit.',
   hover: {
     ore: (el: string) => `${el} ore - mine for ${ORE_YIELD} ${el}`,
     atom: (el: string, bonds: number, h: number, q: number) => `${el} atom${q ? (q > 0 ? ' (+1)' : ' (-1)') : ''} - ${bonds} bond${bonds === 1 ? '' : 's'}, ${h} H`,
@@ -255,6 +260,7 @@ export const STRINGS = {
   tabs: { label: 'Panels', challenge: 'Challenge', molecule: 'Molecule', bench: 'Bench' },
   touch: { move: 'Move', forward: 'Forward', back: 'Back', left: 'Left', right: 'Right', jump: 'Jump', mine: 'Mine', place: 'Place' },
   analyzing: 'analyzing',
+  analysisDeferredNote: 'This molecule is large, so it is not re-analyzed after every change. Press F (Analyze) or submit to update this panel.',
   // hotbar and target info
   slotLabel: (el: BlockElement, count: number | null, n: number) =>
     `${ELEMENT_NAME[el]}, ${count === null ? 'unlimited' : count === 0 ? 'empty' : `${count} left`}, slot ${n}`,

@@ -7,6 +7,9 @@
  * wrapper page that defines a fake SCORM 1.2 `window.API` (LMS mode) -- through
  * the DebugApi on window.__orgocraft, and fails on any console error or
  * uncaught exception. Prints a step-by-step log; exit code 1 on any failure.
+ * Steps 23-27 cover the engineering-review fixes: the 5x5 sheet never stalls
+ * the frame loop (analysis worker), select-atom picks and the empty-selection
+ * submit, the T key, the hover-only highlight path and the out-of-view pause.
  *
  *   npm run build && npm run smoke
  *   CHROMIUM_PATH=/path/to/chrome npm run smoke      (CHROME_PATH is accepted as an alias; otherwise
@@ -583,6 +586,115 @@ async function runScript({ browser, baseUrl, mode, log, screenshotPaths }) {
       }
     });
   }
+
+  // 23 ---------------------------------------------------------------------
+  await run.step(23, '5x5 carbon sheet: no frame gap over 500 ms, the page keeps answering, the worker analyses it', async () => {
+    await closeDialogs();
+    await api(() => window.__orgocraft.goToChallenge('ch1-build-methane'));
+    await api(() => window.__orgocraft.teleport(56.5, 9, 73.5, 0, -0.35));
+    await focusCanvas();
+    assert(await t.evaluate(() => window.__orgocraft.analysisWorker === true), 'the analysis worker is not active (synchronous fallback in use)');
+    // an in-page requestAnimationFrame watchdog records every frame gap while the sheet is built and analysed
+    await t.evaluate(() => {
+      window.__gaps = [];
+      window.__gapsOn = true;
+      let last = performance.now();
+      const tick = (now) => { window.__gaps.push(now - last); last = now; if (window.__gapsOn) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    });
+    // one carbon per frame, like a student: every placement re-queues the growing component for analysis
+    const cells = [];
+    for (let x = 54; x < 59; x++) for (let z = 66; z < 71; z++) cells.push([x, 9, z]);
+    for (const c of cells) {
+      const r = await api((p) => window.__orgocraft.place(p[0], p[1], p[2], 'C'), c);
+      assert(r.ok, `placement of ${JSON.stringify(c)} refused: ${r.message}`);
+      const f0 = await t.evaluate(() => window.__orgocraft.frames);
+      await until(() => t.evaluate((f) => window.__orgocraft.frames > f, f0), 2000, 'a frame after the placement');
+    }
+    let slowest = 0;
+    await until(async () => {
+      const t0 = Date.now();
+      const done = await t.evaluate(() => window.__orgocraft.state().padComponents.some((c) => c.analysis.formula === 'C25H20'));
+      slowest = Math.max(slowest, Date.now() - t0);
+      return done;
+    }, 15000, 'the 25-carbon sheet is analysed (C25H20)');
+    assert(slowest < 500, `a page round trip took ${slowest} ms while the sheet was analysed`);
+    const gaps = await t.evaluate(() => { window.__gapsOn = false; return window.__gaps; });
+    const worst = Math.max(...gaps);
+    log(`[${mode}] sheet: ${gaps.length} frames, worst frame gap ${worst.toFixed(0)} ms, slowest round trip ${slowest} ms`);
+    assert(worst < 500, `a frame gap of ${worst.toFixed(0)} ms during the sheet build`);
+    await until(async () => (await text('#molecule-panel .mp-centers')).includes('cannot assign'), 3000, 'the panel lists CANNOT_ASSIGN centres', () => text('#molecule-panel .mp-centers'));
+  });
+
+  // 24 ---------------------------------------------------------------------
+  await run.step(24, "select-atom: Place on the student's own atom selects nothing; Submit is disabled and consumes nothing while empty", async () => {
+    await api(() => window.__orgocraft.goToChallenge('ch1-select-sp2-propene'));
+    await t.waitForFunction(() => window.__orgocraft.state().locked.length === 1, null, { timeout: 5000 });
+    // the methane carbon from step 5 at (64, 9, 60) is the student's own atom, outside the reserved slot box
+    assert((await t.evaluate(() => window.__orgocraft.getBlock(64, 9, 60))) === 64, 'the student carbon at (64,9,60) is gone');
+    await api(() => window.__orgocraft.teleport(64.5, 9, 64.5, 0, -0.27));
+    await focusCanvas();
+    await until(() => t.evaluate(() => window.__orgocraft.state().target.cell === '64,9,60'), 3000, 'hover on the student carbon', () => t.evaluate(() => window.__orgocraft.state().target));
+    const id = await t.evaluate(() => window.__orgocraft.state().current.challenge.id);
+    const attemptBefore = await t.evaluate((i) => window.__orgocraft.state().attemptOf(i), id);
+    const attemptsLine = await text('#challenge-panel .cp-attempts');
+    await pressKey('KeyE');
+    await sleep(150);
+    const sel = await t.evaluate(() => window.__orgocraft.state().selection);
+    assert(sel.length === 0, `Place on the student's own atom produced the selection ${JSON.stringify(sel)}`);
+    assert(await t.evaluate(() => document.getElementById('cp-submit').disabled === true), '#cp-submit is enabled with nothing selected');
+    await pressKey('Enter');
+    await until(async () => (await feedback()).includes('Nothing is selected'), 2000, '.cp-feedback says nothing is selected', feedback);
+    const attemptAfter = await t.evaluate((i) => window.__orgocraft.state().attemptOf(i), id);
+    assert(attemptAfter === attemptBefore, `an empty submit consumed an attempt (${attemptBefore} -> ${attemptAfter})`);
+    assert((await text('#challenge-panel .cp-attempts')) === attemptsLine, 'the attempts line changed after an empty submit');
+  });
+
+  // 25 ---------------------------------------------------------------------
+  await run.step(25, 'T toggles hydrogen blocks and the settings checkbox agrees both ways', async () => {
+    await api(() => window.__orgocraft.goToChallenge('ch1-build-methane'));
+    await closeDialogs();
+    await focusCanvas();
+    await until(() => t.evaluate(() => window.__orgocraft.hydrogenMode === 'studs'), 2000, 'hydrogen mode studs');
+    await pressKey('KeyT');
+    await until(() => t.evaluate(() => window.__orgocraft.hydrogenMode === 'blocks'), 2000, 'hydrogen mode blocks after T');
+    await jsClick('#tb-settings');
+    await until(() => visible('#st-hydrogens'), 2000, 'settings dialog visible');
+    assert(await t.evaluate(() => document.getElementById('st-hydrogens').checked === true), 'the settings checkbox is unchecked after T');
+    await closeDialogs();
+    await focusCanvas();
+    await pressKey('KeyT');
+    await until(() => t.evaluate(() => window.__orgocraft.hydrogenMode === 'studs'), 2000, 'hydrogen mode studs after the second T');
+    await jsClick('#tb-settings');
+    await until(() => visible('#st-hydrogens'), 2000, 'settings dialog visible (2)');
+    assert(await t.evaluate(() => document.getElementById('st-hydrogens').checked === false), 'the settings checkbox is checked after the second T');
+    await closeDialogs();
+    assert(!(await visible('#st-hydrogens')), 'settings dialog did not close');
+  });
+
+  // 26 ---------------------------------------------------------------------
+  await run.step(26, 'the hover outline follows the crosshair without a scene rebuild', async () => {
+    await focusCanvas();
+    await api(() => window.__orgocraft.teleport(64.5, 9, 64.5, 0, -0.27));
+    await until(() => t.evaluate(() => { const o = window.__orgocraft.hoverOutline(); return o.visible && o.x === 64 && o.y === 9 && o.z === 60; }), 3000, 'outline on the student carbon', () => t.evaluate(() => window.__orgocraft.hoverOutline()));
+    const redraws = await t.evaluate(() => window.__orgocraft.redraws);
+    await api(() => window.__orgocraft.teleport(64.5, 9, 64.5, 0, -1.4));   // look at the floor by the feet
+    await until(() => t.evaluate(() => { const o = window.__orgocraft.hoverOutline(); return o.visible && o.y === 8; }), 3000, 'outline on a floor tile', () => t.evaluate(() => window.__orgocraft.hoverOutline()));
+    const after = await t.evaluate(() => window.__orgocraft.redraws);
+    assert(after === redraws, `looking around rebuilt the scene (${redraws} -> ${after} redraws)`);
+  });
+
+  // 27 ---------------------------------------------------------------------
+  await run.step(27, 'rendering pauses while #stage is out of view (IntersectionObserver) and resumes', async () => {
+    await t.evaluate(() => { document.getElementById('stage').style.display = 'none'; });
+    await sleep(500);
+    const f1 = await t.evaluate(() => window.__orgocraft.frames);
+    await sleep(500);
+    const f2 = await t.evaluate(() => window.__orgocraft.frames);
+    assert(f2 === f1, `frames advanced while #stage was hidden (${f1} -> ${f2})`);
+    await t.evaluate(() => { document.getElementById('stage').style.display = ''; });
+    await until(() => t.evaluate((f) => window.__orgocraft.frames > f + 2, f2), 3000, 'frames advance again once #stage is visible');
+  });
 
   // 18 / 19 (lms) ----------------------------------------------------------
   await run.step(18, 'Save & Exit: confirm, finished overlay, LMSFinish once, exit is not logout', async () => {

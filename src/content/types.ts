@@ -314,6 +314,8 @@ export type FeedbackKind =
   | 'wrong-reagent'
   | 'wrong-option'
   | 'attempts-exhausted'
+  /** select-atom submitted with an empty selection: never consumes an attempt (engineering review finding 4). */
+  | 'nothing-selected'
   | 'nothing-targeted';
 
 export interface SubmitResult {

@@ -103,7 +103,8 @@ export class InputManager {
     return document.activeElement === this.canvas || document.pointerLockElement === this.canvas;
   }
 
-  /** Set by the HUD while a dialog is open (07 §17 focus stack); keys are ignored while true. */
+  /** Set by the HUD while a dialog is open (07 §17 focus stack, through RenderHooks.setModal); keys, wheel and
+   *  mouse buttons are ignored while true, and LookModes does not read an unlock as a pause request. */
   get modal(): boolean {
     return this.isModal;
   }
@@ -228,7 +229,10 @@ export class InputManager {
 
   private readonly onWheel = (ev: WheelEvent): void => {
     ev.preventDefault();
-    if (this.isModal) return;
+    // Rule 2's gate applies to the wheel too (engineering review finding 11): the canvas must be the active element
+    // (or hold the pointer lock) and no dialog may be open, otherwise scrolling over the canvas while a panel
+    // control has focus would change the hotbar. `modal` is driven by the HUD's dialog stack (RenderHooks.setModal).
+    if (!this.active() || this.isModal) return;
     const now = performance.now();
     if (now - this.lastWheel >= WHEEL_STEP_MS && Math.abs(ev.deltaY) >= 1) {
       this.wheelSteps += Math.sign(ev.deltaY);
