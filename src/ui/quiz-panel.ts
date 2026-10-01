@@ -144,7 +144,9 @@ export function mountQuizPanel(root: HTMLElement, ctx: HudContext): QuizPanel {
     clearChildren(feedback);
     feedback.dataset['tone'] = tone;
     feedback.append(h('span', { class: 'glyph', 'aria-hidden': 'true' }, glyph), ' ', h('b', null, prefix), ` ${message}`);
-    ctx.announceSticky(`${prefix} ${message}`);
+    // Not announced from here: the challenge panel announces every result exactly once (07 §9.5, §16.1) and this
+    // dialog only mirrors it. A second sticky copy of the same text queued behind the first and delayed every later
+    // polite message by at least one LIVE_POLITE_MS window.
     refreshAttempts();
     if (result.passed) {
       setLocked(true);

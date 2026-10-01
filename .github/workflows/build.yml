@@ -1,0 +1,69 @@
+# CI for OrgoCraft (docs/design/08-deployment.md §12).
+#
+# build: typecheck, unit tests, Vite build, relative-path check, both D2L packages, then the Playwright smoke
+#        (docs/design/06-engine.md §15.2) in headless Chromium. Chromium comes from the `playwright` devDependency
+#        (`npx playwright install --with-deps chromium`, cached under PLAYWRIGHT_BROWSERS_PATH); scripts/smoke.mjs
+#        finds it there, or wherever CHROMIUM_PATH points.
+# release: on a `vX.Y.Z` tag that equals orgocraft.config.json.version, attaches the two zips to a GitHub release.
+name: build
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run check:paths
+      - run: npm run package:d2l
+      - run: npm run package:scorm
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        with:
+          path: .pw-browsers
+          key: pw-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium for the smoke test
+        run: npx playwright install --with-deps chromium
+      - run: npm run smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: orgocraft-${{ github.sha }}
+          path: |
+            release/*.zip
+            docs/screenshots/*.png
+            test-results/
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag must equal orgocraft.config.json.version
+        run: test "v$(node -p "require('./orgocraft.config.json').version")" = "${GITHUB_REF_NAME}"
+      - uses: actions/download-artifact@v4
+        with:
+          name: orgocraft-${{ github.sha }}
+          path: out
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/release/*.zip
+          generate_release_notes: true

@@ -143,3 +143,27 @@ Each item names the package that raised it.
 - Contract change request: 04 §9.1 rows 5 and 13: the `suppressedPairs` ids are given in the expected-SMILES atom order; in the engine's product numbering (reactant order + appended atoms) they are [[1,6]] and [[2,4]]. Either restate them in engine ids or say they are SMILES-order ids.
 - Contract change request: 00-contracts §5 / 04 §1: fold `Decision` (adds `warnings`, `orientation`), `RuleResult`, `RuleFn`, `RuleOpts` and the `REAGENT_CARDS` / `CARD_RULE` / `defaultCard` registry exported by src/reactions/react.ts into the contract table; WP-05 should validate reagents.json against `REAGENT_CARDS` (card equality) rather than only REAGENT_IDS.
 - Contract change request: 04 §7.5 roster-agreement check: confirm (unresolved question 2) that for SUBST_ELIM cards an `expected` match against `major ∪ minor` is accepted (row 62 / ch11-sn2-inversion), since the engine reports E2 major for secondary halide + NaOH.
+
+## From WP-11 (integration, smoke, CI)
+
+- `Game.ts` frame order (06 §14.2): `submit` (Enter) and `analyze` (F) are no longer run inside `handlePressed`
+  before physics; `handlePressed` returns them and `handleTargetActions` runs them after `updateTarget` /
+  `syncComponents` / `runAnalyses` of the same frame. Reason: `state.submit()` read the previous frame's target, so
+  a target that changed between frames (player moved, world edited through the debug API) was judged one frame
+  stale -- after a bench challenge the product-zone molecule was submitted to a pad challenge and the result was
+  `nothing-targeted` (smoke 17a). The panel button still calls `state.submit()` directly (06 §14.5).
+- `Game.updateTarget` (06 §10.3): a `bond` hover (bar or break marker) targets the component containing the pair
+  (the previous target when it holds either endpoint, else the lower-cellIndex endpoint's component) instead of the
+  nearest component; the "nearest within 8 blocks" rule applies only when nothing hovered belongs to a molecule.
+  Follows 09 §1.10 / §5.5 (the pair's labels and `TargetState.suppressed` are those of the pair's own molecule).
+- `quiz-panel.ts` (07 §10.2): the quiz dialog no longer announces the result; the challenge panel is the single
+  announcer (07 §9.5, §16.1). The duplicate sticky copy queued behind the first and delayed every later polite
+  message by a LIVE_POLITE_MS window (smoke 14 was timing-dependent).
+- `scripts/smoke.mjs` step 17a: the `#status` "removed: the atoms touch" check runs after the three C1-C2 wand calls
+  and before the C3-C4 wand call. 09 §5.10 lists it after that call, but polite messages are latest-wins within
+  LIVE_POLITE_MS (07 §16.1), so "Bond C3-C4 is now double" would always replace it. 09 §5.10 should move the check.
+- `scripts/smoke.mjs` step 16: axe-core is a devDependency and the step fails (never skips) when it is missing.
+  `index.html`: `#stage` is a `<main>` (07 §2.1 shows a `div`) so `#toolbar` and `#hotbar` sit inside a landmark
+  (axe `region`, moderate); the live regions and `#dialogs` are unchanged.
+- `scripts/smoke.mjs`: `CHROMIUM_PATH` (alias `CHROME_PATH`) names the browser binary; CI installs it through the
+  `playwright` devDependency (`npx playwright install --with-deps chromium`, 08 §12) under `PLAYWRIGHT_BROWSERS_PATH`.

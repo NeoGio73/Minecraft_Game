@@ -10,7 +10,7 @@
   </head>
   <body>
     <a class="skip" href="#canvas">Skip to the game</a>
-    <div id="stage" data-framed="false">
+    <main id="stage" data-framed="false">
       <canvas id="canvas" tabindex="0" role="application" aria-label="OrgoCraft 3D world. Press H for controls, Escape to open the menu, Tab to leave the world. Arrow keys look, W A S D move."></canvas>
       <div id="hud" data-ready="false">
         <div id="toolbar" role="toolbar" aria-label="Game toolbar"></div>
@@ -28,7 +28,7 @@
       <div id="status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
       <section id="scene-mirror" class="sr-only" aria-label="Scene description"></section>
       <pre id="debug" hidden aria-hidden="true"></pre>
-    </div>
+    </main>
     <div id="no-webgl" hidden role="alert">OrgoCraft needs WebGL, which this browser has turned off. Try another browser, or update your graphics driver.</div>
     <script type="module" src="./src/main.ts"></script>
   </body>

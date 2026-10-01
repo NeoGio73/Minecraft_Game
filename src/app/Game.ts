@@ -353,8 +353,9 @@ export class Game {
     this.frameMs.push(dt * 1000);
     const inp = this.input.consumeFrame();
     const paused = this.state.paused;
+    let deferred: readonly InputAction[] = [];
     if (!paused) {
-      this.handlePressed(inp.pressed, inp.wheel);
+      deferred = this.handlePressed(inp.pressed, inp.wheel);
       const s = this.settings;
       this.camera.addLook(inp.lookDX * s.sensitivity, inp.lookDY * s.sensitivity * (s.invertY ? -1 : 1));
       this.camera.addLook(-inp.keyLook.yaw * s.turnRate * dt, -inp.keyLook.pitch * 0.6 * s.turnRate * dt);
@@ -384,6 +385,7 @@ export class Game {
     this.updateTarget();
     this.syncComponents();
     this.runAnalyses(ANALYSIS_BUDGET_MS);
+    if (deferred.length > 0) this.handleTargetActions(deferred);
     this.syncBench();
     this.chunks.rebuildDirty(this.world, this.player, this.renderer.profile.chunkRebuildsPerFrame);
     if (this.sceneDirty) {
@@ -511,27 +513,39 @@ export class Game {
     } else if (h.kind === 'hydrogen' && index.atoms.has(h.cell)) {
       component = index.componentOf(h.cell);
     } else {
-      if (h.kind === 'bond') pair = h.pair;
-      const { eye } = this.eyeAndDir();
-      let best = TARGET_RADIUS * TARGET_RADIUS;
-      let bestId: ComponentId | null = null;
-      for (const [id, cells] of index.components()) {
-        for (const c of cells) {
-          const [x, y, z] = parseCellKey(c);
-          const dx = x + 0.5 - eye[0];
-          const dy = y + 0.5 - eye[1];
-          const dz = z + 0.5 - eye[2];
-          const d = dx * dx + dy * dy + dz * dz;
-          if (d < best || (d === best && bestId !== null && id < bestId)) {
-            best = d;
-            bestId = id;
+      if (h.kind === 'bond') {
+        pair = h.pair;
+        // 09 §1.10, §5.5: a bond bar or break marker is targeted through the molecule that contains the pair -- the
+        // previous target when it holds either endpoint (a suppressed pair may join two components), otherwise the
+        // lower-cellIndex endpoint's component -- never a nearer, unrelated molecule.
+        const [a, b] = splitPairKey(h.pair);
+        const ca = index.atoms.has(a) ? index.componentOf(a) : null;
+        const cb = index.atoms.has(b) ? index.componentOf(b) : null;
+        const prev = this.state.target.component;
+        component = prev !== null && (prev === ca || prev === cb) ? prev : (ca ?? cb);
+      }
+      if (component === null) {
+        const { eye } = this.eyeAndDir();
+        let best = TARGET_RADIUS * TARGET_RADIUS;
+        let bestId: ComponentId | null = null;
+        for (const [id, cells] of index.components()) {
+          for (const c of cells) {
+            const [x, y, z] = parseCellKey(c);
+            const dx = x + 0.5 - eye[0];
+            const dy = y + 0.5 - eye[1];
+            const dz = z + 0.5 - eye[2];
+            const d = dx * dx + dy * dy + dz * dz;
+            if (d < best || (d === best && bestId !== null && id < bestId)) {
+              best = d;
+              bestId = id;
+            }
           }
         }
-      }
-      if (bestId !== null) component = bestId;
-      else {
-        const prev = this.state.target.component;
-        component = prev !== null && index.components().has(prev) ? prev : null;
+        if (bestId !== null) component = bestId;
+        else {
+          const prev = this.state.target.component;
+          component = prev !== null && index.components().has(prev) ? prev : null;
+        }
       }
     }
     this.state.setTarget(component, cell, pair);
@@ -607,9 +621,15 @@ export class Game {
     this.highlight.flashRefusal();
   }
 
-  private handlePressed(pressed: readonly InputAction[], wheel: number): void {
+  /**
+   * Every pressed action except mine/place (06 §10.4: those run against the fresh hover in applyActions) and the
+   * two target-dependent ones, `analyze` and `submit`, which are returned and run by handleTargetActions once this
+   * frame's hover, target, components and analyses are refreshed.
+   */
+  private handlePressed(pressed: readonly InputAction[], wheel: number): InputAction[] {
+    const deferred: InputAction[] = [];
     const hud = this.hud;
-    if (!hud) return;
+    if (!hud) return deferred;
     const state = this.state;
     for (const a of pressed) {
       if (state.finished && a !== 'pause' && a !== 'help' && a !== 'debug') continue;
@@ -630,13 +650,7 @@ export class Game {
             this.events.emit('settings:changed', { key: 'showHydrogens', value: next.showHydrogens });
           }
           break;
-        case 'analyze': {
-          const t = state.target.component;
-          if (t !== null) { this.queue.delete(t); this.runOne(t); }
-          this.events.emit('analyze:requested', { component: t });
-          break;
-        }
-        case 'submit': state.submit(); break;
+        case 'analyze': case 'submit': deferred.push(a); break;
         case 'nextChallenge': state.nextChallenge(); break;
         case 'prevChallenge': state.prevChallenge(); break;
         case 'clearSelection': state.clearSelection(); break;
@@ -651,6 +665,27 @@ export class Game {
       for (let i = 0; i < Math.abs(wheel); i++) {
         if (hud.select.active) hud.select.cycle(step);
         else state.cycleSlot(step);
+      }
+    }
+    return deferred;
+  }
+
+  /**
+   * `analyze` (F) and `submit` (Enter) judge the molecule the player is looking at in THIS frame: they run after
+   * updateTarget / syncComponents / runAnalyses, never against the previous frame's target. Otherwise a target that
+   * changed between frames (the player moved, the world was edited -- e.g. through the debug API) is evaluated one
+   * frame stale; after a bench challenge that submitted the product-zone molecule to a pad challenge and answered
+   * "nothing targeted". The panel's Submit button calls state.submit() directly (06 §14.5) and is unaffected.
+   */
+  private handleTargetActions(pressed: readonly InputAction[]): void {
+    const state = this.state;
+    for (const a of pressed) {
+      if (a === 'analyze') {
+        const t = state.target.component;
+        if (t !== null) { this.queue.delete(t); this.runOne(t); }
+        this.events.emit('analyze:requested', { component: t });
+      } else if (a === 'submit') {
+        state.submit();
       }
     }
   }

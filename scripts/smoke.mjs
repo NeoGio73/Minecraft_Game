@@ -9,8 +9,9 @@
  * uncaught exception. Prints a step-by-step log; exit code 1 on any failure.
  *
  *   npm run build && npm run smoke
- *   CHROME_PATH=/path/to/chrome npm run smoke        (otherwise $PLAYWRIGHT_BROWSERS_PATH/chromium-* is searched,
- *                                                     then /opt/pw-browsers/chromium-*)
+ *   CHROMIUM_PATH=/path/to/chrome npm run smoke      (CHROME_PATH is accepted as an alias; otherwise
+ *                                                     $PLAYWRIGHT_BROWSERS_PATH/chromium-* is searched, then
+ *                                                     /opt/pw-browsers/chromium-* and ~/.cache/ms-playwright)
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import http from 'node:http';
@@ -33,7 +34,10 @@ const MIME = {
 // ---------------------------------------------------------------------------
 
 function findChrome() {
-  if (process.env.CHROME_PATH && existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
+  for (const key of ['CHROMIUM_PATH', 'CHROME_PATH']) {
+    const p = process.env[key];
+    if (p && existsSync(p)) return p;
+  }
   const roots = [process.env.PLAYWRIGHT_BROWSERS_PATH, '/opt/pw-browsers', join(process.env.HOME ?? '', '.cache/ms-playwright')].filter(Boolean);
   for (const root of roots) {
     if (!existsSync(root)) continue;
@@ -477,7 +481,7 @@ async function runScript({ browser, baseUrl, mode, log, screenshotPaths }) {
     });
     assert(!toast.inert && !toast.hidden, '#toast is inert or aria-hidden');
     await api(() => window.__orgocraft.state().announce('y', 'polite'));
-    await until(async () => (await text('#status')).trim() === 'y', LIVE_POLITE_MS + 1500, '#status reads y');
+    await until(async () => (await text('#status')).trim() === 'y', LIVE_POLITE_MS + 1500, '#status reads y', () => text('#status'));
     const status = await t.evaluate(() => {
       const el = document.getElementById('status');
       return { inert: el.closest('[inert]') !== null, hidden: el.hasAttribute('aria-hidden') };
@@ -490,17 +494,17 @@ async function runScript({ browser, baseUrl, mode, log, screenshotPaths }) {
   // 16 ---------------------------------------------------------------------
   await run.step(16, 'axe-core on the HUD with the pause menu open', async () => {
     const axe = join(ROOT, 'node_modules/axe-core/axe.min.js');
-    if (!existsSync(axe)) {
-      log(`[${mode}] warning: axe-core is not installed; step 16 skipped`);
-      return;
-    }
+    assert(existsSync(axe), 'axe-core is not installed (npm install -D axe-core); this step never skips');
     await focusCanvas();
     await page.keyboard.press('Escape');
     await until(() => visible('#pause'), 2000, '#pause visible');
     await t.addScriptTag({ content: readFileSync(axe, 'utf8') });
     const result = await t.evaluate(() => window.axe.run(document, { resultTypes: ['violations'] }));
+    const describe = (v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).join('; ')}`;
     const bad = result.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical' || v.id === 'aria-allowed-role');
-    assert(bad.length === 0, `axe violations: ${bad.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).join('; ')}`).join('\n')}`);
+    const rest = result.violations.filter((v) => !bad.includes(v));
+    log(`[${mode}] axe-core ${result.testEngine?.version ?? ''}: ${result.violations.length} violation(s)${rest.length ? ' (minor/moderate: ' + rest.map(describe).join('; ') + ')' : ''}`);
+    assert(bad.length === 0, `axe violations: ${bad.map(describe).join('\n')}`);
     await page.keyboard.press('Escape');
     await until(async () => !(await visible('#pause')), 2000, '#pause hidden');
   });
@@ -555,10 +559,12 @@ async function runScript({ browser, baseUrl, mode, log, screenshotPaths }) {
     }, 3000, '.cp-feedback: Not yet + break marker', feedback);
     const orders = await t.evaluate(() => [1, 2, 3].map(() => window.__orgocraft.wand('60,9,60|61,9,60')).map((r) => (r.ok ? r.order : r.message)));
     assert(JSON.stringify(orders) === '[2,3,0]', `wand orders ${JSON.stringify(orders)}, expected [2,3,0]`);
+    await until(() => t.evaluate(() => JSON.stringify(window.__orgocraft.state().target.suppressed) === JSON.stringify(['60,9,60|61,9,60'])), 3000, 'target.suppressed');
+    // Polite announcements are latest-wins within LIVE_POLITE_MS (07 §16.1), so the "removed" message is checked before
+    // the next wand edit (C2=C3 double) replaces it; 09 §5.10 lists the check after that edit, which the policy forbids.
+    await until(async () => (await text('#status')).includes('removed: the atoms touch'), LIVE_POLITE_MS + 2500, '#status announces the removed bond', () => text('#status'));
     const dbl = await t.evaluate(() => window.__orgocraft.wand('60,9,61|61,9,61'));
     assert(dbl.ok && dbl.order === 2, `C2=C3 wand gave ${JSON.stringify(dbl)}`);
-    await until(() => t.evaluate(() => JSON.stringify(window.__orgocraft.state().target.suppressed) === JSON.stringify(['60,9,60|61,9,60'])), 3000, 'target.suppressed');
-    await until(async () => (await text('#status')).includes('removed: the atoms touch'), LIVE_POLITE_MS + 2500, '#status announces the removed bond');
     await until(async () => (await text('#molecule-panel .mp-name')).trim() === '(Z)-but-2-ene', 3000, '.mp-name reads (Z)-but-2-ene');
     await focusCanvas();
     await pressKey('Enter');
@@ -687,7 +693,7 @@ async function main() {
   }
   const chrome = findChrome();
   if (!chrome) {
-    console.error('no Chromium found: set CHROME_PATH or PLAYWRIGHT_BROWSERS_PATH (npx playwright@1.63.0 install chromium)');
+    console.error('no Chromium found: set CHROMIUM_PATH (or CHROME_PATH) to a Chromium binary, or PLAYWRIGHT_BROWSERS_PATH after `npx playwright install chromium`');
     return 1;
   }
   log(`smoke: chromium ${chrome}`);
