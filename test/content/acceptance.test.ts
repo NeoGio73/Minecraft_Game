@@ -159,7 +159,9 @@ describe('exact-molecule and name-to-structure', () => {
     expect(evaluate(c, padCtx([flatBuild('CC(=O)[O-]')])).passed).toBe(true);
     const r = evaluate(c, padCtx([flatBuild('CC(=O)O')]));
     expect(r.kind).toBe('wrong-formula');
-    expect(r.message).toBe(c.feedback!['wrong-formula']);
+    // the override keeps its hint but opens with the concrete formula sentence (chemistry review minor 10)
+    expect(r.message.startsWith('Wrong formula: yours is C2H4O2, the target is C2H3O2')).toBe(true);
+    expect(r.message.endsWith(c.feedback!['wrong-formula'].slice('Wrong formula.'.length))).toBe(true);
     const r2 = evaluate(c, padCtx([flatBuild('[CH2-]C(=O)O')]));
     expect(r2.kind).toBe('constitutional-isomer');
   });
@@ -170,7 +172,9 @@ describe('exact-molecule and name-to-structure', () => {
     const r = evaluate(c, padCtx([flatBuild('C[C-](C)C')]));
     expect(r.kind).toBe('wrong-charge');
     expect(r.message).toContain('the net charge is -1, the target has 1');
-    expect(evaluate(c, padCtx([flatBuild('CC(C)C')])).message).toBe(c.feedback!['wrong-formula']);
+    const r3 = evaluate(c, padCtx([flatBuild('CC(C)C')]));
+    expect(r3.message.startsWith('Wrong formula: yours is C4H10, the target is C4H9')).toBe(true);
+    expect(r3.message.endsWith(c.feedback!['wrong-formula'].slice('Wrong formula.'.length))).toBe(true);
   });
 
   it('name-to-structure: the name is reported; a T-shaped flat build still passes (constitution only)', () => {
