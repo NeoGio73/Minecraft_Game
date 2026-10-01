@@ -201,7 +201,7 @@ export function buildGraph(atoms: readonly Atom[], bonds: readonly BondInput[]):
 | `withBondOrder(g, k, order)` | replaces `order`; `aromatic` and `ez` kept |
 | `withCharge(g, id, q)` | replaces `charge` only (no validation — `charge.ts` validates before calling) |
 | `withTet(g, id, tet)` / `withEz(g, k, ez)` | sets or removes the tag |
-| `withoutStereoTags(g)` | every `tet` and every `ez` removed; atoms, bonds and indices unchanged (used by E1 / 05 B1 to test the constitution of a `stereoBuildable: false` entry) |
+| `withoutStereoTags(g)` | every `tet` and every `ez` removed; atoms, bonds and indices unchanged (used by tests that need the constitution of a tagged entry, e.g. the pre-amendment strict-embedding comparison in E12) |
 
 All rebuild `adj` through `buildGraph`.
 
@@ -884,7 +884,7 @@ Every expected value below is RDKit 2026.03.6 output or a direct consequence of 
 
 1. **Ungrouped molecules.** Urea, carbamates, carbonates, nitro compounds, water, ammonia and hydrogen halides report `groups: []` because `GROUP_IDS` is closed. 05 must not reference these in `formula-and-groups` rules; the panel (07) needs the string `No functional group recognised`.
 2. **`embed.ts` ownership.** WP-01 owns the file, so its algorithm is specified here (section 13); 04-reaction-bench should reference this section rather than restate reaction-bench 4.2.
-3. **Contract additions to fold into 00-contracts.** `analyze(g, extraWarnings?)`, `extractAll`/`ExtractedComponent`, `findIsomorphismsDetailed`, `aromaticRings`, `piBondCount`, `netCharge`, `registerNameIndex`, `PlacementContext`, the validation signatures, `withoutStereoTags` and `MoleculeEntry.stereoBuildable` (section 1).
+3. **Contract additions to fold into 00-contracts.** `analyze(g, extraWarnings?)`, `extractAll`/`ExtractedComponent`, `findIsomorphismsDetailed`, `aromaticRings`, `piBondCount`, `netCharge`, `registerNameIndex`, `PlacementContext`, the validation signatures, `withoutStereoTags` (section 1), plus the 09-amendment-no-bond.md additions (`MoleculeIndexExt`, `WandOrder`, `BondChangeResultExt`, `EmbedOptionsExt`, `EmbeddingExt`, `suppressedPairsOf`, `suppressedPairsOfComponent`).
 4. **Typo in 00-contracts §1 Analysis.** The charged-formula example `CH5N+` should read `CH6N+` (methylammonium); `C2H3O2-` is correct.
 5. **`maxValence(el)`** is defined here as the neutral target valence (hotbar legend); if 06/07 need the maximum over charge states (N⁺ 4), rename or add `maxValenceAnyCharge`.
 6. **Isomer-set storage.** `IsomerSetRule.isomers` should hold SMILES and be hashed at load (`wlHash` after `parseSmiles` + perception) rather than literal hash strings, so a change to the label format never invalidates content.
