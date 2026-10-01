@@ -10,17 +10,17 @@
  * interface that src/app/State.ts (WP-11) satisfies; `RenderHooks` (07 §1.3)
  * is what Game.ts passes in.
  */
-import type { Analysis, MoleculeGraph, ReactionResult, Vec3 } from '../chem/types';
-import type { Challenge, ReagentId, SubmitResult } from '../content/types';
-import type { SelectionItem } from '../content/selectors';
-import type { AdapterMode, Outcome, ProgressState, RosterInfo, ScoreSummary } from '../lms/types';
+import type { Vec3 } from '../chem/types';
 import { Block, LAB_MAX, LAB_MIN, LAB_Y, cellKey, elementOf, isOre, splitPairKey } from '../world/types';
-import type { BlockElement, CellKey, ComponentId, PairKey, VoxelHit, Zone } from '../world/types';
+import type { BlockElement, CellKey, ComponentId, PairKey, VoxelHit } from '../world/types';
 import { blockName } from '../world/blocks';
 import { WAND_CYCLE } from '../world/molecule-index';
 import type { WandOrder } from '../world/molecule-index';
-import type { BondOrder, Charge } from '../chem/types';
-import type { Emitter, GameEvents } from '../app/events';
+import type { Charge } from '../chem/types';
+import type { EngineEvents, GameEvents } from '../app/events';
+import type { HoverInfo } from '../app/events';
+import { HOTBAR } from '../app/State';
+import type { UiState } from '../app/State';
 import type { KeyAction, Settings } from '../app/Settings';
 import { effectiveKeys, mediaMatches, reducedMotionActive, saveInventory, saveSettings } from '../app/Settings';
 import { BENCH, COMPASS, ENGINE_TEXT, HYBRIDIZATION_WORD, SETTING_LABEL, STRINGS, atomLabel, settingValueText } from './strings';
@@ -61,145 +61,16 @@ export const WRONG_HOLD_MS = 2000;
 export const SHORT_STAGE_PX = 640;
 
 // ---------------------------------------------------------------------------
-// 07 §1.1 — what the UI reads from and asks of State (declared here; State.ts satisfies it)
+// 07 §1.1 — the State contract lives in src/app/State.ts (pure); re-exported here for the panels.
+// 06 §1 EngineEvents (hover, bench:open, analyze, input:focus, gfx, world:ready, bond:suppressed/restored)
+// are part of GameEvents since the integration contracts revision.
 // ---------------------------------------------------------------------------
 
-/** A challenge-owned molecule placed on the pad (select-atom, quiz display) or in the reactant zone (bench). */
-export interface LockedPlacement {
-  /** Index into rule.molecules (select-atom) / 0 (quiz display, bench reactant) / 1 (bench rx). */
-  readonly molecule: number;
-  /** cell -> atom id in parseSmiles order of the rule SMILES. */
-  readonly cellToAtom: ReadonlyMap<CellKey, number>;
-  /** atom id -> cell. */
-  readonly atomToCell: readonly CellKey[];
-  /** Explicit H block cells per parent atom id (from Embedding.hPos), in hPos order. */
-  readonly hCells: ReadonlyMap<number, readonly CellKey[]>;
-  readonly analysis: Analysis;
-  readonly zone: Zone;
-}
-
-export type HotbarTool = 'bond-wand' | 'charge-tool' | 'select-tool';
-/** Slot index 0..11: 0-7 elements C N O S F Cl Br I, 8 = H, 9 bond wand, 10 charge tool, 11 select tool. */
-export const HOTBAR: readonly (BlockElement | HotbarTool)[] =
-  ['C', 'N', 'O', 'S', 'F', 'Cl', 'Br', 'I', 'H', 'bond-wand', 'charge-tool', 'select-tool'];
-
-export interface TargetState {
-  readonly component: ComponentId | null;
-  readonly cell: CellKey | null;
-  readonly pair: PairKey | null;
-  readonly analysis: Analysis | null;
-  /** cell -> atom id inside `analysis` (world extraction order). */
-  readonly cellToAtom: ReadonlyMap<CellKey, number>;
-  readonly atomToCell: readonly CellKey[];
-  /** Touching-but-unbonded pairs with an endpoint in `component` (09 §1.10); [] when no target. */
-  readonly suppressed: readonly PairKey[];
-}
-
-/** 04 §1 BenchState (+ the ghost's suppressed pairs, 09 §3.2). */
-export interface BenchState {
-  readonly mode: 'idle' | 'predict' | 'choose' | 'free';
-  readonly challengeId: string | null;
-  readonly reactant: MoleculeGraph | null;
-  readonly rx: MoleculeGraph | null;
-  readonly cardId: ReagentId | null;
-  readonly equiv: 1 | 2;
-  readonly result: ReactionResult | null;
-  readonly preview: 'hidden' | 'ghost' | 'sticks';
-  readonly previews: readonly {
-    readonly graph: MoleculeGraph;
-    readonly pos: readonly Vec3[];
-    readonly hPos: ReadonlyMap<number, readonly Vec3[]>;
-    readonly buildable: boolean;
-    readonly suppressedPairs?: readonly (readonly [number, number])[];
-  }[];
-}
-
-export interface StateView {
-  readonly events: Emitter<UiEvents>;
-  readonly mode: AdapterMode;
-  readonly studentId: string | null;
-  readonly roster: readonly Challenge[];
-  readonly rosterInfo: RosterInfo;
-  readonly progress: ProgressState;
-  readonly score: ScoreSummary;
-  readonly current: { readonly challenge: Challenge; readonly index: number };
-  outcomeOf(id: string): Outcome;
-  /** Attempts consumed on an attempt-limited challenge (floored after a resume, 08 §3.8); 0 for build rules. */
-  attemptOf(id: string): number;
-  isomersDone(id: string): number;
-  readonly inventory: Readonly<Record<BlockElement, number>>;
-  readonly slot: number;
-  readonly target: TargetState;
-  /** Every component on the pad (or product zone for bench challenges), in extraction order. */
-  readonly padComponents: readonly { readonly id: ComponentId; readonly analysis: Analysis; readonly zone: Zone; readonly locked: boolean }[];
-  readonly locked: readonly LockedPlacement[];
-  readonly selection: readonly SelectionItem[];
-  readonly bench: BenchState;
-  readonly lookMode: 'locked' | 'drag' | 'keys';
-  readonly paused: boolean;
-  /** true after saveAndExit resolved: LMSFinish was called, the session is read-only. */
-  readonly finished: boolean;
-  readonly player: { readonly x: number; readonly y: number; readonly z: number; readonly yaw: number };
-  /**
-   * Atom label of the heavy atom in `cell` (`element + (id + 1)` in the cell's OWN component, extraction order), or,
-   * for an explicit H block, the label of its parent atom; null when the cell holds no atom. Needed because a bond or
-   * a suppressed pair may join two components and HoverInfo carries only cells (07 §7, 09 §5.5).
-   */
-  labelOfCell(cell: CellKey): string | null;
-}
-
-export interface StateCommands {
-  setChallenge(index: number): void;
-  nextChallenge(): void;
-  prevChallenge(): void;
-  submit(): SubmitResult;
-  answerQuiz(choice: string | boolean): SubmitResult;
-  chooseReagent(id: ReagentId): SubmitResult;
-  react(): ReactionResult | null;
-  setBenchCard(id: ReagentId | null): void;
-  setEquiv(n: 1 | 2): void;
-  setRx(smiles: string | null): void;
-  showAnswer(): void;
-  clearProductZone(): void;
-  clearPad(): void;
-  selectSlot(i: number): void;
-  cycleSlot(delta: 1 | -1): void;
-  toggleSelection(item: SelectionItem): void;
-  setSelection(items: readonly SelectionItem[]): void;
-  clearSelection(): void;
-  setPaused(paused: boolean): void;
-  save(): void;
-  saveAndExit(): Promise<void>;
-  announce(text: string, priority: 'polite' | 'assertive'): void;
-}
-
-export type UiState = StateView & StateCommands;
-
-// ---------------------------------------------------------------------------
-// Engine events the UI consumes (06 §1 EngineEvents, declared identically so State's widened emitter is assignable)
-// ---------------------------------------------------------------------------
-
-export type HoverInfo =
-  | { readonly kind: 'none' }
-  | { readonly kind: 'block'; readonly x: number; readonly y: number; readonly z: number; readonly id: number; readonly face: readonly [number, number, number] }
-  | { readonly kind: 'atom'; readonly cell: CellKey; readonly el: BlockElement; readonly charge: Charge; readonly bonds: number; readonly hydrogens: number; readonly component: ComponentId; readonly face: readonly [number, number, number] }
-  | { readonly kind: 'hydrogen'; readonly cell: CellKey; readonly slot: number; readonly explicit: boolean }
-  | { readonly kind: 'bond'; readonly pair: PairKey; readonly order: WandOrder }
-  | { readonly kind: 'bench' };
-
-export interface UiEngineEvents {
-  'hover:changed': { hover: HoverInfo };
-  'bench:open': Record<string, never>;
-  'analyze:requested': { component: ComponentId | null };
-  'input:focus': { focused: boolean };
-  'gfx:context': { state: 'lost' | 'restored' };
-  'gfx:changed': { lowGfx: boolean; pixelRatio: number; antialias: boolean };
-  'world:ready': { seed: number };
-  'bond:suppressed': { pair: PairKey; previous: BondOrder };
-  'bond:restored': { pair: PairKey; order: BondOrder };
-}
-
-export type UiEvents = GameEvents & UiEngineEvents;
+export type { LockedPlacement, HotbarTool, TargetState, BenchState, StateView, StateCommands, UiState } from '../app/State';
+export { HOTBAR } from '../app/State';
+export type { HoverInfo } from '../app/events';
+export type UiEngineEvents = EngineEvents;
+export type UiEvents = GameEvents;
 
 // ---------------------------------------------------------------------------
 // 07 §1.3 — render hooks (implemented by src/render/* through Game.ts)

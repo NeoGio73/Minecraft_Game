@@ -339,6 +339,8 @@ export interface CompareResult {
   /** Student atom that is UNSPECIFIED / bond with INVALID_GEOMETRY. */
   readonly offendingAtom?: number;
   readonly offendingBond?: number;
+  /** The isomorphism-cap condition (02 §10 step 5) and nothing else; absent when no warning arose. */
+  readonly warnings?: readonly Warning[];
 }
 
 // ---------------------------------------------------------------------------
@@ -460,6 +462,9 @@ export interface EmbedOptions {
   /** Search nodes before giving up. Default EMBED_NODE_BUDGET. */
   readonly nodeBudget?: number;
   readonly origin?: Vec3;
+  /** Allow touching, unbonded heavy-atom pairs (reported in `suppressedPairs`). Default true.
+   *  false = induced embedding only (09 §1.8). */
+  readonly allowSuppressed?: boolean;
 }
 
 export const EMBED_NODE_BUDGET = 50_000;
@@ -470,6 +475,10 @@ export interface Embedding {
   readonly pos: readonly Vec3[];
   readonly hPos: ReadonlyMap<number, readonly Vec3[]>;
   readonly nodesVisited: number;
+  /** Heavy-atom id pairs [a, b], a < b, sorted lexicographically, that are face-adjacent in `pos`
+   *  but not bonded in the graph: the pairs the student must set to "no bond" (09 §1.8).
+   *  Empty for an induced embedding; H nodes never appear. */
+  readonly suppressedPairs: readonly (readonly [number, number])[];
 }
 
 // ---------------------------------------------------------------------------

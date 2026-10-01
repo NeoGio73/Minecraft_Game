@@ -1,5 +1,35 @@
 <!doctype html>
 <html lang="en">
-  <head><meta charset="utf-8" /><title>OrgoCraft</title></head>
-  <body><canvas id="c"></canvas><script type="module" src="/src/main.ts"></script></body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <title>OrgoCraft</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./src/ui/styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#canvas">Skip to the game</a>
+    <div id="stage" data-framed="false">
+      <canvas id="canvas" tabindex="0" role="application" aria-label="OrgoCraft 3D world. Press H for controls, Escape to open the menu, Tab to leave the world. Arrow keys look, W A S D move."></canvas>
+      <div id="hud" data-ready="false">
+        <div id="toolbar" role="toolbar" aria-label="Game toolbar"></div>
+        <aside id="challenge-panel" aria-labelledby="cp-title"></aside>
+        <div id="crosshair" aria-hidden="true"></div>
+        <p id="target-info" aria-hidden="true"></p>
+        <p id="look-hint" aria-hidden="true"></p>
+        <aside id="molecule-panel" aria-labelledby="mp-title"></aside>
+        <aside id="bench-panel" aria-labelledby="bp-title" hidden></aside>
+        <div id="hotbar" role="toolbar" aria-label="Hotbar"></div>
+        <div id="touch-controls" hidden></div>
+      </div>
+      <div id="dialogs"></div>
+      <div id="toast" class="sr-only" role="alert" aria-atomic="true"></div>
+      <div id="status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+      <section id="scene-mirror" class="sr-only" aria-label="Scene description"></section>
+      <pre id="debug" hidden aria-hidden="true"></pre>
+    </div>
+    <div id="no-webgl" hidden role="alert">OrgoCraft needs WebGL, which this browser has turned off. Try another browser, or update your graphics driver.</div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
 </html>

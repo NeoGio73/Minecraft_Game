@@ -119,7 +119,9 @@ describe('formula.ts', () => {
       if (netCharge(r.g) === 0) expect(r.dou, smiles).toBe(r.rings + r.pi);
     }
     if (existsSync(MOLECULES_JSON)) {
-      const entries = JSON.parse(readFileSync(MOLECULES_JSON, 'utf8')) as { id: string; smiles: string; formula: string }[];
+      type Entry = { id: string; smiles: string; formula: string };
+      const parsed = JSON.parse(readFileSync(MOLECULES_JSON, 'utf8')) as Entry[] | { entries: Entry[] };
+      const entries = Array.isArray(parsed) ? parsed : parsed.entries;
       for (const e of entries) {
         const r = analyse(e.smiles);
         expect(r.formula, e.id).toBe(e.formula);

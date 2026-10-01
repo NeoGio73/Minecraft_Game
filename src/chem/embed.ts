@@ -36,17 +36,11 @@ import type { ChemApi, EmbedOptions, Embedding, MoleculeGraph, Vec3 } from './ty
 import { bondBetween, components, otherEnd } from './graph';
 import { add, cross, dot, manhattan, sub } from '../util/vec3';
 
-/** Embedding plus the unbonded face-adjacent heavy-atom pairs (Amendment 1). */
-export interface LatticeEmbedding extends Embedding {
-  /** Pairs `[a, b]` with `a < b` of heavy atoms that touch in the embedding
-   *  but are not bonded in the graph; the world sets them to "no bond".
-   *  Empty when the embedding is induced. Sorted ascending. */
-  readonly suppressedPairs: readonly (readonly [number, number])[];
-}
+/** Alias of the contract type: `Embedding` carries `suppressedPairs` since the integration contracts revision. */
+export type LatticeEmbedding = Embedding;
 
 export interface LatticeEmbedOptions extends EmbedOptions {
-  /** Allow face-adjacent unbonded heavy atoms (reported in `suppressedPairs`).
-   *  Default true. With false the embedding must be induced (pre-amendment rule). */
+  /** Legacy spelling of `EmbedOptions.allowSuppressed` (09 §1.8); either name works, `allowSuppressed` wins. */
   readonly allowSuppressedPairs?: boolean;
 }
 
@@ -83,7 +77,7 @@ export function embedOnLattice(g: MoleculeGraph, opts: LatticeEmbedOptions = {})
   const origin: Vec3 = opts.origin ?? [0, 0, 0];
   const budget = opts.nodeBudget ?? EMBED_NODE_BUDGET;
   const diag = opts.allowDiagonal ?? false;
-  const allowSuppressed = opts.allowSuppressedPairs ?? true;
+  const allowSuppressed = opts.allowSuppressed ?? opts.allowSuppressedPairs ?? true;
   const n = g.atoms.length;
   if (n === 0) return { pos: [], hPos: new Map(), nodesVisited: 0, suppressedPairs: [] };
 
@@ -405,3 +399,22 @@ export function embedOnLattice(g: MoleculeGraph, opts: LatticeEmbedOptions = {})
 
 const _check: Pick<ChemApi, 'embedOnLattice'> = { embedOnLattice };
 void _check;
+
+/**
+ * Face-adjacent unbonded heavy pairs `[a, b]` (a < b, sorted lexicographically)
+ * of any position list `pos[atomId]` (09 §1.8); used by layoutOf, the ghost
+ * renderer and tests.
+ */
+export function suppressedPairsOf(g: MoleculeGraph, pos: readonly Vec3[]): (readonly [number, number])[] {
+  const out: [number, number][] = [];
+  const n = Math.min(g.atoms.length, pos.length);
+  for (let a = 0; a < n; a++) {
+    for (let b = a + 1; b < n; b++) {
+      if (manhattan(pos[a] as Vec3, pos[b] as Vec3) !== 1) continue;
+      if (bondBetween(g, a, b) !== undefined) continue;
+      out.push([a, b]);
+    }
+  }
+  out.sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+  return out;
+}

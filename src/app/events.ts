@@ -4,12 +4,37 @@
 import type { Analysis, Charge, BondOrder, ReactionResult } from '../chem/types';
 import type { ReagentId, SubmitResult } from '../content/types';
 import type { AdapterMode } from '../lms/types';
-import type { BlockElement, CellKey, ComponentId, PairKey, Zone } from '../world/types';
+import type { BlockElement, CellKey, ComponentId, PairKey, WandOrder, Zone } from '../world/types';
 
-export interface GameEvents {
+/** What the crosshair points at (06 §1, §10.2). `bond` with `order` 0 = a break marker (suppressed pair). */
+export type HoverInfo =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'block'; readonly x: number; readonly y: number; readonly z: number; readonly id: number; readonly face: readonly [number, number, number] }
+  | { readonly kind: 'atom'; readonly cell: CellKey; readonly el: BlockElement; readonly charge: Charge; readonly bonds: number; readonly hydrogens: number; readonly component: ComponentId; readonly face: readonly [number, number, number] }
+  | { readonly kind: 'hydrogen'; readonly cell: CellKey; readonly slot: number; readonly explicit: boolean }
+  | { readonly kind: 'bond'; readonly pair: PairKey; readonly order: WandOrder }
+  | { readonly kind: 'bench' };
+
+/** Engine-side events (06 §1 EngineEvents, 09 §1.4), merged into the closed map at the integration contracts revision. */
+export interface EngineEvents {
+  'hover:changed': { hover: HoverInfo };
+  'bench:open': Record<string, never>;
+  'analyze:requested': { component: ComponentId | null };
+  'input:focus': { focused: boolean };
+  'gfx:context': { state: 'lost' | 'restored' };
+  'gfx:changed': { lowGfx: boolean; pixelRatio: number; antialias: boolean };
+  'world:ready': { seed: number };
+  /** The pair is now a no-bond pair (09 §1.4). */
+  'bond:suppressed': { pair: PairKey; previous: BondOrder };
+  /** The pair is bonded again (order 1 through the wand). */
+  'bond:restored': { pair: PairKey; order: BondOrder };
+}
+
+export interface GameEvents extends EngineEvents {
   'block:placed': { x: number; y: number; z: number; id: number; el?: BlockElement; zone: Zone };
   'block:removed': { x: number; y: number; z: number; id: number; el?: BlockElement; zone: Zone };
   'block:refused': { x: number; y: number; z: number; message: string };
+  /** Emitted only for 1..3 -> 1..3 transitions; 0 goes through bond:suppressed / bond:restored. */
   'bond:changed': { pair: PairKey; order: BondOrder; previous: BondOrder };
   'charge:changed': { cell: CellKey; charge: Charge; previous: Charge };
   'molecule:analyzed': { component: ComponentId; analysis: Analysis; zone: Zone };

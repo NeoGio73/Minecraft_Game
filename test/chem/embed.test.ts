@@ -269,7 +269,9 @@ describe('embedOnLattice', () => {
     expect(maxNodes).toBeLessThan(10_000);
     const json = new URL('../../src/content/molecules.json', import.meta.url);
     if (existsSync(json)) {
-      const entries = JSON.parse(readFileSync(json, 'utf8')) as { id: string; smiles: string; requiresDiagonalBonds?: boolean }[];
+      type Entry = { id: string; smiles: string; requiresDiagonalBonds?: boolean };
+      const parsed = JSON.parse(readFileSync(json, 'utf8')) as Entry[] | { entries: Entry[] };
+      const entries = Array.isArray(parsed) ? parsed : parsed.entries;
       for (const entry of entries) {
         if (entry.requiresDiagonalBonds) continue;
         const g = parse(entry.smiles);

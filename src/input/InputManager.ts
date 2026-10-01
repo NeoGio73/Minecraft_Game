@@ -13,12 +13,9 @@ import type { FrameInput } from '../world/types';
 import { HELD_ACTIONS, resolveAction, shouldPreventDefault } from './keymap';
 import type { InputAction, KeyAction } from './keymap';
 
-/** Event emitted by this module; folded into `EngineEvents` (06 §1) / `GameEvents`
- *  by the contracts PR. Game passes its `Emitter<GameEvents & EngineEvents>`. */
-export interface InputEvents {
-  'input:focus': { focused: boolean };
-}
-export type InputEmitter = Emitter<GameEvents & InputEvents>;
+/** The event this module emits; it lives in `GameEvents` (src/app/events.ts) since the integration contracts revision. */
+export type InputEvents = Pick<GameEvents, 'input:focus'>;
+export type InputEmitter = Emitter<GameEvents>;
 
 export interface FrameActions {
   readonly move: FrameInput;

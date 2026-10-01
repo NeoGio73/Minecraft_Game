@@ -76,7 +76,8 @@ describe('charge.ts: formalCharge (design 9.1)', () => {
     };
     for (const row of rows) check(row[2]!.replace(/\\\\/g, '\\'), row[0]!);
     if (existsSync(MOLECULES_JSON)) {
-      const entries = JSON.parse(readFileSync(MOLECULES_JSON, 'utf8')) as { id: string; smiles: string }[];
+      const parsed = JSON.parse(readFileSync(MOLECULES_JSON, 'utf8')) as { id: string; smiles: string }[] | { entries: { id: string; smiles: string }[] };
+      const entries = Array.isArray(parsed) ? parsed : parsed.entries;
       for (const e of entries) check(e.smiles, e.id);
     }
   });

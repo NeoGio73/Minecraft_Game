@@ -35,13 +35,9 @@ export const LAYER_NO_PICK = 1;
 export const TIMING_CHECK_FRAMES = 120;
 export const SLOW_FRAME_MS = 22;
 
-/** Events emitted by this module; folded into `EngineEvents` (06 §1) / `GameEvents` by the contracts PR.
- *  Game passes its `Emitter<GameEvents & EngineEvents>`. */
-export interface GfxEvents {
-  'gfx:context': { state: 'lost' | 'restored' };
-  'gfx:changed': { lowGfx: boolean; pixelRatio: number; antialias: boolean };
-}
-export type GfxEmitter = Emitter<GameEvents & GfxEvents>;
+/** The events this module emits; they live in `GameEvents` (src/app/events.ts) since the integration contracts revision. */
+export type GfxEvents = Pick<GameEvents, 'gfx:context' | 'gfx:changed'>;
+export type GfxEmitter = Emitter<GameEvents>;
 
 // ---------------------------------------------------------------------------
 // Low-graphics start-up heuristic (06 §11.1)

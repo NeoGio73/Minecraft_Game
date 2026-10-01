@@ -166,7 +166,8 @@ describe('wlhash.ts', () => {
     const smiles = csv.split('\n').filter((l) => l.trim()).map((l) => l.split(',')[2]!.replace(/\\\\/g, '\\'));
     const json = new URL('../../src/content/molecules.json', import.meta.url);
     if (existsSync(json)) {
-      for (const e of JSON.parse(readFileSync(json, 'utf8')) as { smiles: string }[]) smiles.push(e.smiles);
+      const parsed = JSON.parse(readFileSync(json, 'utf8')) as { smiles: string }[] | { entries: { smiles: string }[] };
+      for (const e of Array.isArray(parsed) ? parsed : parsed.entries) smiles.push(e.smiles);
     }
     const graphs = smiles.map((s) => perceived(s));
     const hashes = graphs.map((g) => wlHash(g, implicitHydrogens(g).hydrogens).hash);

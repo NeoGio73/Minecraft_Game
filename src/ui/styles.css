@@ -18,6 +18,7 @@
 /* ---- stage (06 §11.4, 07 §2.2) ------------------------------------------ */
 html, body { margin: 0; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); }
 #stage { position: relative; width: 100%; }
+#no-webgl { padding: 24px; max-width: 48em; font: 16px/1.5 system-ui, sans-serif; color: var(--text); }
 #stage[data-framed="true"]  { height: 100vh; }
 #stage[data-framed="false"] { height: 100dvh; }
 #stage:fullscreen { width: 100%; height: 100%; }

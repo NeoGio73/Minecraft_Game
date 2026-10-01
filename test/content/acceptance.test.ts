@@ -75,7 +75,7 @@ describe('points and credit', () => {
 
   it('creditDelta: new solve, reduced -> full upgrade, otherwise 0', () => {
     const c = ch('ch7-predict-rearrangement-3-methylbut-1-ene-hcl');
-    const empty: ProgressState = { version: 2, studentId: 'local', attempted: 0n, solved: 0n, reduced: 0n, earned: 0, reportedRaw: 0, currentChallengeId: c.id, isomersDone: {} };
+    const empty: ProgressState = { version: 2, studentId: 'local', attempted: 0n, solved: 0n, reduced: 0n, exhausted: 0n, earned: 0, reportedRaw: 0, currentChallengeId: c.id, isomersDone: {} };
     const full = { passed: true, kind: 'correct' as const, message: '', attempt: 1, pointsEarned: 8 };
     const half = { passed: true, kind: 'correct-reduced' as const, message: '', attempt: 1, pointsEarned: 4 };
     const i = 30;

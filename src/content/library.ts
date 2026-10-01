@@ -14,8 +14,7 @@ import type { MoleculeGraph, Vec3, Warning } from '../chem/types';
 import { parseSmiles } from '../chem/smiles';
 import { implicitHydrogens } from '../chem/hydrogens';
 import { perceiveAromaticity } from '../chem/aromatic';
-import { bondBetween } from '../chem/graph';
-import { embedOnLattice } from '../chem/embed';
+import { embedOnLattice, suppressedPairsOf } from '../chem/embed';
 import type { LatticeEmbedding } from '../chem/embed';
 import { buildNameIndex, registerNameIndex, registeredNameIndex } from '../chem/naming';
 import type { NameIndex } from '../chem/naming';
@@ -92,28 +91,8 @@ export function parseEntry(entry: MoleculeEntry | string): MoleculeGraph {
   return parseEntryDetailed(entry).graph;
 }
 
-function faceAdjacent(a: Vec3, b: Vec3): boolean {
-  return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) === 1;
-}
-
-/**
- * Face-adjacent unbonded heavy pairs `[a, b]` (a < b, sorted lexicographically)
- * of any position list `pos[atomId]` (09 §1.8; declared here because
- * src/chem/embed.ts does not export it yet).
- */
-export function suppressedPairsOf(g: MoleculeGraph, pos: readonly Vec3[]): (readonly [number, number])[] {
-  const out: [number, number][] = [];
-  const n = Math.min(g.atoms.length, pos.length);
-  for (let a = 0; a < n; a++) {
-    for (let b = a + 1; b < n; b++) {
-      if (!faceAdjacent(pos[a]!, pos[b]!)) continue;
-      if (bondBetween(g, a, b) !== undefined) continue;
-      out.push([a, b]);
-    }
-  }
-  out.sort((x, y) => x[0] - y[0] || x[1] - y[1]);
-  return out;
-}
+/** Re-exported from the chemistry core (09 §1.8); kept here for existing importers. */
+export { suppressedPairsOf };
 
 /**
  * `entry.layout` when present (pos = layout, hPos empty, suppressedPairs from

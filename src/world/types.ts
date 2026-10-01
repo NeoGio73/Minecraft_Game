@@ -214,14 +214,33 @@ export interface IndexedBond {
 
 export type ComponentId = number;
 
+/** Bond order as the wand sees it. 0 = "no bond" (a suppressed pair). Never stored in a MoleculeGraph (09 §1.1). */
+export type WandOrder = BondOrder | 0;
+
+/**
+ * Invariants (09-amendment-no-bond.md §1.1 I1-I8): two face-adjacent atom cells
+ * "touch"; a touching pair is either a bond (in `bonds`) or a suppressed pair
+ * (in `suppressed`), never both and never neither; `bondsOf`, `bondOrderSum`,
+ * components and extraction read `bonds` only; suppressed pairs never have an
+ * H endpoint; `removeAtom` clears the cell's bonds and suppressed pairs.
+ */
 export interface MoleculeIndex {
   readonly atoms: ReadonlyMap<CellKey, IndexedAtom>;
   readonly bonds: ReadonlyMap<PairKey, IndexedBond>;
+  /** Touching atom pairs that are NOT bonded. Disjoint from `bonds`. Never contains a pair with an H endpoint. */
+  readonly suppressed: ReadonlySet<PairKey>;
   /** Face neighbours that are atoms (v1: no diagonals). */
   neighbours(key: CellKey): IndexedAtom[];
+  /** neighbours(key) minus the partners of suppressedOf(key): the atoms that contribute to bondsOf(key). */
+  bondedNeighbours(key: CellKey): IndexedAtom[];
   bondsOf(key: CellKey): IndexedBond[];
   /** Sum of bond orders on the cell (explicit H blocks count 1 each). */
   bondOrderSum(key: CellKey): number;
+  isSuppressed(key: PairKey): boolean;
+  /** Suppressed pairs with `key` as an endpoint, sorted by PairKey. */
+  suppressedOf(key: CellKey): PairKey[];
+  /** bonds.get(key)?.order ?? (suppressed.has(key) ? 0 : undefined); undefined = the cells do not touch. */
+  wandOrder(key: PairKey): WandOrder | undefined;
   /** Connected component id per atom; ids are dense 0..n-1 assigned by
    *  ascending minimum cellIndex so extraction is deterministic. */
   componentOf(key: CellKey): ComponentId;
@@ -231,9 +250,30 @@ export interface MoleculeIndex {
   removeAtom(key: CellKey): void;
   setBondOrder(key: PairKey, order: BondOrder): void;
   setCharge(key: CellKey, charge: Charge): void;
+  /** Moves an existing bond record out of `bonds` into `suppressed`. Throws Error('not a bond: ' + key) otherwise. */
+  suppressBond(key: PairKey): void;
+  /** Moves a suppressed pair back into `bonds` as {order: 1, diagonal: false}. Throws Error('not suppressed: ' + key) otherwise. */
+  restoreBond(key: PairKey): void;
   /** Rebuild atoms and adjacency from the grid, PRESERVING existing bond orders
-   *  and charges for pairs/cells that still exist. */
-  rebuildFromGrid(get: (x: number, y: number, z: number) => number, keepOrders: ReadonlyMap<PairKey, BondOrder>, keepCharges: ReadonlyMap<CellKey, Charge>): void;
+   *  and charges for pairs/cells that still exist; every pair of `keepSuppressed`
+   *  whose two cells are atoms and touch (no H endpoint) is suppressed again. */
+  rebuildFromGrid(
+    get: (x: number, y: number, z: number) => number,
+    keepOrders: ReadonlyMap<PairKey, BondOrder>,
+    keepCharges: ReadonlyMap<CellKey, Charge>,
+    keepSuppressed?: ReadonlySet<PairKey>,
+  ): void;
+}
+
+/** What placement / bond / charge validation reads from the engine (02 §1). */
+export interface PlacementContext {
+  readonly getBlock: (x: number, y: number, z: number) => number;
+  /** Remaining blocks per element; H is Infinity. */
+  readonly inventory: Readonly<Record<BlockElement, number>>;
+  /** Player feet position, or null when overlap is not checked (tests). */
+  readonly player: { readonly x: number; readonly y: number; readonly z: number } | null;
+  /** Zones that refuse mutations right now (['reactant'] while a bench challenge is active). */
+  readonly lockedZones: readonly Zone[];
 }
 
 // ---------------------------------------------------------------------------
@@ -259,8 +299,9 @@ export type BondChangeRefusal =
   | { readonly reason: 'locked-zone'; readonly zone: Zone }
   | { readonly reason: 'h-block'; readonly cell: CellKey };
 
+/** Wand cycle result (09 §1.3): `order` 0 = the pair becomes a suppressed pair; `previous` 0 = it was one. */
 export type BondChangeResult =
-  | { readonly ok: true; readonly order: BondOrder }
+  | { readonly ok: true; readonly order: WandOrder; readonly previous: WandOrder }
   | { readonly ok: false; readonly refusal: BondChangeRefusal; readonly message: string };
 
 export type ChargeChangeRefusal =

@@ -110,8 +110,9 @@ export const DEGRADED_BADGE = 'Connected to course gradebook - last save failed,
 /** Badge text after a bfcache restore of a finished session. */
 export const ENDED_BADGE =
   'Session ended - progress is saved on this device; reopen the activity from the course to continue reporting';
-/** Attempt count State.ts assigns to an attempted-but-unsolved attempt-limited challenge after a resume (§3.8). */
-export const RESUME_ATTEMPT_FLOOR = 1;
+/** Attempt count State.ts assigns to an attempted-but-unsolved attempt-limited challenge after a resume (§3.8).
+ *  Declared in the pure Progress.ts so State.ts can import it; re-exported here per 08 §1. */
+export { RESUME_ATTEMPT_FLOOR } from './Progress';
 
 const LESSON_STATUSES: readonly LessonStatus[] = ['passed', 'completed', 'failed', 'incomplete', 'browsed', 'not attempted'];
 

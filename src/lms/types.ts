@@ -104,6 +104,10 @@ export interface ProgressState {
   readonly solved: bigint;
   /** Bitmask: bit i set = solved at reduced credit (outcome == 2). Subset of `solved`. */
   readonly reduced: bigint;
+  /** Bitmask: bit i set = attempts used up on an attempt-limited challenge with the answer revealed
+   *  (wrong on the last attempt, or solved on the last attempt for 0 points). Subset of `attempted`;
+   *  (exhausted & solved) is a subset of `reduced` (08 §3.2). */
+  readonly exhausted: bigint;
   /** Points earned so far (sum over solved challenges of full or reduced points). */
   readonly earned: number;
   /** Highest raw score ever written to the LMS in this attempt (monotonic). */
@@ -145,8 +149,8 @@ export interface LmsWrite {
   readonly exit?: ExitValue;
 }
 
-/** Codec string layout (Progress.ts):
- *  v2|<hex attempted>|<hex solved>|<hex reduced>|<earned>|<reportedRaw>|<currentChallengeId>
+/** Codec string layout (Progress.ts), 8 fields:
+ *  v2|<hex attempted>|<hex solved>|<hex reduced>|<hex exhausted>|<earned>|<reportedRaw>|<currentChallengeId>
  *  Hex is the bigint in base 16 without a prefix; LSB = roster index 0.
  *  All-solved roster of 80 challenges encodes in < 120 characters. */
 export const SUSPEND_DATA_VERSION = 'v2';

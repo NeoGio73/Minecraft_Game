@@ -12,58 +12,26 @@ import {
   parseCellKey, splitPairKey, zoneOf,
 } from './types';
 import type {
-  BlockElement, BondChangeRefusal, CellKey, ChargeChangeResult, ComponentId, IndexedAtom, IndexedBond, MoleculeIndex,
-  PairKey, PlacementResult, Zone,
+  BlockElement, BondChangeRefusal, BondChangeResult, CellKey, ChargeChangeResult, ComponentId, IndexedAtom, IndexedBond,
+  MoleculeIndex, PairKey, PlacementContext, PlacementResult, WandOrder, Zone,
 } from './types';
 import { playerOverlapsCell } from './raycast';
 
 // ---------------------------------------------------------------------------
-// Contract additions declared locally (09 §1.1, §1.3; 02 §1)
+// Contract types (folded into src/world/types.ts by the integration contracts
+// revision; the local names stay as aliases for existing importers)
 // ---------------------------------------------------------------------------
 
-/** Bond order as the wand sees it. 0 = "no bond" (a suppressed pair). Never stored in a MoleculeGraph. */
-export type WandOrder = BondOrder | 0;
+export type { WandOrder, PlacementContext } from './types';
 
 /** The wand cycle 1 -> 2 -> 3 -> 0 -> 1. */
 export const WAND_CYCLE: readonly WandOrder[] = [1, 2, 3, 0];
 
-export interface MoleculeIndexExt extends MoleculeIndex {
-  /** Touching atom pairs that are NOT bonded. Disjoint from `bonds`. Never contains a pair with an H endpoint. */
-  readonly suppressed: ReadonlySet<PairKey>;
-  isSuppressed(key: PairKey): boolean;
-  /** Suppressed pairs with `key` as an endpoint, sorted by PairKey. */
-  suppressedOf(key: CellKey): PairKey[];
-  /** bonds.get(key)?.order ?? (suppressed.has(key) ? 0 : undefined); undefined = the cells do not touch. */
-  wandOrder(key: PairKey): WandOrder | undefined;
-  /** neighbours(key) minus the partners of suppressedOf(key) — the atoms that contribute to bondsOf(key). */
-  bondedNeighbours(key: CellKey): IndexedAtom[];
-  /** Moves an existing bond record out of `bonds` into `suppressed`. Throws Error('not a bond: ' + key) otherwise. */
-  suppressBond(key: PairKey): void;
-  /** Moves a suppressed pair back into `bonds` as {order: 1, diagonal: false}. Throws Error('not suppressed: ' + key) otherwise. */
-  restoreBond(key: PairKey): void;
-  /** As MoleculeIndex.rebuildFromGrid, plus: after atoms and orders are restored, every pair of `keepSuppressed`
-   *  whose two cells are atoms and touch (and has no H endpoint) is suppressed; others are dropped silently. */
-  rebuildFromGrid(
-    get: (x: number, y: number, z: number) => number,
-    keepOrders: ReadonlyMap<PairKey, BondOrder>,
-    keepCharges: ReadonlyMap<CellKey, Charge>,
-    keepSuppressed?: ReadonlySet<PairKey>,
-  ): void;
-}
+/** Alias kept for importers written before the suppressed-pair members joined `MoleculeIndex`. */
+export type MoleculeIndexExt = MoleculeIndex;
 
-export interface PlacementContext {
-  readonly getBlock: (x: number, y: number, z: number) => number;
-  /** Remaining blocks per element; H is Infinity. */
-  readonly inventory: Readonly<Record<BlockElement, number>>;
-  /** Player feet position, or null when overlap is not checked (tests). */
-  readonly player: { readonly x: number; readonly y: number; readonly z: number } | null;
-  /** Zones that refuse mutations right now (['reactant'] while a bench challenge is active). */
-  readonly lockedZones: readonly Zone[];
-}
-
-export type BondChangeResultExt =
-  | { readonly ok: true; readonly order: WandOrder; readonly previous: WandOrder }
-  | { readonly ok: false; readonly refusal: BondChangeRefusal; readonly message: string };
+/** Alias kept for importers written before `BondChangeResult` gained `previous` and order 0. */
+export type BondChangeResultExt = BondChangeResult;
 
 // ---------------------------------------------------------------------------
 // Helpers

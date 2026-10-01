@@ -363,8 +363,9 @@ export interface MoleculeEntry {
   readonly smiles: string;
   readonly chapters: readonly Chapter[];
   readonly requiresDiagonalBonds: boolean;
-  /** Expected CIP labels keyed by 1-based SMILES atom position, e.g. {"2":"R"}. */
-  readonly labels?: Readonly<Record<string, 'R' | 'S' | 'E' | 'Z'>>;
+  /** Expected CIP labels keyed by 1-based SMILES atom position, e.g. {"2":"R"}, or by bond "a=b" for E/Z;
+   *  lowercase r/s are the pseudo-asymmetric labels of the 1,4-disubstituted cyclohexanes (05 §5.1 rule 3). */
+  readonly labels?: Readonly<Record<string, 'R' | 'S' | 'E' | 'Z' | 'r' | 's'>>;
   /** Verified lattice layout for tutorials/ghost builds; pos[i] for SMILES atom i. */
   readonly layout?: readonly (readonly [number, number, number])[];
   readonly meso?: boolean;

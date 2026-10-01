@@ -129,6 +129,7 @@ export function mountMoleculePanel(root: HTMLElement, ctx: HudContext): Molecule
     lines.push(nm);
     clearChildren(ddFormula);
     ddFormula.appendChild(formulaNode(a.formula));
+    ddFormula.setAttribute('aria-label', a.formula);   // 06 §15.2 hook: the plain formula on the dd itself
     lines.push(`${STRINGS.formula} ${a.formula}`);
 
     // 3. facts

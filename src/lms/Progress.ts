@@ -6,13 +6,10 @@
  * and the resume merge between the LMS string and the learner's own mirror.
  * Spec: docs/design/08-deployment.md §3; contracts: docs/design/00-contracts.md §4.
  *
- * Contract note. `src/lms/types.ts` (frozen) declares three bitmasks on
- * `ProgressState`; 08-deployment §1 adds a fourth, `exhausted`, and asks the
- * contracts owner to add it to `types.ts`. Until that lands the mask is carried
- * by `ProgressStateV2` (declared here). Every function below accepts the
- * contract type `ProgressState` (a missing `exhausted` reads as `0n`) and
- * returns a `ProgressStateV2`, which is assignable to `ProgressState`, so code
- * written against the frozen contract keeps compiling.
+ * Contract note. `src/lms/types.ts` carries the fourth bitmask `exhausted`
+ * (08-deployment §1); `ProgressStateV2` is now an alias of the contract type
+ * kept for existing importers. `exhaustedOf` / `asV2` still accept a record
+ * written before the mask existed (a missing `exhausted` reads as `0n`).
  */
 import type {
   ExitValue,
@@ -30,13 +27,8 @@ import { pointsForAttempt, rawScore } from '../content/types';
 // Types and constants
 // ---------------------------------------------------------------------------
 
-/** `ProgressState` plus the fourth bitmask of 08-deployment §1. */
-export interface ProgressStateV2 extends ProgressState {
-  /** Bitmask: bit i set = attempts used up on an attempt-limited challenge with
-   *  the answer revealed (wrong on the last attempt, or solved on the last
-   *  attempt for 0 points). Subset of `attempted`. */
-  readonly exhausted: bigint;
-}
+/** Alias of the contract type (the `exhausted` mask lives in src/lms/types.ts). */
+export type ProgressStateV2 = ProgressState;
 
 export class ProgressDecodeError extends Error {
   constructor(
@@ -54,6 +46,8 @@ export const CHALLENGE_ID_RE = /^[A-Za-z0-9._-]+$/;
 export const ISOMER_HASH_RE = /^[0-9a-f]{16}$/;
 /** Student id used when cmi.core.student_id is empty in LMS mode; the mirror is disabled for it. */
 export const UNKNOWN_STUDENT_ID = '';
+/** Attempt count State.ts assigns to an attempted-but-unsolved attempt-limited challenge after a resume (08 §3.8). */
+export const RESUME_ATTEMPT_FLOOR = 1;
 
 const SUSPEND_FIELDS = 8;
 const LOCAL_FIELDS = 10;
@@ -70,16 +64,14 @@ const TIMESPAN_MAX_CS = 9999 * 360_000 + 59 * 6_000 + 59 * 100 + 99;
 
 /** The `exhausted` mask of a state written against either contract shape. */
 export function exhaustedOf(state: ProgressState): bigint {
-  const x = (state as Partial<ProgressStateV2>).exhausted;
+  const x = (state as Partial<ProgressState>).exhausted;
   return typeof x === 'bigint' ? x : 0n;
 }
 
 /** Returns `state` itself when it already carries `exhausted` (identity for the
  *  idempotency rules), else a copy with `exhausted: 0n`. */
-export function asV2(state: ProgressState): ProgressStateV2 {
-  return typeof (state as Partial<ProgressStateV2>).exhausted === 'bigint'
-    ? (state as ProgressStateV2)
-    : { ...state, exhausted: 0n };
+export function asV2(state: ProgressState): ProgressState {
+  return typeof (state as Partial<ProgressState>).exhausted === 'bigint' ? state : { ...state, exhausted: 0n };
 }
 
 function bitOf(index: number): bigint {
