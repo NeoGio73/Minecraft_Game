@@ -83,8 +83,20 @@ export const FEEDBACK: Readonly<Record<FeedbackKind, (p: FeedbackParams) => stri
   'nothing-targeted': () => 'Nothing is targeted. Look at the molecule you built on the lab pad and press Submit again.',
 };
 
-/** `override ?? FEEDBACK[kind](params)`. */
+const GENERIC_WRONG_FORMULA = 'Wrong formula.';
+
+/**
+ * `override ?? FEEDBACK[kind](params)`. A `wrong-formula` override that opens with the generic
+ * "Wrong formula." lead keeps its hint but gets the template's concrete formula sentence in place of
+ * the lead when the actual and target formulas are known, so a student always sees what they built
+ * (chemistry review minor 10).
+ */
 export function feedbackText(kind: FeedbackKind, params: FeedbackParams = {}, override?: string): string {
-  if (override !== undefined && override !== '') return override;
+  if (override !== undefined && override !== '') {
+    if (kind === 'wrong-formula' && has(params, 'yours') && has(params, 'expected') && override.startsWith(GENERIC_WRONG_FORMULA)) {
+      return `Wrong formula: yours is ${params['yours']}, the target is ${params['expected']}.` + override.slice(GENERIC_WRONG_FORMULA.length);
+    }
+    return override;
+  }
   return FEEDBACK[kind](params);
 }

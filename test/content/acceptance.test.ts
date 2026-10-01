@@ -108,6 +108,13 @@ describe('feedback templates', () => {
     expect(feedbackText('correct')).toBe('Correct!');
     expect(feedbackText('wrong-formula', { yours: 'C4H6', expected: 'C4H8', extraRing: 1 }).endsWith(NO_BOND_HINT)).toBe(true);
     expect(feedbackText('wrong-formula', { yours: 'C4H6', expected: 'C4H8' }).includes(NO_BOND_HINT)).toBe(false);
+    // chemistry review minor 10: a generic-lead override still shows the student's actual formula
+    expect(feedbackText('wrong-formula', { yours: 'C2H4O2', expected: 'C2H3O2-' }, 'Wrong formula. Target the single-bonded oxygen and press C once.'))
+      .toBe('Wrong formula: yours is C2H4O2, the target is C2H3O2-. Target the single-bonded oxygen and press C once.');
+    expect(feedbackText('wrong-formula', {}, 'Wrong formula. Target the single-bonded oxygen and press C once.'))
+      .toBe('Wrong formula. Target the single-bonded oxygen and press C once.');
+    expect(feedbackText('wrong-formula', { yours: 'C2H4O2', expected: 'C2H3O2-' }, 'NBS is a substitution, not an addition.'))
+      .toBe('NBS is a substitution, not an addition.');
     expect(feedbackText('constitutional-isomer', { yours: 'C4H10', name: 'butane', extraRing: 1 })).toContain('(you built butane)');
     expect(feedbackText('wrong-ring-count', { yours: 2, expected: 1 }).endsWith(NO_BOND_HINT)).toBe(true);
     expect(feedbackText('wrong-ring-count', { yours: 0, expected: 1 }).includes(NO_BOND_HINT)).toBe(false);
