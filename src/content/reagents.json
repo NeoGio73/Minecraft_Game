@@ -1,0 +1,931 @@
+[
+ {
+  "id": "HX_HCL",
+  "label": "HCl",
+  "reagentText": "HCl, ether",
+  "chapter": 7,
+  "section": "7.7",
+  "substrates": [
+   "alkene",
+   "alkyne"
+  ],
+  "rule": "HX_ADD",
+  "halogen": "Cl",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "HX_HBR",
+  "label": "HBr",
+  "reagentText": "HBr, ether",
+  "chapter": 7,
+  "section": "7.7",
+  "substrates": [
+   "alkene",
+   "alkyne"
+  ],
+  "rule": "HX_ADD",
+  "halogen": "Br",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "HX_HI",
+  "label": "HI",
+  "reagentText": "HI (KI, H3PO4)",
+  "chapter": 7,
+  "section": "7.7",
+  "substrates": [
+   "alkene",
+   "alkyne"
+  ],
+  "rule": "HX_ADD",
+  "halogen": "I",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "HX_2EQ_HBR",
+  "label": "2 HBr",
+  "reagentText": "2 HBr, ether",
+  "chapter": 9,
+  "section": "9.3",
+  "substrates": [
+   "alkyne"
+  ],
+  "rule": "HX_ADD",
+  "halogen": "Br",
+  "equiv": 2,
+  "enabledByDefault": true
+ },
+ {
+  "id": "HX_2EQ_HCL",
+  "label": "2 HCl",
+  "reagentText": "2 HCl, ether",
+  "chapter": 9,
+  "section": "9.3",
+  "substrates": [
+   "alkyne"
+  ],
+  "rule": "HX_ADD",
+  "halogen": "Cl",
+  "equiv": 2,
+  "enabledByDefault": true
+ },
+ {
+  "id": "HBR_ROOR",
+  "label": "HBr, peroxides",
+  "reagentText": "HBr, ROOR",
+  "chapter": 8,
+  "section": "8.10 (not in 10e)",
+  "substrates": [
+   "alkene"
+  ],
+  "rule": "RADICAL_HBR",
+  "halogen": "Br",
+  "equiv": 1,
+  "notInMcMurry10e": true,
+  "enabledByDefault": true
+ },
+ {
+  "id": "X2_BR2",
+  "label": "Br2",
+  "reagentText": "Br2, CH2Cl2",
+  "chapter": 8,
+  "section": "8.2 / 9.3",
+  "substrates": [
+   "alkene",
+   "alkyne"
+  ],
+  "rule": "X2_ADD",
+  "halogen": "Br",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "X2_CL2",
+  "label": "Cl2",
+  "reagentText": "Cl2, CH2Cl2",
+  "chapter": 8,
+  "section": "8.2 / 9.3",
+  "substrates": [
+   "alkene",
+   "alkyne"
+  ],
+  "rule": "X2_ADD",
+  "halogen": "Cl",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "HOX_BR2_H2O",
+  "label": "Br2, H2O",
+  "reagentText": "Br2, H2O (or NBS, H2O/DMSO)",
+  "chapter": 8,
+  "section": "8.3",
+  "substrates": [
+   "alkene"
+  ],
+  "rule": "HOX_ADD",
+  "halogen": "Br",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "HOX_CL2_H2O",
+  "label": "Cl2, H2O",
+  "reagentText": "Cl2, H2O",
+  "chapter": 8,
+  "section": "8.3",
+  "substrates": [
+   "alkene"
+  ],
+  "rule": "HOX_ADD",
+  "halogen": "Cl",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "H3O_HYDRATION",
+  "label": "H3O+",
+  "reagentText": "H2O, H2SO4 (cat.)",
+  "chapter": 8,
+  "section": "8.4",
+  "substrates": [
+   "alkene"
+  ],
+  "rule": "HYDRATION",
+  "equiv": 1,
+  "solvent": "protic",
+  "enabledByDefault": true
+ },
+ {
+  "id": "OXYMERC",
+  "label": "oxymercuration",
+  "reagentText": "1) Hg(OAc)2, H2O/THF 2) NaBH4",
+  "chapter": 8,
+  "section": "8.4",
+  "substrates": [
+   "alkene"
+  ],
+  "rule": "OXYMERC",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "HYDROBORATION",
+  "label": "hydroboration–oxidation",
+  "reagentText": "1) BH3, THF 2) H2O2, NaOH",
+  "chapter": 8,
+  "section": "8.5",
+  "substrates": [
+   "alkene"
+  ],
+  "rule": "HYDROBORATION",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "H2_PD",
+  "label": "H2, Pd/C",
+  "reagentText": "H2, Pd/C (or PtO2)",
+  "chapter": 8,
+  "section": "8.6 / 9.5",
+  "substrates": [
+   "alkene",
+   "alkyne"
+  ],
+  "rule": "H2",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "MCPBA",
+  "label": "epoxidation",
+  "reagentText": "RCO3H (m-CPBA), CH2Cl2",
+  "chapter": 8,
+  "section": "8.7",
+  "substrates": [
+   "alkene"
+  ],
+  "rule": "EPOXIDATION",
+  "equiv": 1,
+  "requiresDiagonalBonds": true,
+  "enabledByDefault": false
+ },
+ {
+  "id": "EPOXIDE_H3O",
+  "label": "epoxide hydrolysis",
+  "reagentText": "H3O+",
+  "chapter": 8,
+  "section": "8.7",
+  "substrates": [
+   "epoxide"
+  ],
+  "rule": "EPOXIDE_OPEN",
+  "equiv": 1,
+  "solvent": "protic",
+  "requiresDiagonalBonds": true,
+  "enabledByDefault": false
+ },
+ {
+  "id": "ANTI_DIHYDROXYLATION",
+  "label": "1) RCO3H 2) H3O+",
+  "reagentText": "1) m-CPBA 2) H3O+",
+  "chapter": 8,
+  "section": "8.7",
+  "substrates": [
+   "alkene"
+  ],
+  "rule": "ANTI_DIOL",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "OSO4",
+  "label": "syn dihydroxylation",
+  "reagentText": "1) OsO4 2) NaHSO3, H2O",
+  "chapter": 8,
+  "section": "8.7",
+  "substrates": [
+   "alkene"
+  ],
+  "rule": "SYN_DIOL",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "KMNO4_COLD",
+  "label": "KMnO4, cold, OH−",
+  "reagentText": "KMnO4, NaOH, 0 °C",
+  "chapter": 8,
+  "section": "8.7 (not in 10e)",
+  "substrates": [
+   "alkene"
+  ],
+  "rule": "SYN_DIOL",
+  "equiv": 1,
+  "notInMcMurry10e": true,
+  "enabledByDefault": false
+ },
+ {
+  "id": "O3_ZN",
+  "label": "ozonolysis",
+  "reagentText": "1) O3 2) Zn, H3O+",
+  "chapter": 8,
+  "section": "8.8",
+  "substrates": [
+   "alkene"
+  ],
+  "rule": "OZONOLYSIS",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "KMNO4_HOT",
+  "label": "KMnO4, H3O+",
+  "reagentText": "KMnO4, H3O+, heat",
+  "chapter": 8,
+  "section": "8.8 / 9.6",
+  "substrates": [
+   "alkene",
+   "alkyne"
+  ],
+  "rule": "KMNO4_CLEAVAGE",
+  "equiv": 1,
+  "heat": true,
+  "enabledByDefault": true
+ },
+ {
+  "id": "HIO4",
+  "label": "periodic acid",
+  "reagentText": "HIO4, H2O",
+  "chapter": 8,
+  "section": "8.8",
+  "substrates": [
+   "diol"
+  ],
+  "rule": "DIOL_CLEAVAGE",
+  "equiv": 1,
+  "enabledByDefault": false
+ },
+ {
+  "id": "CH2I2_ZNCU",
+  "label": "Simmons–Smith",
+  "reagentText": "CH2I2, Zn(Cu), ether",
+  "chapter": 8,
+  "section": "8.9",
+  "substrates": [
+   "alkene"
+  ],
+  "rule": "CYCLOPROPANATION",
+  "equiv": 1,
+  "requiresDiagonalBonds": true,
+  "enabledByDefault": false
+ },
+ {
+  "id": "CHCL3_KOH",
+  "label": "dichlorocarbene",
+  "reagentText": "CHCl3, KOH",
+  "chapter": 8,
+  "section": "8.9",
+  "substrates": [
+   "alkene"
+  ],
+  "rule": "CYCLOPROPANATION",
+  "halogen": "Cl",
+  "equiv": 1,
+  "requiresDiagonalBonds": true,
+  "enabledByDefault": false
+ },
+ {
+  "id": "HGSO4_HYDRATION",
+  "label": "Hg-catalysed hydration",
+  "reagentText": "H2O, H2SO4, HgSO4",
+  "chapter": 9,
+  "section": "9.4",
+  "substrates": [
+   "alkyne"
+  ],
+  "rule": "ALKYNE_HYDRATION_HG",
+  "equiv": 1,
+  "solvent": "protic",
+  "enabledByDefault": true
+ },
+ {
+  "id": "HYDROBORATION_ALKYNE",
+  "label": "alkyne hydroboration–oxidation",
+  "reagentText": "1) BH3 (Sia2BH), THF 2) H2O2, NaOH",
+  "chapter": 9,
+  "section": "9.4",
+  "substrates": [
+   "alkyne"
+  ],
+  "rule": "ALKYNE_HYDROBORATION",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "H2_LINDLAR",
+  "label": "Lindlar hydrogenation",
+  "reagentText": "H2, Lindlar catalyst",
+  "chapter": 9,
+  "section": "9.5",
+  "substrates": [
+   "alkyne"
+  ],
+  "rule": "LINDLAR",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "LI_NH3",
+  "label": "Li, NH3",
+  "reagentText": "Li (or Na), NH3(l)",
+  "chapter": 9,
+  "section": "9.5",
+  "substrates": [
+   "alkyne"
+  ],
+  "rule": "DISSOLVING_METAL",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "NANH2_THEN_RX",
+  "label": "1) NaNH2 2) R–Br",
+  "reagentText": "1) NaNH2, NH3 2) R–Br (R = CH3 or primary)",
+  "chapter": 9,
+  "section": "9.8–9.9",
+  "substrates": [
+   "terminal-alkyne"
+  ],
+  "rule": "ACETYLIDE_ALKYLATION",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "NANH2_2EQ_DIHALIDE",
+  "label": "2 NaNH2, then H3O+",
+  "reagentText": "2 NaNH2, NH3; then H3O+",
+  "chapter": 9,
+  "section": "9.2",
+  "substrates": [
+   "vicinal-dihalide"
+  ],
+  "rule": "DOUBLE_E2",
+  "equiv": 2,
+  "enabledByDefault": true
+ },
+ {
+  "id": "NBS_HV",
+  "label": "NBS, hν",
+  "reagentText": "NBS, hν, CCl4",
+  "chapter": 10,
+  "section": "10.3",
+  "substrates": [
+   "allylic-alkene"
+  ],
+  "rule": "ALLYLIC_BROMINATION",
+  "halogen": "Br",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "CL2_HV",
+  "label": "Cl2, hν",
+  "reagentText": "Cl2, hν",
+  "chapter": 10,
+  "section": "10.2",
+  "substrates": [
+   "alkane"
+  ],
+  "rule": "RADICAL_HALOGENATION",
+  "halogen": "Cl",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "BR2_HV",
+  "label": "Br2, hν",
+  "reagentText": "Br2, hν",
+  "chapter": 10,
+  "section": "10.2",
+  "substrates": [
+   "alkane"
+  ],
+  "rule": "RADICAL_HALOGENATION",
+  "halogen": "Br",
+  "equiv": 1,
+  "enabledByDefault": true
+ },
+ {
+  "id": "ROH_HX_HCL",
+  "label": "HCl (on alcohols)",
+  "reagentText": "HCl, ether, 0 °C",
+  "chapter": 10,
+  "section": "10.5",
+  "substrates": [
+   "alcohol"
+  ],
+  "rule": "ROH_TO_RX",
+  "halogen": "Cl",
+  "equiv": 1,
+  "solvent": "protic",
+  "enabledByDefault": true
+ },
+ {
+  "id": "ROH_HX_HBR",
+  "label": "HBr (on alcohols)",
+  "reagentText": "HBr, ether, 0 °C",
+  "chapter": 10,
+  "section": "10.5",
+  "substrates": [
+   "alcohol"
+  ],
+  "rule": "ROH_TO_RX",
+  "halogen": "Br",
+  "equiv": 1,
+  "solvent": "protic",
+  "enabledByDefault": true
+ },
+ {
+  "id": "ROH_SOCL2",
+  "label": "SOCl2",
+  "reagentText": "SOCl2, pyridine",
+  "chapter": 10,
+  "section": "10.5",
+  "substrates": [
+   "alcohol"
+  ],
+  "rule": "ROH_TO_RX",
+  "halogen": "Cl",
+  "equiv": 1,
+  "solvent": "aprotic",
+  "enabledByDefault": true
+ },
+ {
+  "id": "ROH_PBR3",
+  "label": "PBr3",
+  "reagentText": "PBr3, ether",
+  "chapter": 10,
+  "section": "10.5",
+  "substrates": [
+   "alcohol"
+  ],
+  "rule": "ROH_TO_RX",
+  "halogen": "Br",
+  "equiv": 1,
+  "solvent": "aprotic",
+  "enabledByDefault": true
+ },
+ {
+  "id": "ROH_HF_PYR",
+  "label": "HF–pyridine",
+  "reagentText": "HF, pyridine",
+  "chapter": 10,
+  "section": "10.5",
+  "substrates": [
+   "alcohol"
+  ],
+  "rule": "ROH_TO_RX",
+  "halogen": "F",
+  "equiv": 1,
+  "solvent": "aprotic",
+  "enabledByDefault": false
+ },
+ {
+  "id": "SN2_NAOH",
+  "label": "NaOH",
+  "reagentText": "NaOH, H2O/DMSO",
+  "chapter": 11,
+  "section": "11.2–11.3",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "nuc": {
+   "atom": "O",
+   "fragment": "O",
+   "strength": "strong",
+   "basicity": "strong",
+   "bulky": false,
+   "charged": true
+  },
+  "enabledByDefault": true
+ },
+ {
+  "id": "SN2_NAOCH3",
+  "label": "NaOCH3",
+  "reagentText": "NaOCH3, CH3OH",
+  "chapter": 11,
+  "section": "11.3 / 11.7",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "nuc": {
+   "atom": "O",
+   "fragment": "OC",
+   "strength": "strong",
+   "basicity": "strong",
+   "bulky": false,
+   "charged": true
+  },
+  "enabledByDefault": true
+ },
+ {
+  "id": "SN2_NAOET",
+  "label": "NaOEt",
+  "reagentText": "NaOCH2CH3, CH3CH2OH",
+  "chapter": 11,
+  "section": "11.7",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "nuc": {
+   "atom": "O",
+   "fragment": "OCC",
+   "strength": "strong",
+   "basicity": "strong",
+   "bulky": false,
+   "charged": true
+  },
+  "enabledByDefault": true
+ },
+ {
+  "id": "SN2_NAI",
+  "label": "NaI",
+  "reagentText": "NaI, acetone",
+  "chapter": 11,
+  "section": "11.3",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "aprotic",
+  "nuc": {
+   "atom": "I",
+   "fragment": "I",
+   "strength": "strong",
+   "basicity": "weak",
+   "bulky": false,
+   "charged": true
+  },
+  "enabledByDefault": true
+ },
+ {
+  "id": "SN2_NACN",
+  "label": "NaCN",
+  "reagentText": "NaCN, DMSO",
+  "chapter": 11,
+  "section": "11.3",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "aprotic",
+  "nuc": {
+   "atom": "C",
+   "fragment": "C#N",
+   "strength": "strong",
+   "basicity": "weak",
+   "bulky": false,
+   "charged": true
+  },
+  "enabledByDefault": true
+ },
+ {
+  "id": "SN2_NAN3",
+  "label": "NaN3",
+  "reagentText": "NaN3, DMF",
+  "chapter": 11,
+  "section": "11.3",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "aprotic",
+  "nuc": {
+   "atom": "N",
+   "fragment": "N=[N+]=[N-]",
+   "strength": "strong",
+   "basicity": "weak",
+   "bulky": false,
+   "charged": true
+  },
+  "enabledByDefault": false
+ },
+ {
+  "id": "SN2_NASH",
+  "label": "NaSH",
+  "reagentText": "NaSH, ethanol",
+  "chapter": 11,
+  "section": "11.3",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "nuc": {
+   "atom": "S",
+   "fragment": "S",
+   "strength": "strong",
+   "basicity": "weak",
+   "bulky": false,
+   "charged": true
+  },
+  "enabledByDefault": false
+ },
+ {
+  "id": "SN2_NH3",
+  "label": "NH3",
+  "reagentText": "NH3 (excess)",
+  "chapter": 11,
+  "section": "11.3",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "nuc": {
+   "atom": "N",
+   "fragment": "N",
+   "strength": "moderate",
+   "basicity": "weak",
+   "bulky": false,
+   "charged": false
+  },
+  "enabledByDefault": false
+ },
+ {
+  "id": "SN2_NAOAC",
+  "label": "NaOAc",
+  "reagentText": "CH3CO2Na, CH3CO2H/H2O",
+  "chapter": 11,
+  "section": "11.5",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "nuc": {
+   "atom": "O",
+   "fragment": "OC(C)=O",
+   "strength": "moderate",
+   "basicity": "weak",
+   "bulky": false,
+   "charged": true
+  },
+  "enabledByDefault": false
+ },
+ {
+  "id": "SN2_ACETYLIDE",
+  "label": "Na+ −C≡CCH3",
+  "reagentText": "NaC≡CCH3, NH3",
+  "chapter": 11,
+  "section": "9.9 / 11.3",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "nuc": {
+   "atom": "C",
+   "fragment": "C#CC",
+   "strength": "strong",
+   "basicity": "strong",
+   "bulky": false,
+   "charged": true
+  },
+  "enabledByDefault": true
+ },
+ {
+  "id": "TBUOK",
+  "label": "KOtBu",
+  "reagentText": "KOC(CH3)3, tBuOH",
+  "chapter": 11,
+  "section": "11.12",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "notInMcMurry10e": true,
+  "nuc": {
+   "atom": "O",
+   "fragment": "OC(C)(C)C",
+   "strength": "strong",
+   "basicity": "strong",
+   "bulky": true,
+   "charged": true
+  },
+  "enabledByDefault": true
+ },
+ {
+  "id": "NANH2_BASE",
+  "label": "NaNH2",
+  "reagentText": "NaNH2, NH3",
+  "chapter": 11,
+  "section": "11.8",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "nuc": {
+   "atom": "N",
+   "fragment": "N",
+   "strength": "strong",
+   "basicity": "strong",
+   "bulky": false,
+   "charged": true
+  },
+  "enabledByDefault": true
+ },
+ {
+  "id": "KOH_ETOH",
+  "label": "KOH, ethanol",
+  "reagentText": "KOH, CH3CH2OH, heat",
+  "chapter": 8,
+  "section": "8.1 / 11.7",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "heat": true,
+  "nuc": {
+   "atom": "O",
+   "fragment": "O",
+   "strength": "strong",
+   "basicity": "strong",
+   "bulky": false,
+   "charged": true
+  },
+  "enabledByDefault": true
+ },
+ {
+  "id": "H2O_HEAT",
+  "label": "H2O, heat",
+  "reagentText": "H2O, heat",
+  "chapter": 11,
+  "section": "11.4 / 11.10",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "heat": true,
+  "nuc": {
+   "atom": "O",
+   "fragment": "O",
+   "strength": "weak",
+   "basicity": "weak",
+   "bulky": false,
+   "charged": false
+  },
+  "enabledByDefault": true
+ },
+ {
+  "id": "ETOH_HEAT",
+  "label": "ethanol, heat",
+  "reagentText": "CH3CH2OH, heat",
+  "chapter": 11,
+  "section": "11.5 / 11.10",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "heat": true,
+  "nuc": {
+   "atom": "O",
+   "fragment": "OCC",
+   "strength": "weak",
+   "basicity": "weak",
+   "bulky": false,
+   "charged": false
+  },
+  "enabledByDefault": true
+ },
+ {
+  "id": "MEOH_HEAT",
+  "label": "methanol, heat",
+  "reagentText": "CH3OH, heat",
+  "chapter": 11,
+  "section": "11.5",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "heat": true,
+  "nuc": {
+   "atom": "O",
+   "fragment": "OC",
+   "strength": "weak",
+   "basicity": "weak",
+   "bulky": false,
+   "charged": false
+  },
+  "enabledByDefault": false
+ },
+ {
+  "id": "HCOOH_H2O",
+  "label": "HCO2H, H2O",
+  "reagentText": "HCO2H, H2O",
+  "chapter": 11,
+  "section": "11.12",
+  "substrates": [
+   "alkyl-halide"
+  ],
+  "rule": "SUBST_ELIM",
+  "equiv": 1,
+  "solvent": "protic",
+  "nuc": {
+   "atom": "O",
+   "fragment": "OC=O",
+   "strength": "weak",
+   "basicity": "weak",
+   "bulky": false,
+   "charged": false
+  },
+  "enabledByDefault": false
+ },
+ {
+  "id": "H2SO4_HEAT_ROH",
+  "label": "H2SO4, heat (dehydration)",
+  "reagentText": "H2SO4, H2O/THF, 50 °C",
+  "chapter": 8,
+  "section": "8.1",
+  "substrates": [
+   "alcohol"
+  ],
+  "rule": "DEHYDRATION",
+  "equiv": 1,
+  "solvent": "protic",
+  "heat": true,
+  "enabledByDefault": true
+ }
+]

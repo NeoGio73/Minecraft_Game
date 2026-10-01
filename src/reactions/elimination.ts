@@ -4,7 +4,7 @@
  * See docs/design/04-reaction-bench.md sections 5.8.1-5.8.4 and DEHYDRATION.
  */
 import type { MoleculeGraph } from '../chem/types';
-import { bondBetween, neighborsOf, withEz, withoutBond } from '../chem/graph';
+import { bondBetween, neighborsOf, ringsThrough, withEz, withoutBond } from '../chem/graph';
 import { parityInOrder } from '../chem/stereo';
 import {
   JUSTIFY, WARN, dedupe, deg, eliminate, findCOH, hydrogensOf, noReaction, pushWarning,
@@ -52,7 +52,10 @@ function remapSigma(s: Sigma, removed: number): Sigma {
 /**
  * One elimination product with its E/Z tag: the anti-periplanar rule when
  * both carbons carry `tet` (E2 only), else the display rule (E assumed for a
- * 1,2-disubstituted alkene, no tag otherwise).
+ * 1,2-disubstituted alkene, no tag otherwise). A new C=C inside a ring never
+ * carries a tag (00-contracts: ring double bonds never carry an `EzTag`; the
+ * ring fixes the geometry, so no E assumption is made and the product still
+ * embeds induced).
  */
 export function buildAlkene(g: MoleculeGraph, cX: number, beta: number, x: number, antiPeriplanar: boolean): AlkeneBuild {
   const tetC = g.atoms[cX]!.tet;
@@ -60,6 +63,7 @@ export function buildAlkene(g: MoleculeGraph, cX: number, beta: number, x: numbe
   const hyd = hydrogensOf(g);
   const e = eliminate(g, cX, beta, x);
   let graph = e.graph;
+  if (ringsThrough(graph, e.a, e.b).length > 0) return { graph, assumedTrans: false };
   const pa = remapAfterRemoval(cX, x);
   const pb = remapAfterRemoval(beta, x);
   if (antiPeriplanar && tetC && tetB && (hyd[beta] ?? 0) === 1) {

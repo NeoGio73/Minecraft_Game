@@ -1,0 +1,3883 @@
+{
+ "version": 1,
+ "entries": [
+  {
+   "id": "methane",
+   "name": "methane",
+   "commonNames": [],
+   "formula": "CH4",
+   "smiles": "C",
+   "chapters": [
+    1
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "ethane",
+   "name": "ethane",
+   "commonNames": [],
+   "formula": "C2H6",
+   "smiles": "CC",
+   "chapters": [
+    1
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "propane",
+   "name": "propane",
+   "commonNames": [],
+   "formula": "C3H8",
+   "smiles": "CCC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "butane",
+   "name": "butane",
+   "commonNames": [
+    "n-butane"
+   ],
+   "formula": "C4H10",
+   "smiles": "CCCC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-methylpropane",
+   "name": "2-methylpropane",
+   "commonNames": [
+    "isobutane"
+   ],
+   "formula": "C4H10",
+   "smiles": "CC(C)C",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "pentane",
+   "name": "pentane",
+   "commonNames": [
+    "n-pentane"
+   ],
+   "formula": "C5H12",
+   "smiles": "CCCCC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-methylbutane",
+   "name": "2-methylbutane",
+   "commonNames": [
+    "isopentane"
+   ],
+   "formula": "C5H12",
+   "smiles": "CCC(C)C",
+   "chapters": [
+    1,
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-2-dimethylpropane",
+   "name": "2,2-dimethylpropane",
+   "commonNames": [
+    "neopentane"
+   ],
+   "formula": "C5H12",
+   "smiles": "CC(C)(C)C",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "hexane",
+   "name": "hexane",
+   "commonNames": [
+    "n-hexane"
+   ],
+   "formula": "C6H14",
+   "smiles": "CCCCCC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-methylpentane",
+   "name": "2-methylpentane",
+   "commonNames": [
+    "isohexane"
+   ],
+   "formula": "C6H14",
+   "smiles": "CCCC(C)C",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "3-methylpentane",
+   "name": "3-methylpentane",
+   "commonNames": [],
+   "formula": "C6H14",
+   "smiles": "CCC(C)CC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-2-dimethylbutane",
+   "name": "2,2-dimethylbutane",
+   "commonNames": [],
+   "formula": "C6H14",
+   "smiles": "CCC(C)(C)C",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-3-dimethylbutane",
+   "name": "2,3-dimethylbutane",
+   "commonNames": [],
+   "formula": "C6H14",
+   "smiles": "CC(C)C(C)C",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "3-ethyl-2-methylpentane",
+   "name": "3-ethyl-2-methylpentane",
+   "commonNames": [],
+   "formula": "C8H18",
+   "smiles": "CCC(CC)C(C)C",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-2-4-trimethylpentane",
+   "name": "2,2,4-trimethylpentane",
+   "commonNames": [
+    "isooctane"
+   ],
+   "formula": "C8H18",
+   "smiles": "CC(C)CC(C)(C)C",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "3-methylhexane",
+   "name": "3-methylhexane",
+   "commonNames": [],
+   "formula": "C7H16",
+   "smiles": "CCCC(C)CC",
+   "chapters": [
+    5
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "r-3-methylhexane",
+   "name": "(R)-3-methylhexane",
+   "commonNames": [],
+   "formula": "C7H16",
+   "smiles": "CCC[C@H](C)CC",
+   "chapters": [
+    5
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "4": "R"
+   },
+   "layout": [
+    [
+     3,
+     0,
+     0
+    ],
+    [
+     2,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     -1
+    ],
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     -1,
+     1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "s-3-methylhexane",
+   "name": "(S)-3-methylhexane",
+   "commonNames": [],
+   "formula": "C7H16",
+   "smiles": "CCC[C@@H](C)CC",
+   "chapters": [
+    5
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "4": "S"
+   },
+   "layout": [
+    [
+     3,
+     0,
+     0
+    ],
+    [
+     2,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     -1,
+     1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "cyclobutane",
+   "name": "cyclobutane",
+   "commonNames": [],
+   "formula": "C4H8",
+   "smiles": "C1CCC1",
+   "chapters": [
+    4
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methylcyclobutane",
+   "name": "methylcyclobutane",
+   "commonNames": [],
+   "formula": "C5H10",
+   "smiles": "CC1CCC1",
+   "chapters": [
+    4
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "cyclohexane",
+   "name": "cyclohexane",
+   "commonNames": [],
+   "formula": "C6H12",
+   "smiles": "C1CCCCC1",
+   "chapters": [
+    4
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methylcyclohexane",
+   "name": "methylcyclohexane",
+   "commonNames": [],
+   "formula": "C7H14",
+   "smiles": "CC1CCCCC1",
+   "chapters": [
+    4
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "1-1-dimethylcyclohexane",
+   "name": "1,1-dimethylcyclohexane",
+   "commonNames": [],
+   "formula": "C8H16",
+   "smiles": "CC1(C)CCCCC1",
+   "chapters": [
+    4
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "cis-1-2-dimethylcyclohexane",
+   "name": "cis-1,2-dimethylcyclohexane",
+   "commonNames": [
+    "(1R,2S)-1,2-dimethylcyclohexane",
+    "meso-1,2-dimethylcyclohexane"
+   ],
+   "formula": "C8H16",
+   "smiles": "C[C@H]1CCCC[C@H]1C",
+   "chapters": [
+    4,
+    8
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S",
+    "7": "R"
+   },
+   "meso": true
+  },
+  {
+   "id": "trans-1r-2r-dimethylcyclohexane",
+   "name": "(1R,2R)-1,2-dimethylcyclohexane",
+   "commonNames": [
+    "trans-1,2-dimethylcyclohexane"
+   ],
+   "formula": "C8H16",
+   "smiles": "C[C@@H]1CCCC[C@H]1C",
+   "chapters": [
+    4
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "R",
+    "7": "R"
+   },
+   "layout": [
+    [
+     0,
+     0,
+     -1
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     1,
+     1
+    ],
+    [
+     1,
+     1,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "trans-1s-2s-dimethylcyclohexane",
+   "name": "(1S,2S)-1,2-dimethylcyclohexane",
+   "commonNames": [
+    "trans-1,2-dimethylcyclohexane"
+   ],
+   "formula": "C8H16",
+   "smiles": "C[C@H]1CCCC[C@@H]1C",
+   "chapters": [
+    4
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S",
+    "7": "S"
+   },
+   "layout": [
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     1,
+     -1
+    ],
+    [
+     1,
+     1,
+     -1
+    ],
+    [
+     1,
+     0,
+     -1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "cis-1-4-dimethylcyclohexane",
+   "name": "cis-1,4-dimethylcyclohexane",
+   "commonNames": [],
+   "formula": "C8H16",
+   "smiles": "C[C@H]1CC[C@@H](C)CC1",
+   "chapters": [
+    4
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "s",
+    "5": "s"
+   }
+  },
+  {
+   "id": "trans-1-4-dimethylcyclohexane",
+   "name": "trans-1,4-dimethylcyclohexane",
+   "commonNames": [],
+   "formula": "C8H16",
+   "smiles": "C[C@H]1CC[C@H](C)CC1",
+   "chapters": [
+    4
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "r",
+    "5": "r"
+   },
+   "layout": [
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     -1
+    ],
+    [
+     1,
+     1,
+     -1
+    ],
+    [
+     1,
+     1,
+     -2
+    ],
+    [
+     0,
+     1,
+     -1
+    ],
+    [
+     0,
+     1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "ethene",
+   "name": "ethene",
+   "commonNames": [
+    "ethylene"
+   ],
+   "formula": "C2H4",
+   "smiles": "C=C",
+   "chapters": [
+    1,
+    6,
+    7
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "propene",
+   "name": "propene",
+   "commonNames": [
+    "propylene"
+   ],
+   "formula": "C3H6",
+   "smiles": "C=CC",
+   "chapters": [
+    1,
+    7
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "propa-1-2-diene",
+   "name": "propa-1,2-diene",
+   "commonNames": [
+    "allene",
+    "1,2-propadiene"
+   ],
+   "formula": "C3H4",
+   "smiles": "C=C=C",
+   "chapters": [
+    1
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "propenal",
+   "name": "propenal",
+   "commonNames": [
+    "prop-2-enal",
+    "acrolein",
+    "2-propenal"
+   ],
+   "formula": "C3H4O",
+   "smiles": "C=CC=O",
+   "chapters": [
+    1
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "but-1-ene",
+   "name": "but-1-ene",
+   "commonNames": [
+    "1-butene"
+   ],
+   "formula": "C4H8",
+   "smiles": "C=CCC",
+   "chapters": [
+    4,
+    7
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "e-but-2-ene",
+   "name": "(E)-but-2-ene",
+   "commonNames": [
+    "trans-2-butene",
+    "(E)-2-butene",
+    "trans-but-2-ene"
+   ],
+   "formula": "C4H8",
+   "smiles": "C/C=C/C",
+   "chapters": [
+    4,
+    7,
+    8
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2=3": "E"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "z-but-2-ene",
+   "name": "(Z)-but-2-ene",
+   "commonNames": [
+    "cis-2-butene",
+    "(Z)-2-butene",
+    "cis-but-2-ene"
+   ],
+   "formula": "C4H8",
+   "smiles": "C/C=C\\C",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2=3": "Z"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "2-methylpropene",
+   "name": "2-methylpropene",
+   "commonNames": [
+    "isobutylene",
+    "isobutene",
+    "methylpropene"
+   ],
+   "formula": "C4H8",
+   "smiles": "C=C(C)C",
+   "chapters": [
+    4,
+    7,
+    8,
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "buta-1-3-diene",
+   "name": "buta-1,3-diene",
+   "commonNames": [
+    "1,3-butadiene"
+   ],
+   "formula": "C4H6",
+   "smiles": "C=CC=C",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-methylbut-2-ene",
+   "name": "2-methylbut-2-ene",
+   "commonNames": [
+    "2-methyl-2-butene"
+   ],
+   "formula": "C5H10",
+   "smiles": "CC=C(C)C",
+   "chapters": [
+    7,
+    8,
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-methylbut-1-ene",
+   "name": "2-methylbut-1-ene",
+   "commonNames": [
+    "2-methyl-1-butene"
+   ],
+   "formula": "C5H10",
+   "smiles": "C=C(C)CC",
+   "chapters": [
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "3-methylbut-1-ene",
+   "name": "3-methylbut-1-ene",
+   "commonNames": [
+    "3-methyl-1-butene"
+   ],
+   "formula": "C5H10",
+   "smiles": "C=CC(C)C",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-methylpent-2-ene",
+   "name": "2-methylpent-2-ene",
+   "commonNames": [
+    "2-methyl-2-pentene"
+   ],
+   "formula": "C6H12",
+   "smiles": "CCC=C(C)C",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-3-dimethylbut-2-ene",
+   "name": "2,3-dimethylbut-2-ene",
+   "commonNames": [
+    "2,3-dimethyl-2-butene"
+   ],
+   "formula": "C6H12",
+   "smiles": "CC(C)=C(C)C",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "e-pent-2-ene",
+   "name": "(E)-pent-2-ene",
+   "commonNames": [
+    "trans-2-pentene",
+    "(E)-2-pentene"
+   ],
+   "formula": "C5H10",
+   "smiles": "C/C=C/CC",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2=3": "E"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ],
+    [
+     2,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "e-3-methylpent-2-ene",
+   "name": "(E)-3-methylpent-2-ene",
+   "commonNames": [
+    "(E)-3-methyl-2-pentene"
+   ],
+   "formula": "C6H12",
+   "smiles": "C/C=C(\\C)CC",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2=3": "E"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ],
+    [
+     2,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "z-3-methylpent-2-ene",
+   "name": "(Z)-3-methylpent-2-ene",
+   "commonNames": [
+    "(Z)-3-methyl-2-pentene"
+   ],
+   "formula": "C6H12",
+   "smiles": "C/C=C(/C)CC",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2=3": "Z"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     2,
+     1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "z-2-chlorobut-2-ene",
+   "name": "(Z)-2-chlorobut-2-ene",
+   "commonNames": [
+    "(Z)-2-chloro-2-butene"
+   ],
+   "formula": "C4H7Cl",
+   "smiles": "C/C=C(\\Cl)C",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2=3": "Z"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "e-2-chlorobut-2-ene",
+   "name": "(E)-2-chlorobut-2-ene",
+   "commonNames": [
+    "(E)-2-chloro-2-butene"
+   ],
+   "formula": "C4H7Cl",
+   "smiles": "C/C=C(/Cl)C",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2=3": "E"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "e-hex-3-ene",
+   "name": "(E)-hex-3-ene",
+   "commonNames": [
+    "trans-3-hexene",
+    "(E)-3-hexene"
+   ],
+   "formula": "C6H12",
+   "smiles": "CC/C=C/CC",
+   "chapters": [
+    7,
+    9
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "3=4": "E"
+   },
+   "layout": [
+    [
+     -1,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     2,
+     1,
+     0
+    ],
+    [
+     3,
+     1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "z-hex-3-ene",
+   "name": "(Z)-hex-3-ene",
+   "commonNames": [
+    "cis-3-hexene",
+    "(Z)-3-hexene"
+   ],
+   "formula": "C6H12",
+   "smiles": "CC/C=C\\CC",
+   "chapters": [
+    9
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "3=4": "Z"
+   },
+   "layout": [
+    [
+     -1,
+     1,
+     0
+    ],
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     2,
+     1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "2e-4e-hexa-2-4-diene",
+   "name": "(2E,4E)-hexa-2,4-diene",
+   "commonNames": [
+    "trans,trans-2,4-hexadiene"
+   ],
+   "formula": "C6H10",
+   "smiles": "C/C=C/C=C/C",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2=3": "E",
+    "4=5": "E"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ],
+    [
+     2,
+     -1,
+     0
+    ],
+    [
+     2,
+     -2,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "e-1-2-dichloroethene",
+   "name": "(E)-1,2-dichloroethene",
+   "commonNames": [
+    "trans-1,2-dichloroethylene"
+   ],
+   "formula": "C2H2Cl2",
+   "smiles": "Cl/C=C/Cl",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2=3": "E"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "z-1-2-dichloroethene",
+   "name": "(Z)-1,2-dichloroethene",
+   "commonNames": [
+    "cis-1,2-dichloroethylene"
+   ],
+   "formula": "C2H2Cl2",
+   "smiles": "Cl/C=C\\Cl",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2=3": "Z"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "cyclohexene",
+   "name": "cyclohexene",
+   "commonNames": [],
+   "formula": "C6H10",
+   "smiles": "C1CCC=CC1",
+   "chapters": [
+    7,
+    8,
+    10,
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "1-methylcyclohexene",
+   "name": "1-methylcyclohexene",
+   "commonNames": [],
+   "formula": "C7H12",
+   "smiles": "CC1=CCCCC1",
+   "chapters": [
+    7,
+    8,
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methylenecyclohexane",
+   "name": "methylenecyclohexane",
+   "commonNames": [],
+   "formula": "C7H12",
+   "smiles": "C=C1CCCCC1",
+   "chapters": [
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "1-2-dimethylcyclohexene",
+   "name": "1,2-dimethylcyclohexene",
+   "commonNames": [],
+   "formula": "C8H14",
+   "smiles": "CC1=C(C)CCCC1",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "isopropylidenecyclohexane",
+   "name": "isopropylidenecyclohexane",
+   "commonNames": [
+    "(propan-2-ylidene)cyclohexane"
+   ],
+   "formula": "C9H16",
+   "smiles": "CC(C)=C1CCCCC1",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "ethyne",
+   "name": "ethyne",
+   "commonNames": [
+    "acetylene"
+   ],
+   "formula": "C2H2",
+   "smiles": "C#C",
+   "chapters": [
+    1,
+    9
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "propyne",
+   "name": "propyne",
+   "commonNames": [
+    "methylacetylene"
+   ],
+   "formula": "C3H4",
+   "smiles": "C#CC",
+   "chapters": [
+    1,
+    9
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "but-1-yne",
+   "name": "but-1-yne",
+   "commonNames": [
+    "1-butyne"
+   ],
+   "formula": "C4H6",
+   "smiles": "C#CCC",
+   "chapters": [
+    2,
+    9
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "but-2-yne",
+   "name": "but-2-yne",
+   "commonNames": [
+    "2-butyne"
+   ],
+   "formula": "C4H6",
+   "smiles": "CC#CC",
+   "chapters": [
+    9
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "pent-1-yne",
+   "name": "pent-1-yne",
+   "commonNames": [
+    "1-pentyne"
+   ],
+   "formula": "C5H8",
+   "smiles": "C#CCCC",
+   "chapters": [
+    9
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "hex-1-yne",
+   "name": "hex-1-yne",
+   "commonNames": [
+    "1-hexyne"
+   ],
+   "formula": "C6H10",
+   "smiles": "C#CCCCC",
+   "chapters": [
+    9
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "hex-3-yne",
+   "name": "hex-3-yne",
+   "commonNames": [
+    "3-hexyne"
+   ],
+   "formula": "C6H10",
+   "smiles": "CCC#CCC",
+   "chapters": [
+    9
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "chloromethane",
+   "name": "chloromethane",
+   "commonNames": [
+    "methyl chloride"
+   ],
+   "formula": "CH3Cl",
+   "smiles": "CCl",
+   "chapters": [
+    2,
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "bromomethane",
+   "name": "bromomethane",
+   "commonNames": [
+    "methyl bromide"
+   ],
+   "formula": "CH3Br",
+   "smiles": "CBr",
+   "chapters": [
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "chloroethane",
+   "name": "chloroethane",
+   "commonNames": [
+    "ethyl chloride"
+   ],
+   "formula": "C2H5Cl",
+   "smiles": "CCCl",
+   "chapters": [
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "bromoethane",
+   "name": "bromoethane",
+   "commonNames": [
+    "ethyl bromide"
+   ],
+   "formula": "C2H5Br",
+   "smiles": "CCBr",
+   "chapters": [
+    6,
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "1-chloropropane",
+   "name": "1-chloropropane",
+   "commonNames": [
+    "propyl chloride",
+    "n-propyl chloride"
+   ],
+   "formula": "C3H7Cl",
+   "smiles": "CCCCl",
+   "chapters": [
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-chloropropane",
+   "name": "2-chloropropane",
+   "commonNames": [
+    "isopropyl chloride"
+   ],
+   "formula": "C3H7Cl",
+   "smiles": "CC(C)Cl",
+   "chapters": [
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-bromopropane",
+   "name": "2-bromopropane",
+   "commonNames": [
+    "isopropyl bromide"
+   ],
+   "formula": "C3H7Br",
+   "smiles": "CC(C)Br",
+   "chapters": [
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "1-bromobutane",
+   "name": "1-bromobutane",
+   "commonNames": [
+    "butyl bromide",
+    "n-butyl bromide"
+   ],
+   "formula": "C4H9Br",
+   "smiles": "CCCCBr",
+   "chapters": [
+    10,
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "1-iodobutane",
+   "name": "1-iodobutane",
+   "commonNames": [
+    "butyl iodide"
+   ],
+   "formula": "C4H9I",
+   "smiles": "CCCCI",
+   "chapters": [
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "r-2-iodobutane",
+   "name": "(R)-2-iodobutane",
+   "commonNames": [
+    "(R)-sec-butyl iodide"
+   ],
+   "formula": "C4H9I",
+   "smiles": "C[C@@H](I)CC",
+   "chapters": [
+    11
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "R"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     -1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     2,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "s-2-iodobutane",
+   "name": "(S)-2-iodobutane",
+   "commonNames": [
+    "(S)-sec-butyl iodide"
+   ],
+   "formula": "C4H9I",
+   "smiles": "C[C@H](I)CC",
+   "chapters": [
+    11
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     2,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "1-chlorobutane",
+   "name": "1-chlorobutane",
+   "commonNames": [
+    "butyl chloride"
+   ],
+   "formula": "C4H9Cl",
+   "smiles": "CCCCCl",
+   "chapters": [
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-chlorobutane",
+   "name": "2-chlorobutane",
+   "commonNames": [
+    "sec-butyl chloride"
+   ],
+   "formula": "C4H9Cl",
+   "smiles": "CCC(C)Cl",
+   "chapters": [
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "s-2-bromobutane",
+   "name": "(S)-2-bromobutane",
+   "commonNames": [
+    "(S)-sec-butyl bromide"
+   ],
+   "formula": "C4H9Br",
+   "smiles": "C[C@H](Br)CC",
+   "chapters": [
+    5,
+    11
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     2,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "r-2-bromobutane",
+   "name": "(R)-2-bromobutane",
+   "commonNames": [
+    "(R)-sec-butyl bromide"
+   ],
+   "formula": "C4H9Br",
+   "smiles": "C[C@@H](Br)CC",
+   "chapters": [
+    5,
+    10,
+    11
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "R"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     -1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     2,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "1-bromo-2-methylpropane",
+   "name": "1-bromo-2-methylpropane",
+   "commonNames": [
+    "isobutyl bromide"
+   ],
+   "formula": "C4H9Br",
+   "smiles": "CC(C)CBr",
+   "chapters": [
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-bromo-2-methylpropane",
+   "name": "2-bromo-2-methylpropane",
+   "commonNames": [
+    "tert-butyl bromide"
+   ],
+   "formula": "C4H9Br",
+   "smiles": "CC(C)(C)Br",
+   "chapters": [
+    7,
+    10,
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-chloro-2-methylpropane",
+   "name": "2-chloro-2-methylpropane",
+   "commonNames": [
+    "tert-butyl chloride"
+   ],
+   "formula": "C4H9Cl",
+   "smiles": "CC(C)(C)Cl",
+   "chapters": [
+    7,
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-chloro-2-methylbutane",
+   "name": "2-chloro-2-methylbutane",
+   "commonNames": [],
+   "formula": "C5H11Cl",
+   "smiles": "CCC(C)(C)Cl",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-chloro-3-methylbutane",
+   "name": "2-chloro-3-methylbutane",
+   "commonNames": [],
+   "formula": "C5H11Cl",
+   "smiles": "CC(C)C(C)Cl",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-bromo-2-methylbutane",
+   "name": "2-bromo-2-methylbutane",
+   "commonNames": [],
+   "formula": "C5H11Br",
+   "smiles": "CCC(C)(C)Br",
+   "chapters": [
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-bromo-5-methylhexane",
+   "name": "2-bromo-5-methylhexane",
+   "commonNames": [],
+   "formula": "C7H15Br",
+   "smiles": "CC(C)CCC(C)Br",
+   "chapters": [
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "bromocyclohexane",
+   "name": "bromocyclohexane",
+   "commonNames": [
+    "cyclohexyl bromide"
+   ],
+   "formula": "C6H11Br",
+   "smiles": "BrC1CCCCC1",
+   "chapters": [
+    8,
+    9,
+    10,
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "1-chloro-1-methylcyclohexane",
+   "name": "1-chloro-1-methylcyclohexane",
+   "commonNames": [],
+   "formula": "C7H13Cl",
+   "smiles": "CC1(Cl)CCCCC1",
+   "chapters": [
+    10,
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "3-bromocyclohexene",
+   "name": "3-bromocyclohexene",
+   "commonNames": [
+    "3-bromocyclohex-1-ene"
+   ],
+   "formula": "C6H9Br",
+   "smiles": "BrC1CCCC=C1",
+   "chapters": [
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "meso-2-3-dibromobutane",
+   "name": "meso-2,3-dibromobutane",
+   "commonNames": [
+    "(2R,3S)-2,3-dibromobutane"
+   ],
+   "formula": "C4H8Br2",
+   "smiles": "C[C@H](Br)[C@H](Br)C",
+   "chapters": [
+    5,
+    8
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S",
+    "4": "R"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     -1
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ],
+   "meso": true
+  },
+  {
+   "id": "2r-3r-dibromobutane",
+   "name": "(2R,3R)-2,3-dibromobutane",
+   "commonNames": [],
+   "formula": "C4H8Br2",
+   "smiles": "C[C@@H](Br)[C@H](Br)C",
+   "chapters": [
+    5
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "R",
+    "4": "R"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     -1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ],
+    [
+     1,
+     0,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "2s-3s-dibromobutane",
+   "name": "(2S,3S)-2,3-dibromobutane",
+   "commonNames": [],
+   "formula": "C4H8Br2",
+   "smiles": "C[C@H](Br)[C@@H](Br)C",
+   "chapters": [
+    5
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S",
+    "4": "S"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ],
+    [
+     1,
+     0,
+     -1
+    ]
+   ]
+  },
+  {
+   "id": "cis-1-2-dibromocyclohexane",
+   "name": "cis-1,2-dibromocyclohexane",
+   "commonNames": [
+    "(1R,2S)-1,2-dibromocyclohexane"
+   ],
+   "formula": "C6H10Br2",
+   "smiles": "Br[C@H]1CCCC[C@H]1Br",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S",
+    "7": "R"
+   },
+   "meso": true
+  },
+  {
+   "id": "trans-1r-2r-dibromocyclohexane",
+   "name": "(1R,2R)-1,2-dibromocyclohexane",
+   "commonNames": [
+    "trans-1,2-dibromocyclohexane"
+   ],
+   "formula": "C6H10Br2",
+   "smiles": "Br[C@@H]1CCCC[C@H]1Br",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "R",
+    "7": "R"
+   },
+   "layout": [
+    [
+     0,
+     0,
+     -1
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     1,
+     1
+    ],
+    [
+     1,
+     1,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "trans-1s-2s-dibromocyclohexane",
+   "name": "(1S,2S)-1,2-dibromocyclohexane",
+   "commonNames": [
+    "trans-1,2-dibromocyclohexane"
+   ],
+   "formula": "C6H10Br2",
+   "smiles": "Br[C@H]1CCCC[C@@H]1Br",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S",
+    "7": "S"
+   },
+   "layout": [
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     1,
+     -1
+    ],
+    [
+     1,
+     1,
+     -1
+    ],
+    [
+     1,
+     0,
+     -1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "2-2-dibromohexane",
+   "name": "2,2-dibromohexane",
+   "commonNames": [],
+   "formula": "C6H12Br2",
+   "smiles": "CCCCC(C)(Br)Br",
+   "chapters": [
+    9
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-bromohex-1-ene",
+   "name": "2-bromohex-1-ene",
+   "commonNames": [
+    "2-bromo-1-hexene"
+   ],
+   "formula": "C6H11Br",
+   "smiles": "C=C(Br)CCCC",
+   "chapters": [
+    9
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "e-1-2-dibromobut-1-ene",
+   "name": "(E)-1,2-dibromobut-1-ene",
+   "commonNames": [
+    "(E)-1,2-dibromo-1-butene"
+   ],
+   "formula": "C4H6Br2",
+   "smiles": "Br/C=C(/Br)CC",
+   "chapters": [
+    9
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2=3": "E"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     2,
+     1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "1-bromo-2-methylpropan-2-ol",
+   "name": "1-bromo-2-methylpropan-2-ol",
+   "commonNames": [
+    "1-bromo-2-methyl-2-propanol"
+   ],
+   "formula": "C4H9BrO",
+   "smiles": "CC(C)(O)CBr",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "dichloromethane",
+   "name": "dichloromethane",
+   "commonNames": [
+    "methylene chloride"
+   ],
+   "formula": "CH2Cl2",
+   "smiles": "ClCCl",
+   "chapters": [
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "1-bromopropane",
+   "name": "1-bromopropane",
+   "commonNames": [
+    "propyl bromide",
+    "n-propyl bromide"
+   ],
+   "formula": "C3H7Br",
+   "smiles": "CCCBr",
+   "chapters": [
+    9,
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-bromobutane",
+   "name": "2-bromobutane",
+   "commonNames": [
+    "sec-butyl bromide"
+   ],
+   "formula": "C4H9Br",
+   "smiles": "CCC(C)Br",
+   "chapters": [
+    10,
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "buta-1-2-diene",
+   "name": "buta-1,2-diene",
+   "commonNames": [
+    "1,2-butadiene",
+    "methylallene"
+   ],
+   "formula": "C4H6",
+   "smiles": "CC=C=C",
+   "chapters": [
+    1
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "cyclobutene",
+   "name": "cyclobutene",
+   "commonNames": [],
+   "formula": "C4H6",
+   "smiles": "C1=CCC1",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "1-ethylcyclobutene",
+   "name": "1-ethylcyclobutene",
+   "commonNames": [],
+   "formula": "C6H10",
+   "smiles": "CCC1=CCC1",
+   "chapters": [
+    7
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methanol",
+   "name": "methanol",
+   "commonNames": [
+    "methyl alcohol"
+   ],
+   "formula": "CH4O",
+   "smiles": "CO",
+   "chapters": [
+    1,
+    2,
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "ethanol",
+   "name": "ethanol",
+   "commonNames": [
+    "ethyl alcohol"
+   ],
+   "formula": "C2H6O",
+   "smiles": "CCO",
+   "chapters": [
+    2,
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "propan-1-ol",
+   "name": "propan-1-ol",
+   "commonNames": [
+    "1-propanol",
+    "n-propyl alcohol"
+   ],
+   "formula": "C3H8O",
+   "smiles": "CCCO",
+   "chapters": [
+    3,
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "propan-2-ol",
+   "name": "propan-2-ol",
+   "commonNames": [
+    "2-propanol",
+    "isopropyl alcohol",
+    "isopropanol"
+   ],
+   "formula": "C3H8O",
+   "smiles": "CC(C)O",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "butan-1-ol",
+   "name": "butan-1-ol",
+   "commonNames": [
+    "1-butanol",
+    "n-butanol"
+   ],
+   "formula": "C4H10O",
+   "smiles": "CCCCO",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "butan-2-ol",
+   "name": "butan-2-ol",
+   "commonNames": [
+    "2-butanol",
+    "sec-butyl alcohol"
+   ],
+   "formula": "C4H10O",
+   "smiles": "CCC(C)O",
+   "chapters": [
+    5,
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "r-butan-2-ol",
+   "name": "(R)-butan-2-ol",
+   "commonNames": [
+    "(R)-2-butanol"
+   ],
+   "formula": "C4H10O",
+   "smiles": "C[C@@H](O)CC",
+   "chapters": [
+    5,
+    11
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "R"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     -1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     2,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "s-butan-2-ol",
+   "name": "(S)-butan-2-ol",
+   "commonNames": [
+    "(S)-2-butanol"
+   ],
+   "formula": "C4H10O",
+   "smiles": "C[C@H](O)CC",
+   "chapters": [
+    5,
+    11
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     2,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "2-methylpropan-2-ol",
+   "name": "2-methylpropan-2-ol",
+   "commonNames": [
+    "tert-butanol",
+    "tert-butyl alcohol",
+    "2-methyl-2-propanol"
+   ],
+   "formula": "C4H10O",
+   "smiles": "CC(C)(C)O",
+   "chapters": [
+    3,
+    8,
+    10,
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-methylpropan-1-ol",
+   "name": "2-methylpropan-1-ol",
+   "commonNames": [
+    "isobutyl alcohol",
+    "2-methyl-1-propanol"
+   ],
+   "formula": "C4H10O",
+   "smiles": "CC(C)CO",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "3-methylbutan-2-ol",
+   "name": "3-methylbutan-2-ol",
+   "commonNames": [
+    "3-methyl-2-butanol"
+   ],
+   "formula": "C5H12O",
+   "smiles": "CC(C)C(C)O",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-methylbutan-2-ol",
+   "name": "2-methylbutan-2-ol",
+   "commonNames": [
+    "2-methyl-2-butanol",
+    "tert-amyl alcohol"
+   ],
+   "formula": "C5H12O",
+   "smiles": "CCC(C)(C)O",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-methylpentan-2-ol",
+   "name": "2-methylpentan-2-ol",
+   "commonNames": [
+    "2-methyl-2-pentanol"
+   ],
+   "formula": "C6H14O",
+   "smiles": "CCCC(C)(C)O",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-methylpentan-3-ol",
+   "name": "2-methylpentan-3-ol",
+   "commonNames": [
+    "2-methyl-3-pentanol"
+   ],
+   "formula": "C6H14O",
+   "smiles": "CCC(O)C(C)C",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "cyclohexanol",
+   "name": "cyclohexanol",
+   "commonNames": [],
+   "formula": "C6H12O",
+   "smiles": "OC1CCCCC1",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "1-methylcyclohexanol",
+   "name": "1-methylcyclohexanol",
+   "commonNames": [
+    "1-methylcyclohexan-1-ol"
+   ],
+   "formula": "C7H14O",
+   "smiles": "CC1(O)CCCCC1",
+   "chapters": [
+    8,
+    10
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "trans-1r-2r-2-methylcyclohexanol",
+   "name": "(1R,2R)-2-methylcyclohexan-1-ol",
+   "commonNames": [
+    "trans-2-methylcyclohexanol"
+   ],
+   "formula": "C7H14O",
+   "smiles": "C[C@@H]1CCCC[C@H]1O",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "R",
+    "7": "R"
+   },
+   "layout": [
+    [
+     0,
+     0,
+     -1
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     1,
+     1
+    ],
+    [
+     1,
+     1,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "trans-1s-2s-2-methylcyclohexanol",
+   "name": "(1S,2S)-2-methylcyclohexan-1-ol",
+   "commonNames": [
+    "trans-2-methylcyclohexanol"
+   ],
+   "formula": "C7H14O",
+   "smiles": "C[C@H]1CCCC[C@@H]1O",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S",
+    "7": "S"
+   },
+   "layout": [
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     1,
+     -1
+    ],
+    [
+     1,
+     1,
+     -1
+    ],
+    [
+     1,
+     0,
+     -1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "cis-cyclohexane-1-2-diol",
+   "name": "cis-cyclohexane-1,2-diol",
+   "commonNames": [
+    "cis-1,2-cyclohexanediol",
+    "meso-cyclohexane-1,2-diol"
+   ],
+   "formula": "C6H12O2",
+   "smiles": "O[C@H]1CCCC[C@H]1O",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S",
+    "7": "R"
+   },
+   "meso": true
+  },
+  {
+   "id": "trans-1r-2r-cyclohexane-1-2-diol",
+   "name": "(1R,2R)-cyclohexane-1,2-diol",
+   "commonNames": [
+    "trans-1,2-cyclohexanediol"
+   ],
+   "formula": "C6H12O2",
+   "smiles": "O[C@@H]1CCCC[C@H]1O",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "R",
+    "7": "R"
+   },
+   "layout": [
+    [
+     0,
+     0,
+     -1
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     1,
+     1
+    ],
+    [
+     1,
+     1,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "trans-1s-2s-cyclohexane-1-2-diol",
+   "name": "(1S,2S)-cyclohexane-1,2-diol",
+   "commonNames": [
+    "trans-1,2-cyclohexanediol"
+   ],
+   "formula": "C6H12O2",
+   "smiles": "O[C@H]1CCCC[C@@H]1O",
+   "chapters": [
+    8
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S",
+    "7": "S"
+   },
+   "layout": [
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     1,
+     -1
+    ],
+    [
+     1,
+     1,
+     -1
+    ],
+    [
+     1,
+     0,
+     -1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "ethane-1-2-diol",
+   "name": "ethane-1,2-diol",
+   "commonNames": [
+    "ethylene glycol",
+    "1,2-ethanediol"
+   ],
+   "formula": "C2H6O2",
+   "smiles": "OCCO",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "prop-2-yn-1-ol",
+   "name": "prop-2-yn-1-ol",
+   "commonNames": [
+    "propargyl alcohol"
+   ],
+   "formula": "C3H4O",
+   "smiles": "OCC#C",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "3-hydroxypropanoic-acid",
+   "name": "3-hydroxypropanoic acid",
+   "commonNames": [],
+   "formula": "C3H6O3",
+   "smiles": "OC(=O)CCO",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-mercaptoethanol",
+   "name": "2-sulfanylethan-1-ol",
+   "commonNames": [
+    "2-mercaptoethanol"
+   ],
+   "formula": "C2H6OS",
+   "smiles": "OCCS",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-aminoethanol",
+   "name": "2-aminoethan-1-ol",
+   "commonNames": [
+    "2-aminoethanol",
+    "ethanolamine"
+   ],
+   "formula": "C2H7NO",
+   "smiles": "OCCN",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-ammonioethanol",
+   "name": "2-hydroxyethan-1-aminium",
+   "commonNames": [
+    "2-ammonioethanol",
+    "protonated ethanolamine"
+   ],
+   "formula": "C2H8NO+",
+   "smiles": "OCC[NH3+]",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "r-lactic-acid",
+   "name": "(R)-2-hydroxypropanoic acid",
+   "commonNames": [
+    "(R)-lactic acid",
+    "D-lactic acid"
+   ],
+   "formula": "C3H6O3",
+   "smiles": "C[C@@H](O)C(=O)O",
+   "chapters": [
+    5
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "R"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     -1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     2,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "s-lactic-acid",
+   "name": "(S)-2-hydroxypropanoic acid",
+   "commonNames": [
+    "(S)-lactic acid",
+    "L-lactic acid"
+   ],
+   "formula": "C3H6O3",
+   "smiles": "C[C@H](O)C(=O)O",
+   "chapters": [
+    5
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     2,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "dimethyl-ether",
+   "name": "methoxymethane",
+   "commonNames": [
+    "dimethyl ether"
+   ],
+   "formula": "C2H6O",
+   "smiles": "COC",
+   "chapters": [
+    2,
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "diethyl-ether",
+   "name": "ethoxyethane",
+   "commonNames": [
+    "diethyl ether",
+    "ether"
+   ],
+   "formula": "C4H10O",
+   "smiles": "CCOCC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methanal",
+   "name": "methanal",
+   "commonNames": [
+    "formaldehyde"
+   ],
+   "formula": "CH2O",
+   "smiles": "C=O",
+   "chapters": [
+    1,
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "ethanal",
+   "name": "ethanal",
+   "commonNames": [
+    "acetaldehyde"
+   ],
+   "formula": "C2H4O",
+   "smiles": "CC=O",
+   "chapters": [
+    3,
+    8
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "propanal",
+   "name": "propanal",
+   "commonNames": [
+    "propionaldehyde"
+   ],
+   "formula": "C3H6O",
+   "smiles": "CCC=O",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "butanal",
+   "name": "butanal",
+   "commonNames": [
+    "butyraldehyde"
+   ],
+   "formula": "C4H8O",
+   "smiles": "CCCC=O",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "2-methylpropanal",
+   "name": "2-methylpropanal",
+   "commonNames": [
+    "isobutyraldehyde"
+   ],
+   "formula": "C4H8O",
+   "smiles": "CC(C)C=O",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "hexanal",
+   "name": "hexanal",
+   "commonNames": [],
+   "formula": "C6H12O",
+   "smiles": "CCCCCC=O",
+   "chapters": [
+    9
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "propanone",
+   "name": "propan-2-one",
+   "commonNames": [
+    "acetone",
+    "propanone"
+   ],
+   "formula": "C3H6O",
+   "smiles": "CC(C)=O",
+   "chapters": [
+    1,
+    2,
+    3,
+    8
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "butanone",
+   "name": "butan-2-one",
+   "commonNames": [
+    "butanone",
+    "methyl ethyl ketone",
+    "2-butanone"
+   ],
+   "formula": "C4H8O",
+   "smiles": "CCC(C)=O",
+   "chapters": [
+    2,
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "pentan-2-one",
+   "name": "pentan-2-one",
+   "commonNames": [
+    "2-pentanone"
+   ],
+   "formula": "C5H10O",
+   "smiles": "CCCC(C)=O",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "pentan-3-one",
+   "name": "pentan-3-one",
+   "commonNames": [
+    "3-pentanone"
+   ],
+   "formula": "C5H10O",
+   "smiles": "CCC(=O)CC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "3-methylbutan-2-one",
+   "name": "3-methylbutan-2-one",
+   "commonNames": [
+    "3-methyl-2-butanone"
+   ],
+   "formula": "C5H10O",
+   "smiles": "CC(C)C(C)=O",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "hexan-2-one",
+   "name": "hexan-2-one",
+   "commonNames": [
+    "2-hexanone"
+   ],
+   "formula": "C6H12O",
+   "smiles": "CCCCC(C)=O",
+   "chapters": [
+    9
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "cyclohexanone",
+   "name": "cyclohexanone",
+   "commonNames": [],
+   "formula": "C6H10O",
+   "smiles": "O=C1CCCCC1",
+   "chapters": [
+    3,
+    8
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "pentane-2-4-dione",
+   "name": "pentane-2,4-dione",
+   "commonNames": [
+    "2,4-pentanedione",
+    "acetylacetone"
+   ],
+   "formula": "C5H8O2",
+   "smiles": "CC(=O)CC(C)=O",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "4-aminobutan-2-one",
+   "name": "4-aminobutan-2-one",
+   "commonNames": [],
+   "formula": "C4H9NO",
+   "smiles": "CC(=O)CCN",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methanoic-acid",
+   "name": "methanoic acid",
+   "commonNames": [
+    "formic acid"
+   ],
+   "formula": "CH2O2",
+   "smiles": "OC=O",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "ethanoic-acid",
+   "name": "ethanoic acid",
+   "commonNames": [
+    "acetic acid"
+   ],
+   "formula": "C2H4O2",
+   "smiles": "CC(=O)O",
+   "chapters": [
+    2,
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "propanoic-acid",
+   "name": "propanoic acid",
+   "commonNames": [
+    "propionic acid"
+   ],
+   "formula": "C3H6O2",
+   "smiles": "CCC(=O)O",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methyl-ethanoate",
+   "name": "methyl ethanoate",
+   "commonNames": [
+    "methyl acetate"
+   ],
+   "formula": "C3H6O2",
+   "smiles": "CC(=O)OC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "ethyl-methanoate",
+   "name": "ethyl methanoate",
+   "commonNames": [
+    "ethyl formate"
+   ],
+   "formula": "C3H6O2",
+   "smiles": "O=COCC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "ethyl-ethanoate",
+   "name": "ethyl ethanoate",
+   "commonNames": [
+    "ethyl acetate"
+   ],
+   "formula": "C4H8O2",
+   "smiles": "CC(=O)OCC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "ethanamide",
+   "name": "ethanamide",
+   "commonNames": [
+    "acetamide"
+   ],
+   "formula": "C2H5NO",
+   "smiles": "CC(N)=O",
+   "chapters": [
+    1,
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "n-methylmethanamide",
+   "name": "N-methylmethanamide",
+   "commonNames": [
+    "N-methylformamide"
+   ],
+   "formula": "C2H5NO",
+   "smiles": "CNC=O",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "n-methylethanamide",
+   "name": "N-methylethanamide",
+   "commonNames": [
+    "N-methylacetamide"
+   ],
+   "formula": "C3H7NO",
+   "smiles": "CC(=O)NC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "3-aminopropanamide",
+   "name": "3-aminopropanamide",
+   "commonNames": [],
+   "formula": "C3H8N2O",
+   "smiles": "NCCC(N)=O",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "s-alanine",
+   "name": "(S)-2-aminopropanoic acid",
+   "commonNames": [
+    "(S)-alanine",
+    "L-alanine",
+    "alanine"
+   ],
+   "formula": "C3H7NO2",
+   "smiles": "N[C@@H](C)C(=O)O",
+   "chapters": [
+    5
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "S"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     -1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     2,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "r-alanine",
+   "name": "(R)-2-aminopropanoic acid",
+   "commonNames": [
+    "(R)-alanine",
+    "D-alanine"
+   ],
+   "formula": "C3H7NO2",
+   "smiles": "N[C@H](C)C(=O)O",
+   "chapters": [
+    5
+   ],
+   "requiresDiagonalBonds": false,
+   "labels": {
+    "2": "R"
+   },
+   "layout": [
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     2,
+     0,
+     0
+    ],
+    [
+     1,
+     -1,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "glycine",
+   "name": "aminoethanoic acid",
+   "commonNames": [
+    "glycine",
+    "aminoacetic acid"
+   ],
+   "formula": "C2H5NO2",
+   "smiles": "NCC(=O)O",
+   "chapters": [
+    5
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "acetate-ion",
+   "name": "ethanoate ion",
+   "commonNames": [
+    "acetate ion",
+    "acetate"
+   ],
+   "formula": "C2H3O2-",
+   "smiles": "CC(=O)[O-]",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methylamine",
+   "name": "methanamine",
+   "commonNames": [
+    "methylamine"
+   ],
+   "formula": "CH5N",
+   "smiles": "CN",
+   "chapters": [
+    1,
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "ethylamine",
+   "name": "ethanamine",
+   "commonNames": [
+    "ethylamine"
+   ],
+   "formula": "C2H7N",
+   "smiles": "CCN",
+   "chapters": [
+    2,
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "dimethylamine",
+   "name": "N-methylmethanamine",
+   "commonNames": [
+    "dimethylamine"
+   ],
+   "formula": "C2H7N",
+   "smiles": "CNC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "trimethylamine",
+   "name": "N,N-dimethylmethanamine",
+   "commonNames": [
+    "trimethylamine"
+   ],
+   "formula": "C3H9N",
+   "smiles": "CN(C)C",
+   "chapters": [
+    1,
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "propan-1-amine",
+   "name": "propan-1-amine",
+   "commonNames": [
+    "1-propanamine",
+    "propylamine"
+   ],
+   "formula": "C3H9N",
+   "smiles": "CCCN",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "propan-2-amine",
+   "name": "propan-2-amine",
+   "commonNames": [
+    "2-propanamine",
+    "isopropylamine"
+   ],
+   "formula": "C3H9N",
+   "smiles": "CC(C)N",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "n-methylethanamine",
+   "name": "N-methylethanamine",
+   "commonNames": [
+    "ethylmethylamine"
+   ],
+   "formula": "C3H9N",
+   "smiles": "CCNC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "ethanenitrile",
+   "name": "ethanenitrile",
+   "commonNames": [
+    "acetonitrile",
+    "methyl cyanide"
+   ],
+   "formula": "C2H3N",
+   "smiles": "CC#N",
+   "chapters": [
+    1,
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "pentanenitrile",
+   "name": "pentanenitrile",
+   "commonNames": [
+    "butyl cyanide"
+   ],
+   "formula": "C5H9N",
+   "smiles": "CCCCC#N",
+   "chapters": [
+    11
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "hydrogen-cyanide",
+   "name": "hydrogen cyanide",
+   "commonNames": [
+    "HCN"
+   ],
+   "formula": "CHN",
+   "smiles": "C#N",
+   "chapters": [
+    1,
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methylammonium",
+   "name": "methanaminium",
+   "commonNames": [
+    "methylammonium ion"
+   ],
+   "formula": "CH6N+",
+   "smiles": "C[NH3+]",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "ammonium",
+   "name": "ammonium ion",
+   "commonNames": [
+    "ammonium"
+   ],
+   "formula": "H4N+",
+   "smiles": "[NH4+]",
+   "chapters": [
+    1,
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "ammonia",
+   "name": "ammonia",
+   "commonNames": [],
+   "formula": "H3N",
+   "smiles": "N",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "nitromethane",
+   "name": "nitromethane",
+   "commonNames": [],
+   "formula": "CH3NO2",
+   "smiles": "C[N+](=O)[O-]",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "water",
+   "name": "water",
+   "commonNames": [],
+   "formula": "H2O",
+   "smiles": "O",
+   "chapters": [
+    1,
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "hydronium",
+   "name": "oxonium ion",
+   "commonNames": [
+    "hydronium ion",
+    "hydronium"
+   ],
+   "formula": "H3O+",
+   "smiles": "[OH3+]",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "hydroxide",
+   "name": "hydroxide ion",
+   "commonNames": [
+    "hydroxide"
+   ],
+   "formula": "HO-",
+   "smiles": "[OH-]",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methoxide",
+   "name": "methoxide ion",
+   "commonNames": [
+    "methoxide",
+    "methanolate"
+   ],
+   "formula": "CH3O-",
+   "smiles": "C[O-]",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "ethoxide",
+   "name": "ethoxide ion",
+   "commonNames": [
+    "ethoxide",
+    "ethanolate"
+   ],
+   "formula": "C2H5O-",
+   "smiles": "CC[O-]",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "tert-butyl-cation",
+   "name": "2-methylpropan-2-ylium",
+   "commonNames": [
+    "tert-butyl cation",
+    "2-methyl-2-propyl cation"
+   ],
+   "formula": "C4H9+",
+   "smiles": "C[C+](C)C",
+   "chapters": [
+    1,
+    2,
+    7
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methyl-cation",
+   "name": "methylium",
+   "commonNames": [
+    "methyl cation"
+   ],
+   "formula": "CH3+",
+   "smiles": "[CH3+]",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methyl-anion",
+   "name": "methanide",
+   "commonNames": [
+    "methyl anion"
+   ],
+   "formula": "CH3-",
+   "smiles": "[CH3-]",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methanethiol",
+   "name": "methanethiol",
+   "commonNames": [
+    "methyl mercaptan"
+   ],
+   "formula": "CH4S",
+   "smiles": "CS",
+   "chapters": [
+    2,
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "methanethiolate",
+   "name": "methanethiolate ion",
+   "commonNames": [
+    "methanethiolate"
+   ],
+   "formula": "CH3S-",
+   "smiles": "C[S-]",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "dimethyl-sulfide",
+   "name": "methylsulfanylmethane",
+   "commonNames": [
+    "dimethyl sulfide"
+   ],
+   "formula": "C2H6S",
+   "smiles": "CSC",
+   "chapters": [
+    3
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "dmso",
+   "name": "dimethyl sulfoxide",
+   "commonNames": [
+    "DMSO",
+    "methylsulfinylmethane"
+   ],
+   "formula": "C2H6OS",
+   "smiles": "C[S+](C)[O-]",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  },
+  {
+   "id": "hydrogen-chloride",
+   "name": "hydrogen chloride",
+   "commonNames": [
+    "HCl"
+   ],
+   "formula": "HCl",
+   "smiles": "Cl",
+   "chapters": [
+    2
+   ],
+   "requiresDiagonalBonds": false
+  }
+ ]
+}

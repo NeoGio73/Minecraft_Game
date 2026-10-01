@@ -1,0 +1,226 @@
+/* OrgoCraft HUD styles. docs/design/07-ui.md §2.2 (layout), §2.3 (tokens, contrast,
+   canvas focus ring), §2.4 (reduced motion), 06-engine.md §11.4, 08-deployment.md §7
+   (short stages). Every colour is a token; the dark theme is the default. */
+
+:root {
+  --bg: #14171c; --panel: rgba(20, 23, 28, 0.86); --text: #f4f6f8; --muted: #b8c0cc; --border: #c9d1d9;
+  --focus: #ffd166; --ok: #7ee787; --err: #ff7b72; --warn: #f0c674; --info: #79c0ff;
+  --hover: #ffd54f; --selected: #4dd0e1; --marked: #ff9800;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+:root[data-theme="light"] {
+  --bg: #f6f8fa; --panel: rgba(246, 248, 250, 0.92); --text: #1b1f24; --muted: #4b5563; --border: #57606a;
+  --focus: #8a5a00; --ok: #116329; --err: #a40e26; --warn: #7d4e00; --info: #0a53a8;
+  --hover: #7d4e00; --selected: #0b6f7e; --marked: #b45309;
+}
+
+/* ---- stage (06 §11.4, 07 §2.2) ------------------------------------------ */
+html, body { margin: 0; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); }
+#stage { position: relative; width: 100%; }
+#stage[data-framed="true"]  { height: 100vh; }
+#stage[data-framed="false"] { height: 100dvh; }
+#stage:fullscreen { width: 100%; height: 100%; }
+#canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#hud > * { position: absolute; }
+#toast, #status, #scene-mirror { position: absolute; }
+#debug { position: absolute; left: 16px; top: 56px; margin: 0; padding: 6px 8px; font: 12px/1.3 var(--mono); color: var(--text); background: var(--panel); border: 1px solid var(--border); z-index: 5; }
+
+/* ---- canvas focus ring: two-tone inset so it survives any backdrop (§2.3) ---- */
+#canvas:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; box-shadow: inset 0 0 0 5px #000; }
+#canvas:focus:not(:focus-visible) { outline: none; box-shadow: none; }
+
+/* ---- utilities ------------------------------------------------------------ */
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+.skip { position: absolute; left: 8px; top: -40px; padding: 6px 10px; background: var(--panel); color: var(--text); border: 1px solid var(--border); z-index: 20; }
+.skip:focus { top: 8px; }
+[hidden] { display: none !important; }
+
+/* ---- HUD typography and controls ------------------------------------------ */
+#hud { font-size: 16px; line-height: 1.35; color: var(--text); }
+#hud[data-ready="false"] > :not(#toolbar):not(#canvas) { visibility: hidden; }
+#hud button, #hud select, #hud input, #hud a, #dialogs button, #dialogs select, #dialogs input, #dialogs a {
+  font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; min-height: 32px; cursor: pointer;
+}
+#hud button:disabled, #dialogs button:disabled { opacity: 0.5; cursor: not-allowed; }
+#hud a { display: inline-flex; align-items: center; text-decoration: none; }
+#hud :is(button, a, select, input, summary, [tabindex]):not(#canvas):focus-visible, #dialogs :is(button, a, select, input, summary, [tabindex], [role="dialog"], [role="alertdialog"]):focus-visible {
+  outline: 2px solid var(--focus); outline-offset: 2px;
+}
+#hud h2, #hud h3, #hud h4, #dialogs h2, #dialogs h3 { margin: 0 0 6px; font-weight: 600; }
+#hud h2, #dialogs h2 { font-size: 1.1em; }
+#hud h3, #dialogs h3 { font-size: 1em; }
+#hud p, #dialogs p { margin: 4px 0; }
+#hud table, #dialogs table { border-collapse: collapse; width: 100%; font-size: 0.9em; }
+#hud th, #hud td, #dialogs th, #dialogs td { border: 1px solid var(--border); padding: 2px 6px; text-align: left; vertical-align: top; }
+#hud caption, #dialogs caption { caption-side: bottom; color: var(--muted); font-size: 0.85em; text-align: left; padding-top: 4px; }
+kbd { font: 0.9em var(--mono); border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; }
+.glyph { font-weight: 700; }
+
+/* ---- panels (§2.2 geometry) ----------------------------------------------- */
+.panel-header { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+.panel-header h2 { flex: 1 1 auto; margin: 0; }
+#challenge-panel, #molecule-panel, #bench-panel {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; box-sizing: border-box;
+  max-height: calc(100% - 96px); overflow: auto; z-index: 2;
+}
+#challenge-panel { left: 16px; top: 56px; width: min(360px, 40%); }
+#molecule-panel { right: 16px; top: 56px; width: min(380px, 40%); }
+#bench-panel { right: 16px; bottom: 88px; width: min(420px, 45%); z-index: 3; }
+#molecule-panel[data-collapsed="true"], #challenge-panel[data-collapsed="true"] { max-height: 56px; overflow: hidden; }
+#toolbar { left: 0; top: 0; right: 0; height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 16px; box-sizing: border-box; background: var(--panel); border-bottom: 1px solid var(--border); z-index: 4; }
+#toolbar .spacer { flex: 1 1 auto; }
+#lms-badge { font-size: 0.9em; color: var(--muted); padding: 2px 8px; border: 1px solid var(--border); border-radius: 12px; }
+#lms-badge[data-mode="lms"] { color: var(--ok); }
+#lms-badge[data-mode="standalone"] { color: var(--warn); }
+
+/* ---- hotbar (§6) ---------------------------------------------------------- */
+#hotbar { left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; z-index: 3; }
+#hotbar .slot { position: relative; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; border: 2px solid var(--border); background: var(--bg); }
+#hotbar .slot .sym { font-weight: 700; font-size: 1.1em; padding: 2px 6px; border-radius: 3px; background: var(--cpk, transparent); color: var(--cpk-text, var(--text)); }
+#hotbar .slot .count { position: absolute; right: 2px; bottom: 1px; font-size: 14px; line-height: 1; }
+#hotbar .slot .key { position: absolute; left: 3px; top: 1px; font-size: 14px; line-height: 1; color: var(--muted); }
+#hotbar .slot[aria-pressed="true"] { border-color: var(--focus); box-shadow: 0 0 0 2px #000 inset; }
+#hotbar .slot[data-empty="true"] { opacity: 0.55; }
+#hotbar .slot[data-empty="true"] .count::after { content: ""; }
+
+/* ---- crosshair, target info, look hint (§2.3, §7) ----------------------- */
+#crosshair { left: 50%; top: 50%; width: 24px; height: 24px; transform: translate(-50%, -50%); pointer-events: none; z-index: 1; }
+#crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff; box-shadow: 0 0 0 1px #000; }
+#crosshair[data-tool="atom"]::before { left: 11px; top: 0; width: 2px; height: 24px; }
+#crosshair[data-tool="atom"]::after { left: 0; top: 11px; width: 24px; height: 2px; }
+#crosshair[data-tool="bond"]::before { left: 4px; top: 4px; width: 16px; height: 16px; background: transparent; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #000, inset 0 0 0 1px #000; }
+#crosshair[data-tool="bond"]::after { display: none; }
+#crosshair[data-tool="charge"]::before { content: "±"; left: 0; top: 0; width: 24px; height: 24px; background: transparent; box-shadow: none; color: #fff; font: 700 20px/24px var(--font); text-align: center; text-shadow: 0 0 2px #000, 0 0 2px #000; }
+#crosshair[data-tool="charge"]::after { display: none; }
+#crosshair[data-tool="select"]::before { left: 6px; top: 6px; width: 12px; height: 12px; transform: rotate(45deg); background: transparent; border: 2px solid #fff; box-shadow: 0 0 0 1px #000, inset 0 0 0 1px #000; }
+#crosshair[data-tool="select"]::after { display: none; }
+#target-info { left: 50%; top: calc(50% + 24px); transform: translateX(-50%); margin: 0; padding: 2px 8px; max-width: 60%; text-align: center; color: #fff; text-shadow: 0 0 2px #000, 0 0 3px #000, 1px 1px 0 #000; pointer-events: none; z-index: 1; }
+#target-info:empty { display: none; }
+#look-hint { left: 50%; bottom: 96px; transform: translateX(-50%); margin: 0; padding: 4px 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; pointer-events: none; z-index: 1; }
+
+/* ---- toast (§16.1): visually over the hotbar while visible ---------------- */
+#toast.is-visible {
+  position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%); width: auto; height: auto; margin: 0; padding: 6px 12px; clip: auto; clip-path: none; white-space: normal;
+  background: var(--panel); color: var(--text); border: 1px solid var(--err); border-left-width: 6px; border-radius: 4px; z-index: 6; max-width: 70%;
+}
+#toast.is-visible::before { content: "! "; color: var(--err); font-weight: 700; }
+
+/* ---- molecule panel (§8) -------------------------------------------------- */
+.mp-facts { display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; margin: 6px 0; }
+.mp-facts dt { color: var(--muted); }
+.mp-facts dd { margin: 0; }
+.mp-groups ul, .mp-stereo ul, .mp-warnings ul { margin: 0; padding-left: 18px; }
+.mp-groups li { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+.mp-groups button[aria-pressed="true"] { border-color: var(--focus); background: var(--panel); }
+.mp-none, .mp-empty { color: var(--muted); }
+.mp-warnings li.warn { color: var(--warn); }
+.mp-warnings li.none { color: var(--muted); list-style: none; margin-left: -18px; }
+.mp-atoms tr.is-targeted td { background: color-mix(in srgb, var(--selected) 20%, transparent); font-weight: 600; }
+.mp-nobond { color: var(--err); }
+.hint { color: var(--muted); font-size: 0.9em; }
+
+/* ---- challenge panel (§9) ------------------------------------------------- */
+#cp-roster details { margin: 4px 0; }
+#cp-roster summary { cursor: pointer; }
+#cp-roster ol { margin: 4px 0; padding-left: 0; list-style: none; }
+#cp-roster li button { width: 100%; text-align: left; margin: 2px 0; display: flex; gap: 6px; align-items: baseline; }
+#cp-roster li button .pts { margin-left: auto; color: var(--muted); font-size: 0.85em; }
+#cp-roster li button[aria-current="true"] { border-color: var(--focus); }
+#cp-roster .st { width: 1.1em; display: inline-block; }
+#cp-roster button[data-status="solved"] .st { color: var(--ok); }
+#cp-roster button[data-status="reduced"] .st { color: var(--ok); }
+#cp-roster button[data-status="attempted"] .st, #cp-roster button[data-status="exhausted"] .st { color: var(--warn); }
+.cp-meta { color: var(--muted); font-size: 0.9em; }
+.cp-status[data-status="solved"], .cp-status[data-status="reduced"] { color: var(--ok); }
+.cp-status[data-status="exhausted"] { color: var(--warn); }
+.cp-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.cp-feedback, .quiz-feedback, .bp-result { margin: 8px 0; padding: 6px 8px; border-left: 4px solid var(--border); background: color-mix(in srgb, var(--bg) 60%, transparent); }
+.cp-feedback[data-tone="ok"], .quiz-feedback[data-tone="ok"] { border-color: var(--ok); }
+.cp-feedback[data-tone="ok"] .glyph, .quiz-feedback[data-tone="ok"] .glyph { color: var(--ok); }
+.cp-feedback[data-tone="err"], .quiz-feedback[data-tone="err"] { border-color: var(--err); }
+.cp-feedback[data-tone="err"] .glyph, .quiz-feedback[data-tone="err"] .glyph { color: var(--err); }
+.cp-feedback[data-tone="warn"], .quiz-feedback[data-tone="warn"] { border-color: var(--warn); }
+.cp-feedback[data-tone="warn"] .glyph, .quiz-feedback[data-tone="warn"] .glyph { color: var(--warn); }
+.cp-feedback[data-tone="info"], .quiz-feedback[data-tone="info"] { border-color: var(--info); }
+.cp-feedback[data-tone="info"] .glyph, .quiz-feedback[data-tone="info"] .glyph { color: var(--info); }
+.cp-score progress { width: 100%; height: 10px; }
+.cp-score { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px; font-size: 0.9em; }
+
+/* ---- bench panel (§12) ---------------------------------------------------- */
+.bp-mode { color: var(--muted); margin: 0; }
+.bp-cards [role="radiogroup"] { display: flex; flex-direction: column; gap: 4px; }
+.bp-cards [role="radio"] { text-align: left; display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.bp-cards [role="radio"][aria-checked="true"] { border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus) inset; }
+.bp-cards [role="radio"].is-correct { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok) inset; }
+.bp-cards .rt, .bp-cards .ch, .bp-cards .tag { color: var(--muted); font-size: 0.85em; }
+.bp-cards h4 { margin: 8px 0 2px; color: var(--muted); font-size: 0.9em; }
+.bp-equiv [role="radiogroup"] { display: flex; gap: 6px; }
+.bp-equiv [role="radio"][aria-checked="true"] { border-color: var(--focus); }
+.bp-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.bp-warn { margin: 4px 0; padding-left: 18px; color: var(--warn); }
+.bp-noreact { color: var(--warn); font-weight: 600; }
+.bp-break { color: var(--err); }
+
+/* ---- dialogs (§10, §13, §14, §15, §17) ----------------------------------- */
+#dialogs > [role="dialog"], #dialogs > [role="alertdialog"] {
+  position: absolute; left: 50%; transform: translateX(-50%); background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 16px; box-sizing: border-box; max-width: min(640px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; z-index: 10; font-size: 16px;
+}
+#quiz { bottom: 16px; width: min(640px, calc(100% - 32px)); }
+#pause, #confirm, #finished { top: 50%; transform: translate(-50%, -50%); min-width: min(320px, calc(100% - 32px)); }
+#help, #settings { top: 16px; width: min(640px, calc(100% - 32px)); }
+.dialog-header { display: flex; align-items: center; gap: 8px; }
+.dialog-header h2 { flex: 1 1 auto; }
+.dialog-actions, .quiz-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+#pause menu { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+#pause menu button { width: 100%; }
+.pause-lms, .pause-keys { color: var(--muted); font-size: 0.9em; }
+.quiz-options { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
+.quiz-options [role="radio"] { width: 100%; text-align: left; }
+.quiz-options [role="radio"][aria-checked="true"] { border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus) inset; }
+.quiz-options [role="radio"].is-correct { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok) inset; }
+.quiz-display, .quiz-attempts { color: var(--muted); font-size: 0.9em; }
+.st-form .st-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; margin: 6px 0; }
+.st-form .st-check { grid-template-columns: auto 1fr; }
+.st-form input[type="range"] { min-width: 140px; }
+.st-keys td, .st-keys th { vertical-align: middle; }
+.help-legend .swatch { display: inline-block; width: 1.2em; height: 1.2em; border: 1px solid var(--border); vertical-align: middle; }
+.ring-diagram { display: block; max-width: 100%; height: auto; margin: 6px 0; }
+.ring-diagram .cube-edge { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.ring-diagram .ring-edge { stroke: var(--text); stroke-width: 3; }
+.ring-diagram .ring-atom { fill: var(--bg); stroke: var(--text); stroke-width: 2; }
+.ring-diagram .ring-label { fill: var(--text); font: 10px var(--font); }
+
+/* ---- narrow screens: tabs + bottom sheet (§2.2) -------------------------- */
+#panel-tabs { display: none; }
+#touch-controls { left: 16px; bottom: 80px; right: 16px; display: flex; justify-content: space-between; align-items: flex-end; pointer-events: none; z-index: 2; }
+#touch-controls .tc { pointer-events: auto; min-width: 44px; min-height: 44px; }
+#touch-controls .tc-dpad { display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(2, 48px); gap: 4px; }
+#touch-controls .tc-dpad .forward { grid-column: 2; grid-row: 1; }
+#touch-controls .tc-dpad .left { grid-column: 1; grid-row: 2; }
+#touch-controls .tc-dpad .back { grid-column: 2; grid-row: 2; }
+#touch-controls .tc-dpad .right { grid-column: 3; grid-row: 2; }
+#touch-controls .tc-actions { display: flex; gap: 6px; }
+@media (max-width: 899px) {
+  #panel-tabs { display: flex; gap: 4px; left: 16px; right: 16px; bottom: 76px; justify-content: center; z-index: 5; }   /* above the sheet so a tab can close it */
+  #panel-tabs [role="tab"][aria-selected="true"] { border-color: var(--focus); }
+  #challenge-panel, #molecule-panel, #bench-panel { display: none; }
+  #hud[data-sheet="challenge"] #challenge-panel, #hud[data-sheet="molecule"] #molecule-panel, #hud[data-sheet="bench"] #bench-panel:not([hidden]) {
+    display: block; left: 0; right: 0; top: auto; bottom: 0; width: 100%; height: 55%; max-height: 55%; border-radius: 8px 8px 0 0; z-index: 4; padding-bottom: 64px;
+  }
+  #hotbar { bottom: 8px; }
+}
+@media (pointer: coarse) { #touch-controls { display: flex; } }
+@media (max-height: 639px) {
+  #challenge-panel, #molecule-panel { max-height: calc(100% - 152px); }
+  #bench-panel { bottom: 88px; max-height: calc(100% - 152px); }
+}
+
+/* ---- reduced motion (§2.4) ------------------------------------------------ */
+:root[data-reduced-motion="true"] #stage *, :root[data-reduced-motion="true"] #stage *::before, :root[data-reduced-motion="true"] #stage *::after {
+  transition: none !important; animation: none !important;
+}

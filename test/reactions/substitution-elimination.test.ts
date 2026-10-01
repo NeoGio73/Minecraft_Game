@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseSmiles } from '@/chem/smiles';
+import { embedOnLattice } from '@/chem/embed';
 import { sameMolecule } from '@/chem/compare';
 import type { MoleculeGraph, ReactOptions, ReactionResult, StereoPolicy } from '@/chem/types';
 import type { ReagentId } from '@/content/types';
@@ -163,6 +164,8 @@ describe('04 section 9.1 substitution / elimination', () => {
     expect(r.mechanism).toBe('E2');
     expect(r.justification).toBe(JUSTIFY.R3_sec_baseOnly);
     expect(r.warnings).toContain(WARN.ringConformation);
+    expect(r.warnings).not.toContain(WARN.ezAssumedTrans);
+    expect(r.major[0]!.bonds.every((b) => b.ez === undefined)).toBe(true);
   });
   it('77 TBUOK 2-bromo-2-methylbutane -> Hofmann 2-methyl-1-butene', () => {
     const r = run('TBUOK', 'CCC(C)(C)Br');
@@ -187,6 +190,28 @@ describe('04 section 9.1 substitution / elimination', () => {
     expectMajor(r, ['C1=CCCCC1']);
     expectList(r.minor, ['OC1CCCCC1']);
     expect(r.justification).toBe(JUSTIFY.R3_sec);
+    // A ring C=C never carries an EzTag (00-contracts): no E assumption, no warning, and the preview embeds induced.
+    expect(r.warnings).not.toContain(WARN.ezAssumedTrans);
+    expect(r.major[0]!.bonds.every((b) => b.ez === undefined)).toBe(true);
+    const e = embedOnLattice(r.major[0]!);
+    expect(e).not.toBeNull();
+    expect(e!.suppressedPairs).toEqual([]);
+  });
+  it('ring E2 / E1 products of every ring size carry no ez tag (cyclopentyl, cyclooctyl, cyclohexanol dehydration)', () => {
+    for (const [id, smiles, expected] of [
+      ['KOH_ETOH', 'BrC1CCCC1', 'C1=CCCC1'],
+      ['KOH_ETOH', 'BrC1CCCCCCC1', 'C1=CCCCCCC1'],
+      ['H2SO4_HEAT_ROH', 'OC1CCCCC1', 'C1=CCCCC1'],
+    ] as const) {
+      const r = run(id, smiles);
+      expectMajor(r, [expected]);
+      expect(r.major[0]!.bonds.every((b) => b.ez === undefined), smiles).toBe(true);
+      expect(r.warnings, smiles).not.toContain(WARN.ezAssumedTrans);
+    }
+    // acyclic 1,2-disubstituted alkenes still get the E display tag and the warning
+    const r = run('H2SO4_HEAT_ROH', 'CCC(C)O');
+    expect(r.major[0]!.bonds.some((b) => b.ez !== undefined && b.ez.cis === false)).toBe(true);
+    expect(r.warnings).toContain(WARN.ezAssumedTrans);
   });
   it('81 H2O_HEAT tert-butyl bromide -> tert-butanol, 2-methylpropene minor', () => {
     const r = run('H2O_HEAT', 'CC(C)(C)Br');
