@@ -57,7 +57,7 @@ export function entryBySmiles(smiles: string): MoleculeEntry | undefined;
 export function parseEntry(entry: MoleculeEntry | string): MoleculeGraph;
 /** entry.layout when present (pos = layout, hPos empty, suppressedPairs = suppressedPairsOf(parseEntry(entry), layout)),
  *  else embedOnLattice(parseEntry(entry)) (memoised); null only for odd rings (09-amendment-no-bond.md §1.9). */
-export function layoutOf(entry: MoleculeEntry): EmbeddingExt | null;
+export function layoutOf(entry: MoleculeEntry): LatticeEmbedding | null;
 
 // src/content/acceptance.ts
 export function evaluate(challenge: Challenge, ctx: SubmissionContext): SubmitResult;
@@ -237,13 +237,13 @@ Accepted set of `ch1-build-sp-and-sp3-c4h6` (enumerated by the test): but-1-yne 
  "hint":"Build acetic acid first (CH3-C(=O)-OH), then target the single-bonded oxygen and press C once: it becomes O- with no hydrogen. Either oxygen may carry the charge; the two forms are resonance forms of one ion.",
  "difficulty":"medium","points":4,"rule":{"type":"exact-molecule","target":"CC(=O)[O-]"},"source":"MM 2.10 (m00027)",
  "feedback":{"wrong-charge":"Right atoms, wrong charge. The acetate ion has a net charge of -1: put a -1 charge on one oxygen (the one without a hydrogen).",
-  "wrong-formula":"Wrong formula: yours is C2H4O2, the target is C2H3O2-. Right skeleton but you left the O-H hydrogen on: target the single-bonded oxygen and press C once to make it O- (the hydrogen disappears and the charge becomes -1)."}},
+  "wrong-formula":"Wrong formula. Right skeleton but the O-H hydrogen is still there? Target the single-bonded oxygen and press C once to make it O- (the hydrogen disappears and the charge becomes -1)."}},
 {"id":"ch2-build-tert-butyl-cation","chapter":2,"section":"2.3","topic":"formal-charge","title":"A carbocation",
  "instruction":"Build the tert-butyl cation, (CH3)3C+, on the lab pad: a central carbon bonded to three methyl groups, carrying a +1 charge (charge tool, key C). Target it and submit. Check that the panel reports the central carbon as sp2 and trigonal planar.",
  "objective":"A carbon with three bonds, no lone pair and a +1 formal charge is sp2 with an empty p orbital (McMurry 7.9).",
  "hint":"Place four carbons in a T or star (one centre, three arms), target the centre and press C once for +1. The centre then has no hydrogen.",
  "difficulty":"medium","points":4,"rule":{"type":"exact-molecule","target":"C[C+](C)C"},"source":"MM 2.3 (m00020)",
- "feedback":{"wrong-formula":"Wrong formula: yours is C4H10, the target is C4H9+. That is 2-methylpropane (isobutane): target the central carbon and press C once to make it C+ (its hydrogen disappears and the panel shows sp2, trigonal planar)."}},
+ "feedback":{"wrong-formula":"Wrong formula. Still 2-methylpropane (isobutane)? Target the central carbon and press C once to make it C+ (its hydrogen disappears and the panel shows sp2, trigonal planar)."}},
 {"id":"ch2-select-most-acidic-h-ethanol","chapter":2,"section":"2.8","topic":"acids-bases","title":"Most acidic hydrogen in ethanol",
  "instruction":"Ethanol (CH3CH2OH) is placed on the lab pad with its hydrogens shown. Select its most acidic hydrogen and submit.",
  "objective":"An O-H hydrogen (pKa 16) is far more acidic than a C-H hydrogen (pKa about 60) because the alkoxide puts its negative charge on oxygen.",
@@ -559,12 +559,12 @@ Accepted sets (enumerated by tests): alcohol C3H8O → propan-1-ol, propan-2-ol;
 {"id":"ch7-quiz-alkene-stability","chapter":7,"section":"7.6","topic":"alkene-stability","title":"Which alkene is most stable?",
  "instruction":"Answer the quiz question using McMurry Table 7.2 (heats of hydrogenation).",
  "objective":"Stability: more substituted > less substituted; trans > cis (steric strain between cis substituents).",
- "hint":"A smaller heat of hydrogenation means a more stable alkene: but-1-ene -127, (Z)-but-2-ene -120, (E)-but-2-ene -116 kJ/mol.",
+ "hint":"A smaller heat of hydrogenation means a more stable alkene: propene (monosubstituted) -125, cis-but-2-ene -119, trans-but-2-ene -115 kJ/mol (Table 7.2).",
  "difficulty":"medium","points":4,
  "rule":{"type":"quiz","kind":"mc","prompt":"Which of these C4 alkenes is the most stable?",
   "options":[{"id":"a","text":"but-1-ene"},{"id":"b","text":"(Z)-but-2-ene (cis)"},{"id":"c","text":"(E)-but-2-ene (trans)"},{"id":"d","text":"They are equally stable"}],
   "correct":["c"],"shuffle":true,"maxAttempts":2,
-  "explanation":"Disubstituted alkenes are more stable than monosubstituted ones, and the trans isomer is more stable than the cis isomer because the cis methyl groups crowd each other. Heats of hydrogenation (Table 7.2): but-1-ene -127, cis-but-2-ene -120, trans-but-2-ene -116 kJ/mol."},
+  "explanation":"Disubstituted alkenes are more stable than monosubstituted ones, and the trans isomer is more stable than the cis isomer because the cis methyl groups crowd each other. Heats of hydrogenation (Table 7.2): propene (monosubstituted) -125, cis-but-2-ene -119, trans-but-2-ene -115 kJ/mol."},
  "source":"MM 7.6 (m00068)"},
 {"id":"ch7-select-carbocation-carbon-2-methylpropene","chapter":7,"section":"7.9","topic":"carbocations","title":"Where does the positive charge go?",
  "instruction":"2-Methylpropene ((CH3)2C=CH2) is placed on the lab pad and locked. When H+ adds to this alkene, one carbon becomes a carbocation. Select the carbon that carries the positive charge in the more stable carbocation and submit.",
@@ -580,17 +580,16 @@ Accepted sets (enumerated by tests): alcohol C3H8O → propan-1-ol, propan-2-ol;
  "difficulty":"easy","points":2,
  "rule":{"type":"predict-product","reactant":"C=C(C)C","reagentId":"HX_HCL","expected":["CC(C)(C)Cl"],"stereoCheck":"none"},"source":"MM 7.8 (m00070)"},
 {"id":"ch7-predict-rearrangement-3-methylbut-1-ene-hcl","chapter":7,"section":"7.11","topic":"rearrangement","title":"A carbocation rearrangement",
- "instruction":"Reaction bench: 3-methylbut-1-ene (CH2=CH-CH(CH3)2) is locked in the reactant zone. Apply the HCl card. The first-formed secondary carbocation rearranges by a hydride shift to a tertiary carbocation. Build the REARRANGED product (the chloride from the tertiary cation) in the product zone and submit. The unrearranged product is also formed and earns half credit.",
+ "instruction":"Reaction bench: 3-methylbut-1-ene (CH2=CH-CH(CH3)2) is locked in the reactant zone. Apply the HCl card. The first-formed secondary carbocation rearranges by a hydride shift to a tertiary carbocation. Build either of the two chlorides McMurry reports (about 1:1) in the product zone and submit; the rearranged one shows you understand the hydride shift.",
  "objective":"A 1,2-hydride shift converts a secondary carbocation into a more stable tertiary one before chloride attacks (McMurry 7.11: about a 1:1 mixture).",
  "hint":"After H+ adds to C1, the cation is on C2 (secondary). An H moves from C3 to C2, putting the cation on C3 (tertiary). Cl then bonds to C3: 2-chloro-2-methylbutane.",
  "difficulty":"hard","points":8,
- "rule":{"type":"predict-product","reactant":"C=CC(C)C","reagentId":"HX_HCL","expected":["CCC(C)(C)Cl"],"stereoCheck":"none",
-  "acceptAlso":[{"smiles":"CC(C)C(C)Cl","note":"2-chloro-3-methylbutane, the unrearranged product: also formed (about 1:1, McMurry 7.11). Build 2-chloro-2-methylbutane, the product of the hydride shift, for full credit."}]},
+ "rule":{"type":"predict-product","reactant":"C=CC(C)C","reagentId":"HX_HCL","expected":["CCC(C)(C)Cl","CC(C)C(C)Cl"],"stereoCheck":"none","acceptAny":true},
  "source":"MM 7.11 (m00073)"}
 ]
 ```
 
-`ch7-unsaturation-c6h10` is intentionally open: cyclohexene, 1-ethylcyclobutene, 3-ethylcyclobutene, 1,2-/1,3-/3,3-dimethylcyclobutene, ethenylcyclobutane and ethylidenecyclobutane all pass (all correct chemistry); the enumerated negatives are hexa-1,3-diene (`wrong-ring-count`), cyclohexane C6H12 (`wrong-formula`), hex-1-yne (`forbidden-group`), bicyclo[2.2.0]hexane (`wrong-pi-count`). The bench runs `react` with `rearrangement: 'warn'` (R7), which returns both chlorides with `mixture: true`; the challenge grades the rearranged one as `expected` and the other through `acceptAlso`.
+`ch7-unsaturation-c6h10` is intentionally open: cyclohexene, 1-ethylcyclobutene, 3-ethylcyclobutene, 1,2-/1,3-/3,3-dimethylcyclobutene, ethenylcyclobutane and ethylidenecyclobutane all pass (all correct chemistry); the enumerated negatives are hexa-1,3-diene (`wrong-ring-count`), cyclohexane C6H12 (`wrong-formula`), hex-1-yne (`forbidden-group`), bicyclo[2.2.0]hexane (`wrong-pi-count`). The bench runs `react` with `rearrangement: 'warn'` (R7), which returns both chlorides with `mixture: true`; the challenge lists both in `expected` with `acceptAny: true`, so either chloride alone earns full credit (chemistry review minor 7: McMurry 7.11 reports about 1:1, so half credit for one of them was unjustified; §7.7 step 1; `test/content/buildable.test.ts` places each `expected` product on its own). It is the only `acceptAny` record; with its former `acceptAlso` gone, five predict-product records keep an `acceptAlso` alternative (§4.10 `ch10-predict-cl2-hv-butane`, §4.11 the SN1 solvolysis and the three E2 Zaitsev records).
 
 ### 4.8 Chapter 8 — Alkene reactions (10 challenges, 50 points)
 
@@ -774,7 +773,7 @@ Accepted sets (enumerated by tests): alcohol C3H8O → propan-1-ol, propan-2-ol;
  "difficulty":"easy","points":2,
  "rule":{"type":"predict-product","reactant":"CC(C)(C)O","reagentId":"ROH_HX_HCL","expected":["CC(C)(C)Cl"],"stereoCheck":"none"},"source":"MM 10.5 (m00117)"},
 {"id":"ch10-choose-propan-1-ol-to-1-chloropropane","chapter":10,"section":"10.5","topic":"organohalides","title":"Primary alcohol to chloride",
- "instruction":"At the reaction bench, propan-1-ol is shown as the reactant and 1-chloropropane as the target product. Pick the best reagent card and submit.",
+ "instruction":"At the reaction bench, propan-1-ol is shown as the reactant and 1-chloropropane as the target product. Pick the reagent McMurry 10.5 recommends and submit.",
  "objective":"Primary and secondary alcohols are converted to chlorides with SOCl2 (and to bromides with PBr3); HX works well only for tertiary alcohols.",
  "hint":"HCl is slow with primary alcohols. Which reagent converts a primary alcohol into a chloride under mild conditions?",
  "difficulty":"medium","points":4,
@@ -782,7 +781,7 @@ Accepted sets (enumerated by tests): alcohol C3H8O → propan-1-ol, propan-2-ol;
   "rejections":{"ROH_HX_HCL":"HCl reacts with primary alcohols only slowly (no stable carbocation); McMurry 10.5 reserves HX for tertiary alcohols.","ROH_PBR3":"PBr3 gives the bromide, 1-bromopropane, not the chloride.","H2SO4_HEAT_ROH":"Hot H2SO4 dehydrates alcohols to alkenes; it introduces no chlorine."}},
  "source":"MM 10.5 (m00117)"},
 {"id":"ch10-choose-butan-2-ol-to-2-bromobutane","chapter":10,"section":"10.5","topic":"organohalides","title":"Secondary alcohol to bromide",
- "instruction":"At the reaction bench, butan-2-ol is shown as the reactant and 2-bromobutane as the target product. Pick the best reagent card and submit.",
+ "instruction":"At the reaction bench, butan-2-ol is shown as the reactant and 2-bromobutane as the target product. Pick the reagent McMurry 10.5 recommends and submit.",
  "objective":"PBr3 converts primary and secondary alcohols to alkyl bromides.",
  "hint":"Which reagent delivers Br to a secondary carbon without needing a carbocation?",
  "difficulty":"medium","points":4,
@@ -815,7 +814,7 @@ Accepted sets (enumerated by tests): alcohol C3H8O → propan-1-ol, propan-2-ol;
  "hint":"Water replaces Br on the tertiary carbon: 2-methylpropan-2-ol (tert-butyl alcohol).",
  "difficulty":"medium","points":4,
  "rule":{"type":"predict-product","reactant":"CC(C)(C)Br","reagentId":"H2O_HEAT","expected":["CC(C)(C)O"],"stereoCheck":"none",
-  "acceptAlso":[{"smiles":"C=C(C)C","note":"2-methylpropene, the E1 elimination product: minor (about 36 % in aqueous ethanol, McMurry 11.10). The SN1 product 2-methylpropan-2-ol earns full credit."}]},
+  "acceptAlso":[{"smiles":"C=C(C)C","note":"2-methylpropene, the E1 product. McMurry 11.10 reports 36 % elimination for 2-chloro-2-methylpropane in 80 % aqueous ethanol at 65 °C; the same competition applies here."}]},
  "source":"MM 11.4 (m00125)"},
 {"id":"ch11-predict-tert-butyl-bromide-methoxide-e2","chapter":11,"section":"11.12","topic":"elimination","title":"Tertiary halide + strong base",
  "instruction":"Reaction bench: 2-bromo-2-methylpropane (tert-butyl bromide) is locked in the reactant zone. Apply the NaOCH3 / CH3OH card, build the organic product in the product zone and submit.",
@@ -1095,7 +1094,7 @@ Columns: id | name | common / alternate names | formula | SMILES | chapters | CI
 | `methanethiol` | methanethiol | methyl mercaptan | CH4S | `CS` | 2,3 |  |  |
 | `methanethiolate` | methanethiolate ion | methanethiolate | CH3S- | `C[S-]` | 2 |  |  |
 | `dimethyl-sulfide` | methylsulfanylmethane | dimethyl sulfide | C2H6S | `CSC` | 3 |  |  |
-| `dmso` | dimethyl sulfoxide | DMSO; methylsulfinylmethane | C2H6OS | `C[S+](C)[O-]` | 2 |  |  |
+| `dmso` | dimethyl sulfoxide | DMSO; methylsulfinylmethane | C2H6OS | `C[S+](C)[O-]` | 2,11 |  |  |
 | `hydrogen-chloride` | hydrogen chloride | HCl | HCl | `Cl` | 2 |  |  |
 
 ### 5.3 Verified `layout` values (heavy atoms, index = SMILES atom order; every listed layout is a lattice embedding whose stereo RDKit reproduced from the coordinates with implicit hydrogens; the last eight contain exactly one face-adjacent unbonded pair, which `layoutOf` reports as a required "no bond" pair — 09-amendment-no-bond.md §2.1)
@@ -1418,7 +1417,7 @@ Roster (`test/content/challenges.test.ts`):
 Buildability (`test/content/buildable.test.ts`):
 - **B1** every library entry embeds; the eight §6.2 entries return exactly the one `suppressedPairs` entry listed in `test/content/fixtures/suppressions.ts` (`NEEDS_SUPPRESSION`) and `null` under `{allowSuppressed: false}`; every other entry returns `suppressedPairs.length === 0`.
 - **B2** every build-rule SMILES (per R10 policy) embeds within `EMBED_NODE_BUDGET`; record `nodesVisited` and fail if any exceeds 10 000 (regression guard); `suppressedPairs.length ≤ 2` for every row of `buildReport`, which the test prints.
-- **B3** end-to-end for every `exact-molecule`, `name-to-structure`, `stereo-exact` and `predict-product` record: place the embedding through `World.setBlock` (plus `hPos` H blocks), call `world.suppressBond` for every `suppressedPairs` entry, set bond orders, `extractMolecules`, `evaluate` → `passed === true` (this covers the four 09 §4.2 records); for every `predict-product` with `acceptAlso`, placing the alternative gives `kind === 'correct-reduced'`; for `ch7-build-z-but-2-ene` the same placement *without* the suppression gives `kind === 'wrong-formula'` with a message ending in `NO_BOND_HINT`.
+- **B3** end-to-end for every `exact-molecule`, `name-to-structure`, `stereo-exact` and `predict-product` record: place the embedding through `World.setBlock` (plus `hPos` H blocks), call `world.suppressBond` for every `suppressedPairs` entry, set bond orders, `extractMolecules`, `evaluate` → `passed === true` (this covers the four 09 §4.2 records); for every `predict-product` with `acceptAlso` (five alternatives in all; the test asserts the count), placing the alternative gives `kind === 'correct-reduced'`, `pointsEarned === floor(points / 2)` and the message `Accepted for half credit: <note>`; for the one `acceptAny` record each `expected` product is placed alone and passes with full credit; for `ch7-build-z-but-2-ene` the same placement *without* the suppression gives `kind === 'wrong-formula'` with a message ending in `NO_BOND_HINT`.
 
 Acceptance (`test/content/acceptance.test.ts`): per rule type ≥ 1 positive and ≥ 2 negative contexts with the expected `FeedbackKind` (WP-05 note): the negatives named in §4 plus the mirror image of each `stereo-exact` target (`enantiomer`, except meso which passes), a T-shaped 2-bromobutane (`unspecified-center`), a Z but-2-ene for `ch7-build-e-but-2-ene` (`diastereomer`), an E build for `ch7-build-z-but-2-ene` (`diastereomer`) and a twisted Z build for it (`invalid-alkene-geometry`), the (E)-hex-3-ene product for `ch9-predict-lindlar-z-hex-3-ene` (`diastereomer`), the cis dibromide for `ch8-predict-br2-cyclohexene-trans` (`diastereomer`), an extra ethanol on the pad for `ch3-isomers-c4h10` (`extra-molecule`), attempt 3 on a select-atom (`attempts-exhausted`, `pointsEarned 0`), attempt 2 correct on a quiz (`pointsEarned === floor(points/2)`).
 
@@ -1433,7 +1432,7 @@ Reagents (`test/content/reagents.test.ts`): every `ReagentId` in `REAGENT_IDS` h
 3. `select-atom` `match: 'any'` is implemented as "non-empty and ⊆ answer set" (§1); if 07-ui allows multi-selection on `'any'` rules the contract wording "intersects" should be tightened to this.
 4. `ch9-predict-acetylide-alkylation-ethyne` relies on `react` replacing exactly one terminal H of ethyne; 04-reaction-bench should confirm `NANH2_THEN_RX` reacts the first site only (helper rule "react one site and warn" would otherwise emit a spurious warning).
 5. `KMNO4_HOT` on 2-methylbut-2-ene: the card must return acetone + acetic acid as `major` (not CO2); confirmed by reaction-bench RB-13 but the engine test vector should be added in 04.
-6. The alkene-stability quiz quotes heats of hydrogenation as −127/−120/−116 kJ/mol (OpenStax 10e Table 7.2); mcmurry-orgo1 §9.4 lists −125/−119/−115 from an older edition; verify against the shipped edition before release and update both strings.
+6. *Resolved (chemistry review v1.0.0, minor 6).* OpenStax 10e Table 7.2 has no but-1-ene row, so the quiz could not attribute −127/−120/−116 to it; `ch7-quiz-alkene-stability`'s hint and explanation now quote propene (monosubstituted) −125, cis-but-2-ene −119, trans-but-2-ene −115 kJ/mol (Table 7.2) and attribute no 1-butene value to the table (§4.7).
 7. `MoleculeEntry.layout` cannot carry explicit H cells, so the four cis ring entries rely on `embedOnLattice` at runtime (≈ 1–2 ms each); if ghost builds for those need determinism, add `layoutH?: Record<string, [number,number,number][]>` to the contract.
 8. Library size: 192 entries. The panel name index is built once (≈ 192 parses + hashes, < 50 ms); if start-up budget matters, entries used only for naming (Z isomers, 1,4-dimethylcyclohexanes, pentan-2/3-one) can be moved to a lazy second file.
 9. `verify05.py` (RDKit library/roster/buildability verifier that produced §5.2, §5.3 and §6.2) lives only in the design session's scratchpad because this pass was not allowed to write other files; WP-05 must copy it into `tools/reference/` so the tables can be regenerated after any content edit.

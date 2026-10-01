@@ -757,7 +757,7 @@ Alcohol (`OH.alcohol.*`, base by degree = number of carbon neighbours of the car
 | `bF{n}` | n fluorines on carbons bonded to the carbinol C | −1.2·n | CF3CH2OH 16.0 − 3.6 = 12.4 (T17.1: 12.43) | T17_1 |
 | `bCl1` / `bCl2` / `bCl3` | 1 / 2 / 3 β-Cl | −1.7 / −3.1 / −3.8 | 14.3 / 12.9 / 12.2 | APP_B |
 | `bBr{n}`, `bI{n}` | β-Br / β-I | as Cl | — | `verified: false` |
-| `allylic` | carbinol C bonded to a C with a bond of order ≥ 2 | −0.5 | allyl 15.5, benzyl 15.4, propargyl 15.5 | APP_B |
+| `allylic` | carbinol C bonded to a C with a bond of order ≥ 2 | −0.5 | allyl 15.5, benzyl 15.4 | APP_B |
 
 A carbon with two O–H groups → `OH.gemdiol` (no degree). Result clamped to [5.0, 18.0].
 
@@ -793,7 +793,7 @@ For every atom `X` (id order) with `info[X].hydrogens > 0`: `env = classify(X)`;
 3. neighbour O: that O bonded to a carbonyl C → `OH.peracid` (+ `formic`); else `OH.hydroperoxide`.
 4. neighbour N with a bond of order 2 to a C → `OH.oxime`.
 5. neighbour C with `hasCCpi` → `OH.enol`.
-6. no heavy neighbour → `OH.water`.
+6. no heavy neighbour: charge 0 → `OH.water`; charge −1 (hydroxide) → `XH.other` (not an acidic site; chemistry review minor 11).
 7. neighbour C bearing a second O–H → `OH.gemdiol`.
 8. else `OH.alcohol.<degree>` + modifiers.
 

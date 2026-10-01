@@ -59,7 +59,7 @@ export interface WorldEdit {
 }
 export class World {
   readonly chunks: readonly Chunk[];     // length WORLD_CX * WORLD_CZ
-  readonly index: MoleculeIndexExt;                              // 02 §1 / 09 §1.1: carries the suppressed-pair set
+  readonly index: MoleculeIndex;                                 // 02 §1 / 09 §1.1: carries the suppressed-pair set
   /** Incremented by every mutation; Game compares it to decide whether to re-derive components. */
   editVersion: number;
   constructor(index?: MoleculeIndex);
@@ -239,7 +239,7 @@ export interface DebugApi {
   teleport?(x: number, y: number, z: number, yaw?: number, pitch?: number): void;
   setBlock?(x: number, y: number, z: number, id: number): void;
   place?(x: number, y: number, z: number, el: BlockElement): PlacementResult;
-  wand?(pair: PairKey): BondChangeResultExt;    // runs the real validateBondChange + apply path (09 §1.3) and emits the bond events
+  wand?(pair: PairKey): BondChangeResult;       // runs the real validateBondChange + apply path (09 §1.3) and emits the bond events
   goToChallenge?(id: string): void;
   press?(action: InputAction): void;
   state?(): UiState;                            // the live State instance (07 §1.1)
@@ -247,7 +247,7 @@ export interface DebugApi {
 declare global { interface Window { __orgocraft?: DebugApi } }
 
 // src/app/events.ts — additions to GameEvents (merged into the closed map by the contracts PR; until then State.ts creates
-// `createEmitter<GameEvents & EngineEvents>()` and every DOM module subscribes through that widened emitter type)
+// `createEmitter<GameEvents>()` (GameEvents extends EngineEvents since the contract fold-in) and every DOM module subscribes through that widened emitter type)
 export interface EngineEvents {
   'hover:changed': { hover: HoverInfo };
   'bench:open': Record<string, never>;

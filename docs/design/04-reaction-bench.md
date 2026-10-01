@@ -401,7 +401,7 @@ Every rule is `apply<Rule>(substrate, card, opts): RuleResult` (`RuleFn`, §1). 
   2. `opts.rx` missing → `noReaction(JUSTIFY.rxMissing)`. `rxSite = findCX(opts.rx)[0]`; missing → `noReaction(JUSTIFY.rxNotHalide)`. `info = substrateInfo(rx, rxSite)`; `info.sp2` → `noReaction(JUSTIFY.R1)`.
   3. `info.cls ≥ 2` (secondary/tertiary): `elim = applyE2(rx, rxSite, 'zaitsev')` (§5.8); `major = [elim.major[0], substrate]` (alkene + unchanged alkyne), `minor = elim.minor`, `mechanism: 'E2'`, `stereo: 'none'`, `mixture: false`, `WARN.acetylideElimination`, `justification = JUSTIFY.acetylideE2`. (`neopentyl` also takes this branch.)
   4. Else (methyl/primary): `halogen === 'Cl'` → `WARN.chlorideSlower`; `F` → `noReaction(JUSTIFY.R2)`. Product: `tet0 = rx.atoms[rxSite.c].tet`; `rx1 = withoutAtom(rx, rxSite.x)`; `{graph, attached, offset} = graftGraph(substrate, t, rx1, r(rxSite.c))`; if `tet0`: restore on `r(rxSite.c) + offset` with `t` in X's slot and `sign` flipped (SN2 inversion at the halide carbon; `stereo: 'absolute'`), else `stereo: 'none'`. `mechanism: 'SN2'`. 1-hexyne + 1-bromobutane → 5-decyne `CCCCC#CCCCC`.
-- **DOUBLE_E2** (`NANH2_2EQ_DIHALIDE`): (a) two `CXSite`s on bonded sp3 carbons `c1–c2` with `H ≥ 1` each: capture nothing; `withoutAtom` both X (higher id first), set `bondBetween(c1', c2')` to 3; (b) one `CXSite` on an alkene carbon whose partner has `H ≥ 1`: remove X, bond 2→3. Product alkyne terminal (`H === 1` on an alkyne carbon) → `WARN.acetylideWorkup`. `mechanism: 'E2'`, `stereo: 'none'`. `CCC(Br)C(Br)CC` → 3-hexyne.
+- **DOUBLE_E2** (`NANH2_2EQ_DIHALIDE`): (a) two `CXSite`s on bonded sp3 carbons `c1–c2` with `H ≥ 1` each: capture nothing; `withoutAtom` both X (higher id first), set `bondBetween(c1', c2')` to 3; (b) one `CXSite` on an alkene carbon whose partner has `H ≥ 1`: remove X, bond 2→3. Product alkyne terminal (`H === 1` on an alkyne carbon) → `WARN.acetylideWorkup`. `mechanism: 'E2'`, `stereo: 'none'`. `CCC(Br)C(Br)CC` → 3-hexyne. **Small-ring rule** (chemistry review minor 4): a candidate pair — `c1–c2` in (a), `c–partner` in (b) — through which `ringsThrough(g, a, b)` finds any ring of length < 8 is skipped, because a C≡C is linear and no ring smaller than cyclooctyne can hold one; when every candidate was skipped for that reason the result is `noReaction(JUSTIFY.doubleE2SmallRing)` (otherwise `noReaction(JUSTIFY.noSubstrate(card))` as before). 1,2-dibromocyclohexane `BrC1CCCCC1Br`, 1-bromocyclohexene `BrC1=CCCCC1` and 1,2-dibromocyclopentane therefore do not react (no cyclohexyne), while 1,2-dibromocyclooctane gives cyclooctyne `C1#CCCCCCC1` with `JUSTIFY.DOUBLE_E2` and a dihalide exocyclic to a ring (`BrCC(Br)C1CCCCC1` → `C#CC1CCCCC1`, `WARN.acetylideWorkup`) still reacts (`test/reactions/alkynes.test.ts`, 'no cycloalkynes from small-ring vicinal dihalides').
 
 ### 5.3 `oxidation.ts`
 
@@ -419,7 +419,7 @@ Every rule is `apply<Rule>(substrate, card, opts): RuleResult` (`RuleFn`, §1). 
 
 `ROH_MECHANISM = { ROH_HX_HCL: 'SN1', ROH_HX_HBR: 'SN1', ROH_SOCL2: 'SN2', ROH_PBR3: 'SN2', ROH_HF_PYR: 'SN2' }`. Site = `findCOH(g)` with `sp3(c)` (first; more than one → `WARN.multipleSites`); none → `noReaction(JUSTIFY.noSubstrate)`; an O on an sp2 carbon (phenol/enol) only → `noReaction(JUSTIFY.rohSp2)`. `cls = substrateClass(g, c, o)`, `allylicOrBenzylic = isAllylic || isBenzylic`, `site = { c, x: o, bond, halogen: card.halogen }` (the leaving atom is the O).
 
-- **SN1 cards** (`ROH_HX_*`): if `cls === 3 || allylicOrBenzylic`: `shift = checkShift(g, c)`; policy §5.6; `substituteRacemize(g, site, X)` (or on `applyShift` output at `shift.to`); `stereo = racemic` if `c` is a centre in the product else `none`; `mechanism: 'SN1'`; `justification = JUSTIFY.rohSn1`. Else (`cls` 1 or 2): same product, `WARN.rohSlow`, `justification = JUSTIFY.rohSlow`; `cls === 2` → racemize (tag dropped), `cls === 1` → no centre. 1-methylcyclohexanol + HCl → `CC1(Cl)CCCCC1`.
+- **SN1 cards** (`ROH_HX_*`): `fast = cls === 3 || allylicOrBenzylic`; `substituteRacemize(g, site, X)`; `stereo = racemic` if `c` is a centre in the product else `none` (`cls === 2` → racemize, tag dropped; `cls === 1` → no centre); `mechanism: 'SN1'`. The 1,2-shift check runs for the fast substrates **and for secondary alcohols** (chemistry review minor 5: a secondary alcohol also goes through a carbocation, only slowly): `shift = (fast || cls === 2) && opts.rearrangement !== 'ignore' ? checkShift(withoutBond(g, bond), c) : null`, then policy §5.6 (`warn` → `major = [unrearranged, rearranged]`, `mixture: true`, `WARN.rearrangement`; `apply` → the product substituted at `shift.to` on the `applyShift` output, `WARN.rearrangementApplied`; a shift whose product equals the unrearranged one is dropped). Fast substrates: `justification = JUSTIFY.rohSn1`. Else (`cls` 1 or 2): `WARN.rohSlow` is pushed and `justification = JUSTIFY.rohSlow`, shift or not. 1-methylcyclohexanol + HCl → `CC1(Cl)CCCCC1` (no shift); 3-methylbutan-2-ol `CC(C)C(C)O` + HBr → `CC(C)C(C)Br` and `CCC(C)(C)Br` (hydride shift, `mixture: true`, warnings `WARN.rearrangement` **and** `WARN.rohSlow`; `test/reactions/rearrangement.test.ts`); 2,3,3-trimethylbutan-2-ol + HCl → one product (already tertiary).
 - **SN2 cards** (`ROH_SOCL2`, `ROH_PBR3`, `ROH_HF_PYR`): `cls === 3` → `noReaction(JUSTIFY.rohTertiary)`; else `substituteInvert(g, site, X)`; `stereo = absolute` if the reactant carried `tet` on `c`, else `none`; `mechanism: 'SN2'`; `justification = JUSTIFY.rohSn2`. (S)-2-butanol `C[C@H](O)CC` + PBr3 → (R)-2-bromobutane `C[C@@H](Br)CC` (inversion; McMurry 11.3 calls these SN2; the inversion itself is "likely", so 05 grades PBr3/SOCl2 products with `stereoCheck: 'none'` or `'relative'`, never `'absolute'`).
 
 ### 5.6 `rearrangement.ts` — 1,2-shifts (HX_ADD, HYDRATION, ROH_HX SN1, SN1, E1, DEHYDRATION only)
@@ -589,10 +589,11 @@ export function react(substrate: MoleculeGraph, card: ReagentCard, opts: ReactOp
 | `ACETYLIDE_ALKYLATION` | `The acetylide anion displaces X from a methyl or primary halide by SN2 (McMurry 9.8).` |
 | `acetylideE2` | `Acetylide anions are strong bases: secondary and tertiary halides eliminate (E2) instead (McMurry 9.9).` |
 | `DOUBLE_E2` | `Two successive E2 dehydrohalogenations of a 1,2-dihalide give the alkyne (McMurry 9.2).` |
+| `doubleE2SmallRing` | `A ring smaller than eight carbons cannot hold a linear C≡C; vicinal dihalides on small rings do not give cycloalkynes.` |
 | `ALLYLIC_BROMINATION` | `NBS with light substitutes Br at the allylic position through the resonance-stabilized allylic radical (McMurry 10.3).` |
 | `RADICAL_HALOGENATION` | `Radical halogenation replaces a C–H by C–X; reactivity 3° > 2° > 1° C–H (McMurry 10.2).` |
 | `rohSn1` | `Tertiary (and allylic/benzylic) alcohols react with HX by SN1 through a carbocation (McMurry 10.5).` |
-| `rohSlow` | `Primary and secondary alcohols react slowly with HX (McMurry 10.5).` |
+| `rohSlow` | `Primary and secondary alcohols react with HX only slowly: slow, low-yield; McMurry uses SOCl2 (for Cl) or PBr3 (for Br) instead (McMurry 10.5).` (chemistry review minor 9; `WARN.rohSlow` keeps its own text) |
 | `rohSn2` | `SOCl2 and PBr3 convert primary and secondary alcohols to halides by an SN2 process (McMurry 10.5, 11.3).` |
 | `rohTertiary` | `SOCl2 and PBr3 are used for primary and secondary alcohols; tertiary alcohols use HX (McMurry 10.5).` |
 | `rohSp2` | `An OH on a double-bond or ring carbon is not an alcohol for these reagents.` |
@@ -606,8 +607,12 @@ export function react(substrate: MoleculeGraph, card: ReagentCard, opts: ReactOp
 | `R3_sec_bulky` | `Secondary halide + bulky base: E2, less substituted alkene (Hofmann) (McMurry 11.12; Hofmann orientation not in 10e).` |
 | `R3_bulky` | `Primary halide + strong, sterically hindered base: E2 rather than SN2 (McMurry 11.12).` |
 | `R3_neopentyl` | `Branching one carbon away blocks backside attack (neopentyl); E2 instead (McMurry 11.3).` |
+| `R3_neopentyl_noBetaH` | `Branching one carbon away blocks backside attack (neopentyl, McMurry 11.3), and there is no β-hydrogen for E2: no reaction.` |
 | `R3_prim` | `Primary halide + good nucleophile: SN2 with inversion; a little E2 (McMurry 11.12).` |
+| `R3_prim_baseOnly` | `NaNH2 is a strong base, not a nucleophile: a primary halide gives E2 elimination (McMurry 9.2, 11.12); the amine is not formed.` |
+| `R3_prim_heat` | `KOH/ethanol at reflux favors E2 (McMurry 8.1); some substitution.` |
 | `R3_methyl` | `Methyl halide: SN2 only (no β-hydrogens) (McMurry 11.3).` |
+| `R3_methyl_baseOnly` | `A methyl halide has no β-hydrogen to eliminate, and NaNH2 is not used as a nucleophile in McMurry: no reaction.` |
 | `R4_prim` | `Methyl/primary halide + good, weakly basic nucleophile: SN2 (McMurry 11.12).` |
 | `R4_sec_sn1` | `Secondary allylic/benzylic halide in a protic solvent with a weakly basic nucleophile: SN1 (some E1) (McMurry 11.12).` |
 | `R4_sec_sn2` | `Secondary halide + weakly basic nucleophile: SN2, best in a polar aprotic solvent (McMurry 11.12).` |
@@ -849,7 +854,7 @@ Products are compared with `sameMolecule(product, parse(expected), { stereo: pol
 | 75 | SN2_ACETYLIDE | `CCBr` | | `CC#CCC` | | SN2 | none | none | |
 | 76 | SN2_ACETYLIDE | `BrC1CCCCC1` | | `C1=CCCCC1` | (none: `minor = []`) | E2 | none | none | `ringConformation`; R3_sec_baseOnly (no SN2 alkyne) |
 | 77 | TBUOK | `CCC(C)(C)Br` | | `C=C(C)CC` (Hofmann) | `CC=C(C)C` | E2 | none | none | |
-| 78 | NANH2_BASE | `CCC(C)Br` | | `CC=CC` | `C=CCC` | E2 | none | none | R3_sec_baseOnly (no amine in `minor`) |
+| 78 | NANH2_BASE | `CCC(C)Br` | | `CC=CC` | `C=CCC` | E2 | none | none | `justification = JUSTIFY.R3_sec_baseOnly` (no amine in `minor`); primary/methyl halides with this card: rows 101–102 |
 | 79 | KOH_ETOH | `CC1(Cl)CCCCC1` | | `CC1=CCCCC1` | `C=C1CCCCC1` | E2 | none | none | |
 | 80 | KOH_ETOH | `BrC1CCCCC1` | | `C1=CCCCC1` | `OC1CCCCC1` | E2 | none | none | |
 | 81 | H2O_HEAT | `CC(C)(C)Br` | | `CC(C)(C)O` | `C=C(C)C` | SN1 | none | none | |
@@ -872,6 +877,12 @@ Products are compared with `sameMolecule(product, parse(expected), { stereo: pol
 | 98 | SN2_NAOH | `CCCCO` | | — | | none | none | | noReaction `noSubstrate` |
 | 99 | O3_ZN | `CC(C)=C(C)C` | | `CC(C)=O`, `CC(C)=O` | | oxidation | none | none | fragments: `major.length === 2` (identical fragments kept) |
 | 100 | SN2_NAOH | `C(Br)(c1ccccc1)(c1ccccc1)c1ccccc1` | | `OC(c1ccccc1)(c1ccccc1)c1ccccc1` | | SN1 | none | none | R3_tert_sn1; no shift (no sp3 neighbour) |
+| 101 | NANH2_BASE | `CCCCBr` | | `C=CCC` | (none: `minor = []`) | E2 | none | none | `R3_prim_baseOnly`; butan-1-amine appears nowhere; `CCBr` → ethene the same (chemistry review major 1) |
+| 102 | NANH2_BASE | `CBr` | | — | | none | none | | noReaction `R3_methyl_baseOnly` (no methylamine) |
+| 103 | SN2_ACETYLIDE | `CCCCBr` / `CBr` | | `CCCCC#CC` / `CC#CC` | `C=CCC` / | SN2 | none | none | `R3_prim` / `R3_methyl`: acetylide keeps the alkylation path (9.8) |
+| 104 | KOH_ETOH | `CCCCBr` | | `C=CCC` | `CCCCO` | E2 | none | none | `R3_prim_heat` (reflux: E2 first); SN2_NAOH on the same halide stays SN2 first (row 63) |
+| 105 | SN2_NAOH | `CC(C)(C)CBr` (neopentyl) | | — | | none | none | | noReaction `R3_neopentyl_noBetaH` (not `noBetaH`); `CCC(C)(C)CBr` + SN2_NAOET the same |
+| 106 | ROH_HX_HBR | `CC(C)C(C)O` | (warn) | `CC(C)C(C)Br`, `CCC(C)(C)Br` | | SN1 | none (weakest of racemic, none) | none | mix, `rearrangement` **and** `rohSlow`; `justification = JUSTIFY.rohSlow` (§5.5) |
 
 Row 62 note: (S)-2-bromobutane is secondary; with NaOH the decision is R3_sec → `[E2, SN2]`, so the engine's `major` is 2-butene and (R)-2-butanol is `minor`. McMurry 11.2 shows the SN2 inversion on exactly this pair, so the challenge (ch11-sn2-inversion, RB-28) is authored with `expected: [C[C@@H](O)CC]`, `stereoCheck: 'absolute'`, and the roster-agreement check of §7.5 accepts a match against `major ∪ minor` for SUBST_ELIM cards (unresolved question 2). Row 62's asserted result is therefore: `major = [CC=CC]`, `minor` contains `C[C@@H](O)CC` compared with policy `absolute` (inversion retained through `substituteInvert`).
 
@@ -883,6 +894,9 @@ Row 62 note: (S)-2-bromobutane is secondary; with NaOH the decision is R3_sec �
 | b | `C[C@H](Br)c1ccccc1` | HCOOH_H2O | 2, benzylic | [SN1, E1] | R5 | 11.12: SN1 formate + E1 styrene |
 | c | `CCC(Cl)c1ccccc1` | SN2_NAOAC | 2, benzylic, protic | [SN1, E1] | R4 | 11.12: SN1 |
 | d | `BrCCCc1ccccc1` | SN2_NAOCH3 | 1 | [SN2, E2] | R3 | 11.12: SN2 (NaOMe/DMF) |
+| d2 | `CCCCBr` | NANH2_BASE | 1, baseOnly (N) | [E2] | R3 | `R3_prim_baseOnly`, no amine (9.2, 11.12); `CCBr` and `BrCCCc1ccccc1` the same |
+| d3 | `CCCCBr` | SN2_ACETYLIDE | 1, baseOnly (C) | [SN2, E2] | R3 | `R3_prim`: acetylide alkylation (9.8) |
+| d4 | `CCCCBr` | KOH_ETOH | 1, `card.heat` | [E2, SN2] | R3 | `R3_prim_heat` (8.1) |
 | e | `BrC1CCCCC1` | SN2_ACETYLIDE | 2, baseOnly | [E2] | R3 | 9.9: cyclohexene, not the alkyne (E2 "instead") |
 | e2 | `CCC(C)Br` | NANH2_BASE | 2, baseOnly | [E2] | R3 | 11.12: NaNH2 is listed as a base, not a nucleophile |
 | f | `CC(C)(C)Br` | H2O_HEAT | 3 | [SN1, E1] | R5 | 11.10: 64:36 tBuOH : 2-methylpropene |
@@ -892,8 +906,10 @@ Row 62 note: (S)-2-bromobutane is secondary; with NaOH the decision is R3_sec �
 | j | `CCCCBr` | H2O_HEAT | 1 | none | R5 | 11.5 |
 | k | `CCCCBr` | SN2_NACN | 1 | [SN2] | R4 | Table 11.1 |
 | l | `CBr` | TBUOK | 0 | [SN2] | R3 | methyl has no β-H |
+| l2 | `CBr` | NANH2_BASE | 0, baseOnly (N) | none | R3 | `R3_methyl_baseOnly` (no β-H, no amination) |
+| l3 | `CBr` | SN2_ACETYLIDE | 0, baseOnly (C) | [SN2] | R3 | `R3_methyl` |
 | m | `CCC(C)(C)Br` | TBUOK | 3, bulky | [E2] Hofmann | R3 | 11.12 (orientation not in 10e) |
-| n | `CC(C)(C)CBr` (neopentyl) | SN2_NAOH | 1, neopentyl | [E2] | R3 | 11.3 |
+| n | `CC(C)(C)CBr` (neopentyl) | SN2_NAOH | 1, neopentyl, no β-H | none | R3 | 11.3; `R3_neopentyl_noBetaH` — the row itself names the blocked backside attack **and** the missing β-hydrogen instead of falling through to `noBetaH` (chemistry review minor 3); `CCC(C)(C)CBr` + SN2_NAOH the same |
 | o | `C=CCl` | SN2_NAOH | vinylic | none | R1 | 11.3 |
 | p | `Clc1ccccc1` | SN2_NAOH | aryl | none | R1 | 11.3 |
 | q | `CCCCF` | SN2_NAI | F | none | R2 | 11.3 |
@@ -945,7 +961,7 @@ Parities from the tags: meso `s1 = −1, s2 = −1`; (S,S) `s1 = −1, s2 = +1` 
 
 ## 10. Unresolved questions
 
-1. **`NANH2_BASE` on methyl/primary halides.** Secondary (and tertiary) halides with `NANH2_BASE` / `SN2_ACETYLIDE` are resolved: `R3_sec_baseOnly` gives `[E2]` only (§5.7; rows 76, 78, decision e/e2). For `cls 0/1` the generic rows still apply, so 1-bromobutane + NaNH2 reports `[SN2, E2]` with butan-1-amine as `major` — chemistry McMurry does not teach (the `nuc.fragment` `N` exists only so the row is well-formed). Options: restrict `NANH2_BASE.substrates` to secondary/tertiary halides in the content validator, or extend `baseOnly` to `cls 1` (`[E2]`, Hofmann-free). No graded challenge uses `NANH2_BASE` on a primary halide. Instructor call.
+1. *Resolved (chemistry review v1.0.0, major 1).* **`NANH2_BASE` on methyl/primary halides.** `decide()` now has the `R3_prim_baseOnly` / `R3_methyl_baseOnly` rows (§5.7): `baseOnly(nuc) && nuc.atom === 'N'` on `cls ≤ 1` gives `[E2]` (1-bromobutane → but-1-ene only) or no reaction (bromomethane), never the amine, while acetylide (`nuc.atom === 'C'`) keeps the generic SN2 rows (9.8). Secondary and tertiary halides were already `R3_sec_baseOnly` / `R3_tert` (rows 76, 78, decision e/e2). Vectors: §9.1 rows 101–103, §9.2 rows d2/d3/l2/l3, `test/reactions/decision.test.ts` and `test/reactions/substitution-elimination.test.ts` ('chemistry review v1.0.0'). The `nuc.fragment` `N` of the card is now unused by any decision path.
 2. **Secondary halide + NaOH (row 62 / RB-28).** McMurry's canonical SN2 inversion example uses a secondary substrate that the 11.12 table sends to E2 major. Decision here: the engine reports E2 major with the SN2 product in `minor`, and the roster-agreement validator accepts `expected` matches in `major ∪ minor` for SUBST_ELIM cards. Alternative: give ch11-sn2-inversion the card `SN2_NAI` or `SN2_NACN` (no base), or add a dedicated `SN2_NAOH_DMSO` aprotic card with `basicity: 'weak'` for teaching purposes. Instructor call.
 3. **Two propanoic acids from 3-hexyne (row 31)** require the student to build two identical molecules; 05 may prefer `expected: [CCC(=O)O]` with `acceptAny` semantics for identical fragments (needs a multiset-collapse flag in `PredictProductRule`, not in the contract).
 4. **`Decision.orientation` and `warnings`** extend the contract's `decide` return shape (superset, assignable). Fold into 00-contracts §5 when it is next revised, together with `RuleResult`/`RuleFn`.

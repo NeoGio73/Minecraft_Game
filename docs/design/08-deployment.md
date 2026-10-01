@@ -75,7 +75,7 @@ export const ISOMER_HASH_RE = /^[0-9a-f]{16}$/;
 /** Student id used when cmi.core.student_id is empty in LMS mode; the mirror is disabled for it. */
 export const UNKNOWN_STUDENT_ID = '';
 
-// src/lms/types.ts — contract CHANGE (applied by the contracts owner, not by WP-10) -----------------
+// src/lms/types.ts — contract CHANGE (APPLIED during integration on 2026-10-01; kept as the rationale) ---
 // ProgressState gains a fourth bitmask; nothing else in the interface moves.
 //   /** Bitmask: bit i set = attempts used up on an attempt-limited challenge with the answer revealed
 //    *  (wrong on the last attempt, or solved on the last attempt for 0 points). Subset of `attempted`. */
@@ -262,7 +262,7 @@ Rules:
 | A1 | `NotAttempted` is a no-op. |
 | A2 | `Attempted` sets the bit once; a second call returns the same object. State applies it on **every** failed submission of **any** rule (build rules included) except the non-consuming kinds `nothing-targeted`, `no-hydrogens` and the no-card `wrong-reagent` (05 §7); so `allAttempted` (W4) means "every enabled challenge was submitted at least once". |
 | A3 | A solved challenge is never re-scored and never downgraded: `SolvedReduced` after `SolvedFull`, `SolvedFull` after `SolvedFull`, and anything after an exhausted solve return the same object (`SubmitResult.pointsEarned = 0`, `STRINGS.alreadySolvedSuffix`). |
-| A3′ | **Upgrade.** `SolvedFull` on a bit that is `reduced` and not `exhausted` clears `reduced` and adds `points − pointsForAttempt(points, 2, false)` to `earned` (`points` = the challenge's full points). This is the `acceptAlso` case of 05 §4: the six predict-product challenges promise "the minor product earns half credit … the major product earns full credit", and 05 §12 item 1 asks for exactly this. State passes `pointsEarned = points − half` (2 → 1, 4 → 2, 8 → 4) to the UI for that submission and emits `challenge:passed` (§6.10 item 3). Attempt-limited rules never reach A3′ because State accepts no submission on them after a solve. |
+| A3′ | **Upgrade.** `SolvedFull` on a bit that is `reduced` and not `exhausted` clears `reduced` and adds `points − pointsForAttempt(points, 2, false)` to `earned` (`points` = the challenge's full points). This is the `acceptAlso` case of 05 §4: the five predict-product challenges with `acceptAlso` (the rearrangement challenge uses `acceptAny` instead since the chemistry review, 05 §4.7) promise "the minor product earns half credit … the major product earns full credit", and 05 §12 item 1 asks for exactly this. State passes `pointsEarned = points − half` (2 → 1, 4 → 2, 8 → 4) to the UI for that submission and emits `challenge:passed` (§6.10 item 3). Attempt-limited rules never reach A3′ because State accepts no submission on them after a solve. |
 | A4 | `SolvedReduced` with `points ≤ 0` (a select-atom answered correctly on its last attempt: `pointsForAttempt(p, 3, false) = 0`, 05 §2 item 3) sets `solved`, `reduced` **and** `exhausted`: the challenge counts as done for `allSolved` and the roster glyph, contributes **0** points in `summarize` (§3.3), and can never be upgraded. Half credit is never 0 (`floor(2/2) = 1`), so `points ≤ 0` is unambiguous. |
 | A5 | `applyExhausted` records `attempts-exhausted` (wrong on the last allowed attempt, answer revealed): `attempted|exhausted`, not `solved`. Idempotent; a no-op on a solved bit. |
 
@@ -517,20 +517,20 @@ export function browserDeps(roster: RosterInfo, emitter: Emitter): AdapterDeps {
 }
 ```
 
-`beforeunload` and `unload` are never registered (unreliable on mobile; they disable bfcache — scorm.md). The class holds `api: ScormApi12 | null`, `state`, `mode`, `studentId`, `readOnly`, `finished`, `scoreGate: boolean` (§3.7; `false` until a local restore, `false` again after the next `milestone`), `pendingCurrent: string | null` (a `currentChallengeId` received by `update()` while still `discovering`, §6.3), `lastCommitAt`, `pendingCommit` (timer handle), `lastStatusWritten`, `lastLocationWritten`, `lastSuspendWritten`, `startedAt`, `errors`.
+`beforeunload` and `unload` are never registered (unreliable on mobile; they disable bfcache — scorm.md). The class holds `api: ScormApi12 | null`, `state`, `mode`, `studentId`, `readOnly`, `mirrorEnabled: boolean` (`!readOnly` once `lesson_mode` is read, §6.2 step 5b; while `false` — review/browse mode — `writeMirror()` is a no-op and step 7 never discards the stored mirror), `finished`, `scoreGate: boolean` (§3.7; `false` until a local restore, `false` again after the next `milestone`), `pendingCurrent: string | null` (a `currentChallengeId` received by `update()` while still `discovering`, §6.3), `lastCommitAt`, `pendingCommit` (timer handle), `lastStatusWritten`, `lastLocationWritten`, `lastSuspendWritten`, `startedAt`, `errors`.
 
 ### 6.2 `start()` — discovery and the initialisation sequence
 
 1. `mode = 'discovering'`; emit `lms:status { mode: 'discovering', studentId: null, message: MODE_BADGE.discovering }`.
 2. Poll `deps.discover()` at `t = 0, 250, 500, …, 2000 ms` (`API_DISCOVERY_INTERVAL_MS`, `API_DISCOVERY_TIMEOUT_MS`: 9 calls at most; the loop stops at the first non-null). Typical D2L launches resolve at `t = 0`.
 3. No API → §6.8 (standalone) and resolve `'standalone'`.
-4. `LMSInitialize("")`. Return value `'false'` (or a throw) → log `error` with `LMSGetLastError()` + `LMSGetErrorString(code)`, then §6.8 (standalone; the API is not used again). Return value `'true'` → continue.
+4. `LMSInitialize("")`. Return value `'true'` → continue. Return value `'false'` → read `LMSGetLastError()`: code `'101'` (`ERR_ALREADY_INITIALIZED`; SCORM 1.2 has no dedicated "already initialized" code, so a player that already initialised the session answers `'false'` with 101 *general exception* while the data model stays readable) → log `warn` `"LMSInitialize returned false with error 101 (already initialized); continuing"` and continue as initialized (no error counted, badge `MODE_BADGE.lms`; test A-S4b). Any other code, or a throw → log `error` with the code + `LMSGetErrorString(code)` + `LMSGetDiagnostic(code)`, then §6.8 (standalone; the API is not used again; test A-S4).
 5. Reads, in this order, every one through `get(key)` (§6.7):
 
 | Step | Call | Use |
 |---|---|---|
 | 5a | `LMSGetValue("cmi.core.student_id")` | `studentId = sanitizeStudentId(value)`; `''` disables the mirror (log `warn`) |
-| 5b | `LMSGetValue("cmi.core.lesson_mode")` | `readOnly = value === 'review' \|\| value === 'browse'` |
+| 5b | `LMSGetValue("cmi.core.lesson_mode")` | `readOnly = value === 'review' \|\| value === 'browse'`; `mirrorEnabled = !readOnly` — in review/browse mode the device mirror is neither written nor discarded, so a later normal launch cannot restore and report work done outside the graded window (D2L review minor 2; test A-S6b) |
 | 5c | `LMSGetValue("cmi.core.lesson_status")` | `initialStatus`; `lastStatusWritten = initialStatus` when it is one of the six values, else `null` |
 | 5d | `LMSGetValue("cmi.core.entry")` | `entry` (`ab-initio` / `resume` / `''`); logged, and used by step 7 (`isNewAttempt`) |
 | 5e | `LMSGetValue("cmi.suspend_data")` | `lmsString` |
@@ -539,11 +539,11 @@ export function browserDeps(roster: RosterInfo, emitter: Emitter): AdapterDeps {
 | 5h | `LMSGetValue("cmi.student_data.mastery_score")` | if non-empty and `parseInt(value) !== roster.passMark` → log `warn` `"LMS mastery score X differs from config passMark Y; config wins"` |
 
 6. Unless `readOnly`: `LMSSetValue("cmi.core.score.min", "0")`, `LMSSetValue("cmi.core.score.max", "100")`, and if `initialStatus` is `'not attempted'` or `''`: `LMSSetValue("cmi.core.lesson_status", "incomplete")` (`lastStatusWritten = 'incomplete'`); then `LMSCommit("")`.
-7. `mirror = readProgressMirror(storage, studentId)`. If `isNewAttempt(entry, initialStatus, lmsString, lmsRaw)` (§3.7 row 1): `clearProgressMirror(storage, studentId)`, `mirror = null`, and when the read returned a string log `info` `"new attempt; mirror discarded"`. Then `decision = resume(lmsString, mirror, studentId, roster)`.
+7. `mirror = readProgressMirror(storage, studentId)`. If `isNewAttempt(entry, initialStatus, lmsString, lmsRaw)` (§3.7 row 1): `mirror = null` and, only when `mirrorEnabled`, `clearProgressMirror(storage, studentId)` plus, when the read returned a string, log `info` `"new attempt; mirror discarded"` (a new-attempt launch in review/browse mode also starts fresh, but the stored mirror is left untouched). Then `decision = resume(lmsString, mirror, studentId, roster)`.
 8. `state = decision.state` with `reportedRaw = max(state.reportedRaw, lmsRaw)`; `scoreGate = decision.restoredFromLocal` (§3.6 W9).
 9. If `state.currentChallengeId === ''` and `lmsLocation` is a roster id → `state = withCurrent(state, lmsLocation)`.
 9a. If `pendingCurrent !== null` (an `update()` arrived during discovery, §6.3) → `state = withCurrent(state, pendingCurrent)`; `pendingCurrent = null`. The learner's navigation before the API answered wins over the bookmark.
-10. `writeProgressMirror(storage, studentId, encodeLocal(state))` (the mirror now equals the merged record).
+10. `writeMirror()` — `writeProgressMirror(storage, studentId, encodeLocal(state))` when `mirrorEnabled` (the mirror now equals the merged record); a no-op in review/browse mode.
 11. `initialStatus === 'passed'` → `statusFloorPassed = true`: the adapter never writes a status other than `passed` in this session (the LMS may have kept the status while dropping suspend data).
 12. Register lifecycle hooks (§6.5). `startedAt = now()`. `mode = 'lms'`.
 13. Emit `lms:status { mode: 'lms', studentId, message: readOnly ? REVIEW_BADGE : MODE_BADGE.lms }`; log `info` `"lms mode; student=<id>; source=<decision.source>; restoredFromLocal=<bool>; entry=<5d>"`. Resolve `'lms'`.
@@ -556,13 +556,13 @@ Nothing in `start()` writes `score.raw`, `suspend_data` or `lesson_location` —
 update(state) {
   if (this.mode === 'discovering') { this.pendingCurrent = state.currentChallengeId; return; }   // §6.2 step 9a; no mirror under 'null'
   this.state = state;
-  writeProgressMirror(this.deps.storage, this.studentId, encodeLocal(state));
+  this.writeMirror();                                           // no-op in review/browse mode (mirrorEnabled)
   if (this.mode === 'lms') this.commit();                       // throttled
 }
 
 milestone(state) {
   this.state = state;
-  writeProgressMirror(this.deps.storage, this.studentId, encodeLocal(state));
+  this.writeMirror();                                           // no-op in review/browse mode (mirrorEnabled)
   this.scoreGate = false;                                       // an earned milestone lifts the restore gate (§3.7)
   if (this.mode !== 'lms' || this.readOnly || this.finished || !this.api) return state;
   const w = lmsWrite(state, this.deps.roster, false);           // gate already cleared: full raw
@@ -576,7 +576,7 @@ milestone(state) {
 }
 
 commit() {
-  if (this.mode !== 'lms' || this.readOnly || this.finished) { if (this.mode === 'standalone') this.deps.emitter.emit('lms:committed', { raw: null, status: 'local' }); return; }
+  if (this.mode !== 'lms' || this.readOnly || this.finished) { if (this.mode === 'standalone') { this.writeMirror(); this.deps.emitter.emit('lms:committed', { raw: null, status: 'local' }); } return; }
   const now = this.deps.timers.now();
   const due = this.lastCommitAt === null ? 0 : this.lastCommitAt + COMMIT_THROTTLE_MS;
   if (now >= due) { this.flush(); return; }
@@ -593,9 +593,14 @@ flush() {
   if (accepted && w.scoreRaw !== null) this.state = { ...this.state, reportedRaw: w.scoreRaw };
   this.deps.emitter.emit('lms:committed', { raw: accepted ? w.scoreRaw : null, status: w.lessonStatus });
 }
+
+private writeMirror() {                                         // the only mirror writer; a no-op in review/browse mode (mirrorEnabled = !readOnly, §6.2 step 5b) and before the learner id is known
+  if (!this.mirrorEnabled || this.studentId === null) return;
+  writeProgressMirror(this.deps.storage, this.studentId, encodeLocal(this.state));
+}
 ```
 
-Throttle semantics: a milestone always commits immediately and resets the window; `update()`/`commit()` commit immediately when ≥ 30 s (`COMMIT_THROTTLE_MS`) passed since the last commit, otherwise exactly one trailing commit is scheduled for the end of the window (later calls inside the window do not add timers). `flush()` bypasses the window and cancels the pending timer. `milestone()` returns the state with `reportedRaw` advanced so `State.ts` adopts it (`state.progress = adapter.milestone(next)`); after `flush()` the caller reads `adapter.state`. Note that `flush()` can also advance `reportedRaw`: a throttled commit writes `score.raw` when a state change raised `raw` without a milestone (does not happen in v1 because only solves change `earned`, but the code path is uniform) — except while `scoreGate` is set, when `lmsWrite` returns `scoreRaw: null` and a status computed from `reportedRaw` (W9): after a local restore the restored raw can only leave the device through `milestone()`. Before `start()` resolves, `update()` only records the current challenge id (`pendingCurrent`): `this.state` would be overwritten by step 8 anyway, and `writeProgressMirror` with `studentId === null` would create `orgocraft.v1.progress.null`.
+Throttle semantics: a milestone always commits immediately and resets the window; `update()`/`commit()` commit immediately when ≥ 30 s (`COMMIT_THROTTLE_MS`) passed since the last commit, otherwise exactly one trailing commit is scheduled for the end of the window (later calls inside the window do not add timers). `flush()` bypasses the window and cancels the pending timer. `milestone()` returns the state with `reportedRaw` advanced so `State.ts` adopts it (`state.progress = adapter.milestone(next)`); after `flush()` the caller reads `adapter.state`. Note that `flush()` can also advance `reportedRaw`: a throttled commit writes `score.raw` when a state change raised `raw` without a milestone (does not happen in v1 because only solves change `earned`, but the code path is uniform) — except while `scoreGate` is set, when `lmsWrite` returns `scoreRaw: null` and a status computed from `reportedRaw` (W9): after a local restore the restored raw can only leave the device through `milestone()`. In review/browse mode (`readOnly`) `update()`/`milestone()` still track the state for the session, but neither the LMS nor the mirror is written (`mirrorEnabled = false`; tests A-S6, A-S6b). Before `start()` resolves, `update()` only records the current challenge id (`pendingCurrent`): `this.state` would be overwritten by step 8 anyway, and `writeProgressMirror` with `studentId === null` would create `orgocraft.v1.progress.null`.
 
 ### 6.4 `writeFields(w: LmsWrite): boolean` — the exact strings
 
@@ -623,7 +628,7 @@ async saveAndExit(): Promise<void> { this.endSession(true); }
 private endSession(atExit: boolean): void {
   if (this.mode !== 'lms' || this.finished || !this.api) { this.finished = true; return; }
   this.cancelPending();
-  writeProgressMirror(this.deps.storage, this.studentId, encodeLocal(this.state));
+  this.writeMirror();                                           // no-op in review/browse mode
   if (!this.readOnly) {
     const w = lmsWrite(this.state, this.deps.roster, atExit, this.scoreGate);   // atExit=true may yield 'failed' (W4) and always sets exit; gated: no score/passed/failed (W9)
     const exit = w.exit ?? exitValue(summarize(this.state, this.deps.roster));
@@ -637,12 +642,23 @@ private endSession(atExit: boolean): void {
 }
 ```
 
-Save & Exit right after a local restore (`scoreGate` still set, nothing solved this session) writes no `score.raw` and no `passed`/`failed`, only location, suspend string, `exit` and `session_time` (test A-M8): an instructor who reset an attempt sees `incomplete` with no score until the learner earns something. Exact sequence for Save & Exit (not passed, not all solved, not all attempted): `LMSSetValue("cmi.core.lesson_status","incomplete")` (only if changed) → `LMSSetValue("cmi.core.lesson_location", id)` (if changed) → `LMSSetValue("cmi.suspend_data", "v2|…")` (if changed) → `LMSSetValue("cmi.core.exit","suspend")` → `LMSSetValue("cmi.core.session_time","00:12:34.56")` → `LMSCommit("")` → `LMSFinish("")`. Passed but not all solved: `lesson_status` `passed` (already), `exit` `suspend`. All enabled solved: `exit` `""`. **Never** `logout` (critic 2.6). `LMSFinish` is guarded by `finished`; a second `saveAndExit()` or a later `pagehide` is a no-op. `window.close()`, `window.top.close()` and `opener.close()` are never called: inside the D2L new-window player the SCO is an iframe of the popup with `opener === null`, and `top.close()` would close the player before its own commit (critic 2.6 Save & Exit). After the promise resolves the UI shows the finished overlay of 07 §13.3 (`Progress saved` / `Use the player's Exit button to close this window.`). `session_time` is `formatTimespan(ms)`: `HH:MM:SS.SS`, `HH` zero-padded to 2 and growing to 4 digits, capped at `9999:59:59.99`.
+Save & Exit right after a local restore (`scoreGate` still set, nothing solved this session) writes no `score.raw` and no `passed`/`failed`, only location, suspend string, `exit` and `session_time` (test A-M8): an instructor who reset an attempt sees `incomplete` with no score until the learner earns something. Exact sequence for Save & Exit (not passed, not all solved, not all attempted): `LMSSetValue("cmi.core.lesson_status","incomplete")` (only if changed) → `LMSSetValue("cmi.core.lesson_location", id)` (if changed) → `LMSSetValue("cmi.suspend_data", "v2|…")` (if changed) → `LMSSetValue("cmi.core.exit","suspend")` → `LMSSetValue("cmi.core.session_time","00:12:34.56")` → `LMSCommit("")` → `LMSFinish("")`. Passed but not all solved: `lesson_status` `passed` (already), `exit` `suspend`. All enabled solved: `exit` `""`. **Never** `logout` (critic 2.6). `LMSFinish` is guarded by `finished`; a second `saveAndExit()` or a later `pagehide` is a no-op. `window.close()`, `window.top.close()` and `opener.close()` are never called: inside the D2L new-window player the SCO is an iframe of the popup with `opener === null`, and `top.close()` would close the player before its own commit (critic 2.6 Save & Exit). After the promise resolves the UI shows the finished overlay of 07 §13.3 (`STRINGS.finishedTitle` `Progress saved` / `STRINGS.finishedBody` `You can close this window, or go back to the course.` — the embedded player has no Exit button and the new-window player's is not always visible, D2L review minor 6; the earlier "Use the player's Exit button" wording is gone from `src/ui/strings.ts`). `session_time` is `formatTimespan(ms)`: `HH:MM:SS.SS`, `HH` zero-padded to 2 and growing to 4 digits, capped at `9999:59:59.99`.
 
 ### 6.7 Call wrappers and error handling
 
 ```ts
-private call(fn: 'LMSInitialize' | 'LMSCommit' | 'LMSFinish', arg: ''): boolean {
+/** §6.2 step 4: a 'false' whose LMSGetLastError() is '101' (already initialized by the player) continues as initialized with a warning. */
+private initialize(): boolean {
+  let r: unknown;
+  try { r = this.api!.LMSInitialize(''); }
+  catch (e) { this.errors++; this.deps.log('error', 'LMSInitialize threw', e); return false; }
+  if (r === 'true') return true;
+  const code = this.lastErrorCode();
+  if (code === ERR_ALREADY_INITIALIZED) { this.deps.log('warn', `LMSInitialize returned false with error ${code} (already initialized); continuing`); return true; }   // no error counted
+  this.logLmsError('LMSInitialize', code);
+  return false;
+}
+private call(fn: 'LMSCommit' | 'LMSFinish', arg: ''): boolean {
   try { const r = this.api![fn](arg); if (r === 'true') return true; this.logLmsError(fn); return false; }
   catch (e) { this.errors++; this.deps.log('error', `${fn} threw`, e); return false; }
 }
@@ -654,15 +670,19 @@ private set(key: CmiKey, value: string): boolean {
   try { const r = this.api!.LMSSetValue(key, value); if (r === 'true') return true; this.logLmsError(`LMSSetValue(${key})`); return false; }
   catch (e) { this.errors++; this.deps.log('error', `LMSSetValue(${key}) threw`, e); return false; }
 }
-private logLmsError(what: string): void {
+/** LMSGetLastError() as a string; '' when the call throws. */
+private lastErrorCode(): string { try { return String(this.api!.LMSGetLastError() ?? ''); } catch { return ''; } }
+/** `code` is passed when the caller already read LMSGetLastError(). */
+private logLmsError(what: string, code?: string): void {
   this.errors++;
-  let code = '', text = '', diag = '';
-  try { code = this.api!.LMSGetLastError(); text = this.api!.LMSGetErrorString(code); diag = this.api!.LMSGetDiagnostic(code); } catch { /* ignore */ }
-  this.deps.log('error', `${what} returned false: ${code} ${text} ${diag}`.trim());
+  const c = code ?? this.lastErrorCode();
+  let text = '', diag = '';
+  try { text = String(this.api!.LMSGetErrorString(c) ?? ''); diag = String(this.api!.LMSGetDiagnostic(c) ?? ''); } catch { /* ignore */ }
+  this.deps.log('error', `${what} returned false: ${c} ${text} ${diag}`.trim());
 }
 ```
 
-Play is never blocked by an LMS error. After a commit in which any call failed, `lms:status` is emitted with `message: DEGRADED_BADGE`; after the next fully successful commit it is emitted again with `MODE_BADGE.lms`. `LMSGetValue` on an unsupported element returns `''` in 1.2 (and sets error 401), which the adapter treats as "empty" without counting an error for the optional reads 5d, 5g, 5h.
+`ERR_ALREADY_INITIALIZED = '101'` is a module constant of `ScormAdapter.ts`. Play is never blocked by an LMS error. After a commit in which any call failed, `lms:status` is emitted with `message: DEGRADED_BADGE`; after the next fully successful commit it is emitted again with `MODE_BADGE.lms`. `LMSGetValue` on an unsupported element returns `''` in 1.2 (and sets error 401), which the adapter treats as "empty" without counting an error for the optional reads 5d, 5g, 5h.
 
 ### 6.8 Standalone mode
 
@@ -808,109 +828,21 @@ Exports `buildManifest({ template, files, mastery, version })` and `listDistFile
 
 Both packagers refuse to run when `dist/` is older than `src/` (compare max mtime of `src/**` and `orgocraft.config.json` with `dist/index.html`; message `dist/ is older than src/ - run npm run build first`), so a stale package cannot be produced by accident.
 
-## 11. `docs/INSTRUCTOR.md` — exact content
+## 11. `docs/INSTRUCTOR.md` — maintained instructor guide
 
-The file below is written verbatim (the `<version>` placeholder is replaced by hand at release time; everything else is final text).
+`docs/INSTRUCTOR.md` is the maintained instructor guide and the only copy of its text; this document no longer reproduces it (the verbatim copy that used to sit here drifted after the D2L/SCORM review applied `docs/reviews/d2l-scorm-review.md` minors 3, 5, 6, 7, 8 and 9 to the guide). Edit the guide itself, keep the `<version>` placeholder (replaced by hand at release time), and keep these sections in this order:
 
-````markdown
-# OrgoCraft — Instructor guide (D2L Brightspace)
+- `# OrgoCraft — Instructor guide (D2L Brightspace)` — intro and the Path A / Path B comparison table
+- `## 1. Path A — upload as a course file` (with the New Content Experience note and the "progress per browser, not per student" warning)
+- `## 2. Path B — upload as a SCORM package with a grade item` (new SCORM player, Highest Attempt, New Content Experience note)
+- `## 3. How the score works` (pass mark; Brightspace's own mastery-rule *failed*; the Path B safety copy; instructor reset)
+  - `### Changing the pass mark or hiding challenges`
+- `## 4. Embedded player or new window?` (quotes the §6.6 finished-overlay text; safety copy unavailable in Safari / with third-party cookies blocked in the embedded player)
+- `## 5. Testing before release (do this once on your course)` (12 steps, including the frame-height watch and the low-score status check)
+- `## 6. Troubleshooting`
+- `## 7. Accessibility and privacy`
 
-OrgoCraft is a browser game for Organic Chemistry I (McMurry chapters 1–11). It runs entirely in the student's browser: there is no server, no account and no data leaves your Brightspace course. You can deliver it in two ways.
-
-| | Path A — course file (no grade) | Path B — SCORM package (grade item) |
-|---|---|---|
-| File | `orgocraft-v<version>-d2l.zip` | `orgocraft-v<version>-scorm12.zip` |
-| Where it goes | Manage Files, then a Content topic | Content → New SCORM/xAPI Object |
-| Score | Saved on the student's device only | Reported to a grade item (0–100) |
-| Progress across devices | No | Yes (through the SCORM attempt) |
-| Badge shown in the game | "Progress saved on this device - not connected to the gradebook" | "Connected to course gradebook" |
-
-Use Path B when the game counts toward a grade. Use Path A for practice or if SCORM is not enabled at your institution. The two packages contain the same game.
-
-## 1. Path A — upload as a course file
-
-1. Course Admin → **Manage Files**.
-2. **Upload** → choose `orgocraft-v<version>-d2l.zip` (it is under 1 MB; the limit is 2 GB).
-3. Open the zip's action menu (the ▾ next to its name) → **Unzip**. Wait for the notification that the background job finished.
-4. Tick `orgocraft-v<version>/index.html` → **Add Content Topics** → choose the module and give the topic a title (for example "OrgoCraft — build molecules").
-5. Open the topic once to confirm the game loads and the badge says "Progress saved on this device".
-
-Do **not** click **Edit HTML** on the topic: the Brightspace editor removes the game's script tag and the page goes blank. To update the game later, upload the new zip (it unzips into a new `orgocraft-v<newversion>/` folder), then on the topic choose **Change File** and pick the new `index.html`. Never overwrite files inside the old folder — students' browsers may keep the old `index.html` and show a blank page.
-
-## 2. Path B — upload as a SCORM package with a grade item
-
-Use the **new SCORM player** (Content Service). Do not import the zip through Course Admin → Import/Export/Copy Components: that is the legacy player, which only records the latest attempt, marks the topic complete as soon as it is opened, and is not reported in Data Hub.
-
-1. Content → open the module → **Upload/Create** → **New SCORM/xAPI Object**.
-2. In the "Add Course Package" dialog click **Upload** and choose `orgocraft-v<version>-scorm12.zip`. Wait for the upload to finish.
-3. Title: "OrgoCraft" (or your own).
-4. **Create a grade item?** → **Yes**.
-5. **Grade Calculation Method** → **Highest Attempt**. (Students can replay; the game never lowers a score within an attempt, but a fresh attempt starts at 0 and Highest Attempt keeps their best.)
-6. **Course Package Player Options** → **Open player in new window** (recommended, see section 4).
-7. **Save**.
-8. Grades → **Manage Grades** → open the new item → set **Maximum Points** to **100**, put it in the category you want, and set its weight. The game reports a 0–100 score, so 100 points makes the gradebook value equal to the game's percentage.
-
-If you answered No in step 4, you can still attach a grade item later: open the topic's action menu → **Edit** → grade item settings. Menu labels may differ slightly between Brightspace versions; look for the equivalent wording.
-
-## 3. How the score works
-
-- Every challenge is worth 2 (easy), 4 (medium) or 8 (hard) points. The score is the percentage of points earned over all enabled challenges, rounded to a whole number. The total is shown in the game's challenge panel.
-- Build challenges can be retried without penalty. Quizzes, "select the atom" and "choose the reagent" challenges earn full points on the first try, half on the second, nothing after that.
-- The score is sent to the gradebook every time a challenge is solved, and again when the student clicks **Save & Exit**. It never goes down within an attempt.
-- The pass mark is **70 %** (the package's `masteryscore`). The game sets the SCORM status to *passed* at 70 % and *incomplete* below; *failed* is written only when the student clicks Save & Exit after attempting every challenge (every build challenge submitted at least once, every quiz and selection answered or out of attempts) without reaching 70 %. Brightspace's completion indicator for the topic follows this status.
-- Students can leave and come back: the game asks Brightspace to *suspend* the attempt, and progress resumes from where they were. When every challenge is solved the attempt ends normally.
-- Progress is also kept in the student's browser, keyed to their Brightspace user id, as a safety copy. Another student on the same computer never sees it. A restored safety copy is never sent to the gradebook by itself — not on Save & Exit, not when the window is closed — it is reported the next time that student solves a challenge.
-- Resetting a student's attempt in Brightspace also discards the safety copy on their next launch (a launch with no saved progress, no status and no score is treated as a genuinely new attempt), so a reset really starts them over. If Brightspace keeps the status or score but loses the progress string, the safety copy is used instead.
-
-### Changing the pass mark or hiding challenges
-
-The pass mark, the list of disabled challenge ids and the enabled reagent cards live in `orgocraft.config.json` in the source repository and are built into the package. To change them, ask whoever builds the package to edit that file and run `npm run release`; then re-upload the package (Path B: upload the new zip as a new SCORM object, or use the topic's replace option if your Brightspace version offers it; grade calculation stays Highest Attempt). Editing `imsmanifest.xml` by hand changes only the number Brightspace stores, not the pass mark the game uses.
-
-## 4. Embedded player or new window?
-
-- **Open player in new window** (recommended): the game gets the whole window, the mouse can be captured for looking around, and Fullscreen works. Students must allow pop-ups for your Brightspace site; the game shows an "Open in new tab" link only when it is not connected to the gradebook, so tell students to use the player's own **Exit** button when done (the game shows "Progress saved — use the player's Exit button" after Save & Exit).
-- **Embedded player**: the game runs in a fixed-height frame inside the Content page. It still works (the panels shrink and can be collapsed to their title bars below 640 px of height, and a **Fullscreen** button appears when the player allows fullscreen), but it is cramped on laptops.
-
-In both modes, when a student simply closes the window the game saves first (Brightspace is told to suspend the attempt), but closing the pop-up without Save & Exit has been reported to start a new attempt in some Brightspace versions. Highest Attempt grading protects the score either way.
-
-## 5. Testing before release (do this once on your course)
-
-Log in as a **test student** with the Learner role. "View as Learner" does not exercise SCORM resume or grading.
-
-1. Path A only: open the topic; in the browser's developer tools (F12 → Console) there are no red errors and no 404 for `assets/index-….js`.
-2. The game fills the frame or window; the toolbar, hotbar (bottom), challenge panel (left) and molecule panel (right) are all visible and nothing covers the hotbar; the page behind does not scroll when pressing Space or the arrow keys while playing.
-3. Click the world: the mouse is captured; Esc releases it and opens the pause menu. If capture is refused, dragging turns the view and a "Drag to look" hint appears.
-4. Path B: the badge reads "Connected to course gradebook".
-5. Solve the first challenge (place one carbon block on the lab pad for "Build methane", press Enter). The panel shows "Solved" and the score line updates.
-6. Click **Save & Exit** → confirm → the overlay says "Progress saved". Close the window with the player's Exit button.
-7. Grades → the test student's grade for the item shows the percentage the game displayed.
-8. Open the activity again as the same test student: the solved challenge is still marked solved and the score is unchanged.
-9. Shared-computer check: on the same browser, log out and log in as a second test student, open the activity: no progress is shown and no grade appears for the second student until they solve something.
-10. Try once in Chrome with third-party cookies blocked and once in Safari; note any pop-up blocking in new-window mode.
-11. Optional: the free SCORM Cloud sandbox (scorm.com) shows every API call the package makes; upload the same zip there if Brightspace shows no score.
-
-## 6. Troubleshooting
-
-| Symptom | Cause | Fix |
-|---|---|---|
-| Blank page, console shows 404 for `assets/…` | The topic points at an `index.html` from an old folder, or files were edited in place | Upload a new versioned folder; on the topic use Change File |
-| Blank page after clicking "Edit HTML" | The Brightspace editor removed the script tag | Delete the topic and add it again from Manage Files (do not edit) |
-| Badge says "Progress saved on this device" in Path B | The SCORM API was not found within 2 s | Make sure the topic was added as a SCORM/xAPI Object (new player), not through Import Components; try "Open player in new window"; check that pop-ups are allowed |
-| Badge says "Review mode" | The topic was opened in review/browse mode (for example after the due date, or as an instructor) | Scores are not recorded in review mode; open it as a Learner during the availability window |
-| Badge says "last save failed, retrying" | Brightspace rejected a call (session expired, network) | The game keeps a local copy; the next solved challenge retries. If it persists, Save & Exit, reopen the activity |
-| Grade never appears | The student never solved a challenge (the game does not write a score of 0), or the grade item is not associated | Solve one challenge and Save & Exit; check the topic's grade item association |
-| Score in Grades is lower than the game shows | Grade calculation method is First/Last/Lowest Attempt and a later attempt scored less | Set the method to Highest Attempt |
-| Progress lost after closing the pop-up window | The Brightspace player started a new attempt | Ask students to use Save & Exit. A genuinely new attempt (no status, no score) starts the game from zero on purpose (it is indistinguishable from an instructor reset); the previous attempt's score is kept by Highest Attempt grading. If Brightspace kept the status or score, the game restores its local safety copy on the same device and re-reports at the next solved challenge |
-| Game is tiny / hotbar cut off in the embedded player | Fixed-height frame | Collapse the panels (button in each panel header), use the Fullscreen button if the player shows one, or switch the topic to "Open player in new window" |
-| Mouse look does not work | Pointer capture refused by the browser or a sandboxed frame | Drag to look, or use the arrow keys; Fullscreen usually allows capture |
-| "OrgoCraft needs WebGL" message | Browser has WebGL disabled or no GPU driver | Try another browser or enable hardware acceleration |
-| Space or arrows scroll the Brightspace page | The game canvas is not focused | Click the game once; Tab leaves the game area on purpose |
-
-## 7. Accessibility and privacy
-
-- Every action has a keyboard equivalent (press H in the game for the list); screen readers receive status announcements; there are no time limits. A 3D game cannot be fully WCAG-conformant; if a student needs an accommodation, contact the developer for the text-mode alternative planned for a later version.
-- Nothing is transmitted except the SCORM score, status, bookmark and a short progress string to Brightspace. The local safety copy in the browser contains the same progress string and the Brightspace user id. Clearing site data removes it.
-````
+Student-facing strings quoted in the guide (the badges of §6.9 and the finished overlay of §6.6) must match `src/lms/types.ts`, `ScormAdapter.ts` and `src/ui/strings.ts`; nothing checks that automatically.
 
 ## 12. CI: `.github/workflows/build.yml` (WP-11)
 
@@ -1020,14 +952,18 @@ Fixtures: `roster6 = { ids: ['a','b','c','d','e','f'], points: [2,4,4,8,2,4], en
 | P-R6 | `M` encoded for student `'A'`, `resume('', M, 'B', r)` | `source 'fresh'` (mirror ignored — critic 2.6); `resume(L, M, 'B', r)` → `source 'lms'` |
 | P-R7 | L malformed (`'garbage'`), M valid | `source 'local'`; both malformed → `'fresh'` |
 | P-R8 | `progressRank` ordering: (3 solved, 3 attempted, 8) > (2, 6, 20) > (2, 5, 20) > (2, 5, 19) | lexicographic |
-| P-R9 | `isNewAttempt(entry, status, lmsString, lmsRaw)` over `('ab-initio','not attempted','',0)`, `('ab-initio','','',0)`, `('resume','not attempted','',0)`, `('','not attempted','',0)`, `('ab-initio','incomplete','',0)`, `('ab-initio','not attempted','',33)`, `('ab-initio','not attempted','v2|0|0|0|0|0|0|',0)` | `true`, `true`, `false`, `false`, `false`, `false`, `false` |
+| P-R9 | `isNewAttempt(entry, status, lmsString, lmsRaw)` over `('ab-initio','not attempted','',0)`, `('ab-initio','','',0)`, `('resume','not attempted','',0)`, `('resume','','',0)`, `('','not attempted','',0)`, `('','','',0)`, `('','incomplete','',0)`, `('','not attempted','',33)`, `('','not attempted','v2|0|0|0|0|0|0|',0)`, `('ab-initio','incomplete','',0)`, `('ab-initio','not attempted','',33)`, `('ab-initio','not attempted','v2|0|0|0|0|0|0|',0)` | `true`, `true`, `false`, `false`, `true`, `true`, `false`, `false`, `false`, `false`, `false`, `false` — an empty `entry` counts like `ab-initio` (D2L review major 1); only `resume`, a kept status, a kept score or a suspend string blocks the discard |
 
 ### 13.2 `test/lms/adapter.test.ts` — fake API and harness
 
 ```ts
 import type { ScormApi12 } from '@/lms/types';
 
-export interface FakeApi extends ScormApi12 { calls: [string, ...string[]][]; data: Record<string, string>; failNext: Set<string>; }
+export interface FakeApi extends ScormApi12 {
+  calls: [string, ...string[]][]; data: Record<string, string>; failNext: Set<string>; throwNext: Set<string>;
+  /** Public: what LMSGetLastError returns. A failing LMSSetValue sets it to '405'; tests set it ('101', '201') before a failing LMSInitialize. */
+  lastError: string;
+}
 export function fakeApi(initial: Partial<Record<string, string>> = {}): FakeApi {
   const data: Record<string, string> = {
     'cmi.core.student_id': 'stu-1', 'cmi.core.lesson_mode': 'normal', 'cmi.core.lesson_status': 'not attempted',
@@ -1035,23 +971,22 @@ export function fakeApi(initial: Partial<Record<string, string>> = {}): FakeApi 
     'cmi.student_data.mastery_score': '70', ...initial,
   };
   const calls: FakeApi['calls'] = [];
-  const failNext = new Set<string>();
-  let lastError = '0';
+  const failNext = new Set<string>(); const throwNext = new Set<string>();
   const api: FakeApi = {
-    calls, data, failNext,
+    calls, data, failNext, throwNext, lastError: '0',
     LMSInitialize: (p) => { calls.push(['LMSInitialize', p]); return failNext.delete('LMSInitialize') ? 'false' : 'true'; },
     LMSFinish: (p) => { calls.push(['LMSFinish', p]); return 'true'; },
     LMSGetValue: (k) => { calls.push(['LMSGetValue', k]); return data[k] ?? ''; },
-    LMSSetValue: (k, v) => { calls.push(['LMSSetValue', k, v]); if (failNext.delete(k)) { lastError = '405'; return 'false'; } data[k] = v; return 'true'; },
+    LMSSetValue: (k, v) => { calls.push(['LMSSetValue', k, v]); if (throwNext.delete(k)) throw new Error(`boom ${k}`); if (failNext.delete(k)) { api.lastError = '405'; return 'false'; } data[k] = v; return 'true'; },
     LMSCommit: (p) => { calls.push(['LMSCommit', p]); return failNext.delete('LMSCommit') ? 'false' : 'true'; },
-    LMSGetLastError: () => { calls.push(['LMSGetLastError']); return lastError; },
+    LMSGetLastError: () => { calls.push(['LMSGetLastError']); return api.lastError; },
     LMSGetErrorString: (c) => `error ${c}`,
     LMSGetDiagnostic: (c) => `diag ${c}`,
   };
   return api;
 }
 
-export function harness(api: ScormApi12 | null, opts: { storage?: Map<string, string> | null; mirror?: [string, string] } = {}) {
+export function harness(api: ScormApi12 | null, opts: { storage?: Map<string, string> | null; mirror?: [string, string]; discover?: () => ScormApi12 | null } = {}) {
   let t = 0; const timers = new Map<number, { at: number; fn: () => void }>(); let seq = 0;
   const hidden: (() => void)[] = []; const pagehide: ((p: boolean) => void)[] = []; const pageshow: ((p: boolean) => void)[] = [];
   const map = opts.storage === null ? null : (opts.storage ?? new Map<string, string>());
@@ -1061,7 +996,7 @@ export function harness(api: ScormApi12 | null, opts: { storage?: Map<string, st
   for (const n of ['lms:status', 'lms:committed'] as const) emitter.on(n, (e) => events.push({ name: n, e }));
   const logs: string[] = [];
   const deps: AdapterDeps = {
-    discover: () => api, storage, roster: roster6, emitter,
+    discover: () => (opts.discover ? opts.discover() : api), storage, roster: roster6, emitter,
     lifecycle: { onHidden: (fn) => hidden.push(fn), onPageHide: (fn) => pagehide.push(fn), onPageShow: (fn) => pageshow.push(fn) },
     timers: { now: () => t, setTimeout: (fn, ms) => { const id = ++seq; timers.set(id, { at: t + ms, fn }); return id; }, clearTimeout: (h) => { timers.delete(h as number); } },
     log: (level, m) => logs.push(`${level}: ${m}`),
@@ -1071,16 +1006,18 @@ export function harness(api: ScormApi12 | null, opts: { storage?: Map<string, st
 }
 ```
 
-`start()` awaits timers: the test calls `const p = adapter.start(); h.advance(0); await p` (API present) or `h.advance(2000); await p` (absent). `setsOf(api, key)` = the values of every `['LMSSetValue', key, v]` call.
+`start()` awaits timers: the test calls `const p = adapter.start(); h.advance(0); await p` (API present) or `h.advance(2000); await p` (absent). `setsOf(api, key)` = the values of every `['LMSSetValue', key, v]` call; `countCalls(api, fn)` counts calls of one function. The shipped harness also counts `discover` calls and exposes `now()`, `pendingTimers()` and `discoverCalls()`.
 
 | Id | Case | Expectation |
 |---|---|---|
 | A-S1 | API present, fresh learner | resolves `'lms'`; `api.calls` begins exactly: `LMSInitialize ""`, `LMSGetValue cmi.core.student_id`, `…lesson_mode`, `…lesson_status`, `…entry`, `cmi.suspend_data`, `…lesson_location`, `…score.raw`, `cmi.student_data.mastery_score`, `LMSSetValue cmi.core.score.min "0"`, `LMSSetValue cmi.core.score.max "100"`, `LMSSetValue cmi.core.lesson_status "incomplete"`, `LMSCommit ""`; no `score.raw`/`suspend_data` set; `events[0]` = status discovering, last = `{ mode: 'lms', studentId: 'stu-1', message: MODE_BADGE.lms }`; the mirror `orgocraft.v1.progress.stu-1` equals `encodeLocal(adapter.state)` |
 | A-S2 | `discover` returns null | after `advance(2000)` resolves `'standalone'`; `discover` was called 9 times; `studentId === 'local'`; badge `MODE_BADGE.standalone`; `saveAndExit()` resolves, no throw |
 | A-S3 | API appears on the 3rd poll | resolves `'lms'` at `t = 500`; `LMSInitialize` called once |
-| A-S4 | `failNext` has `LMSInitialize` | `'standalone'`; log contains `error: LMSInitialize returned false: 0 error 0 diag 0`; no further API calls |
+| A-S4 | `failNext` has `LMSInitialize` (`lastError` `'0'`) | `'standalone'`; log contains `error: LMSInitialize returned false: 0 error 0 diag 0`; `api.calls` is exactly `LMSInitialize ""`, `LMSGetLastError`; a later `milestone` and `saveAndExit()` add no calls |
+| A-S4b | `failNext` has `LMSInitialize`, `lastError = '101'` ("error 101 continues") | `'lms'`; `snapshot.errors === 0`; log contains `warn: LMSInitialize returned false with error 101 (already initialized); continuing` and no `error:` line; `api.calls` begins `LMSInitialize ""`, `LMSGetLastError`, `LMSGetValue cmi.core.student_id`; `LMSInitialize` called once; last status event `MODE_BADGE.lms`; a milestone writes `score.raw` `'8'`; `saveAndExit()` calls `LMSFinish` once. With `lastError = '201'` instead: `'standalone'`, log `error: LMSInitialize returned false: 201 error 201 diag 201`, calls exactly `LMSInitialize`, `LMSGetLastError` |
 | A-S5 | `lesson_status` `'incomplete'` initially | no `lesson_status` set at start |
-| A-S6 | `lesson_mode` `'review'` | `'lms'`, `snapshot.readOnly true`; **no** `LMSSetValue` at all during start, milestone or saveAndExit; `LMSFinish` still called once at saveAndExit; badge `REVIEW_BADGE` |
+| A-S6 | `lesson_mode` `'review'` | `'lms'`, `snapshot.readOnly true`; **no** `LMSSetValue` at all and **no** `LMSCommit` during start, milestone, update, flush, 60 s of timers or saveAndExit; `LMSFinish` still called once at saveAndExit; `snapshot.finished true`; badge `REVIEW_BADGE` |
+| A-S6b | `lesson_mode` `'review'` and `'browse'` ("review mode writes no mirror") | fresh launch: the storage map is still empty after start, milestone, update, flush, `fire.hidden()`, 60 s and `saveAndExit()` (while `adapter.state.solved === 1n`: the session itself still tracks the work); with a 3-solved mirror stored for `stu-1` and the default new-attempt fake data: `snapshot.source 'fresh'`, and after a milestone and `fire.pagehide()` the storage holds exactly the original mirror string (neither overwritten nor discarded), log has no `new attempt; mirror discarded` |
 | A-S7 | `student_id` `''` | `studentId === ''`; no mirror key written; log has a warn |
 | A-S8 | `suspend_data` = 2 solved, `lesson_location 'c'`, current id `''` in the string | `state.currentChallengeId === 'c'`; `score.raw` `'33'` read → `state.reportedRaw === 33` |
 | A-S9 | `mastery_score` `'80'` | log contains `warn: LMS mastery score 80 differs from config passMark 70; config wins` |
@@ -1092,7 +1029,7 @@ export function harness(api: ScormApi12 | null, opts: { storage?: Map<string, st
 | A-M8 | as A-M6 with the mirror at raw 75 (a,b,c,d solved) and all six attempted, then `saveAndExit()` | no `score.raw`; `lesson_status` never `passed` and never `failed` (stays `incomplete`); `cmi.core.exit 'suspend'`; `suspend_data` carries the restored masks; `LMSFinish` once |
 | A-M9 | as A-M6, then `milestone(applyOutcome(state, 3, SolvedFull, 8))` | `score.raw` written exactly once, with the full raw `'75'`; `lesson_status 'passed'`; `snapshot.scoreGated false`; a following `fire.hidden()` writes nothing new |
 | A-M10 | `update(applyExhausted(adapter.state, 4))` at t=0 | the committed `cmi.suspend_data` decodes with `exhausted === 16n`; after a second `start()` on a new adapter over the same fake `data`, `adapter.state.exhausted === 16n` |
-| A-M11 | mirror for `stu-1` with 3 solved; fake data (a) default (`entry 'ab-initio'`, `lesson_status 'not attempted'`, `score.raw ''`, `suspend_data ''`); (b) same with `entry 'resume'`; (c) same as (a) with `score.raw '33'`; (d) same as (a) with `lesson_status 'incomplete'` | (a) `snapshot.source 'fresh'`, `restoredFromLocal false`, log has `info: new attempt; mirror discarded`, the mirror key now holds `encodeLocal(emptyState('stu-1'))`; (b), (c), (d) `source 'local'`, `restoredFromLocal true`, `scoreGated true`, mirror kept |
+| A-M11 | mirror for `stu-1` with 3 solved; fake data (a) default (`entry 'ab-initio'`, `lesson_status 'not attempted'`, `score.raw ''`, `suspend_data ''`); (a′) same with `entry ''`; (b) same as (a) with `entry 'resume'`; (c) with `score.raw '33'`; (d) with `lesson_status 'incomplete'`; (e) `entry ''` + `score.raw '33'`; (f) `entry ''` + `lesson_status 'incomplete'` | (a), (a′) `snapshot.source 'fresh'`, `restoredFromLocal false`, `scoreGated false`, `state.solved 0n`, log has `info: new attempt; mirror discarded`, the mirror key now holds `encodeLocal(emptyState('stu-1'))`; (b)–(f) `source 'local'`, `restoredFromLocal true`, `scoreGated true`, `state.solved 7n`, mirror kept, no discard log line; a fresh launch with no mirror at all logs no discard line |
 | A-M3 | `milestone` with a state whose raw is 0 (reduced solve, 0 points) | no `score.raw`; `suspend_data` written; `lms:committed { raw: null, status: 'incomplete' }` |
 | A-M4 | milestone raw 33 then milestone with a state of raw 33 again | second call sets no `score.raw`, no `lesson_status`; `suspend_data` set only if the string changed |
 | A-M5 | `failNext` has `cmi.core.score.raw` | `LMSGetLastError` called; returned state `reportedRaw` unchanged (0); `lms:committed.raw === null`; badge event `DEGRADED_BADGE`; next successful milestone re-emits `MODE_BADGE.lms` and writes the raw again |

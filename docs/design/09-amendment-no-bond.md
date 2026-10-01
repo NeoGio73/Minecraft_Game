@@ -16,6 +16,8 @@ Vocabulary used below: two atom cells **touch** when they are face-adjacent (`fa
 
 ## 1. Contract additions (exact TypeScript; declared locally by the named module)
 
+> Status (2026-10-01): folded into the frozen contracts during integration. `MoleculeIndex` and `BondChangeResult` in `src/world/types.ts` now carry this surface; `MoleculeIndexExt` and `BondChangeResultExt` survive only as aliases in `src/world/molecule-index.ts`, and the two bond events live in `src/app/events.ts`.
+
 ### 1.1 `src/world/molecule-index.ts` — the index
 
 ```ts
