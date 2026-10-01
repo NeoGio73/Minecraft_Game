@@ -341,6 +341,7 @@ function carbonDegree(ctx: Ctx, c: number): number {
 }
 
 const DEGREE_NAME = ['methanol', 'primary', 'secondary', 'tertiary'] as const;
+const ALKOXIDE_NAME = ['methoxide', 'primary', 'secondary', 'tertiary'] as const;
 
 // ---------------------------------------------------------------------------
 // Hydrogen environments
@@ -700,9 +701,12 @@ function basicEntry(ctx: Ctx, x: number): PkaEntry {
         if (carbonylOf(ctx, c) >= 0 && carbonylKind(ctx, c) === 'carboxylic') return b('B.O.carboxylate');
         if (ctx.g.atoms[c]!.aromatic) return b('B.O.phenoxide');
         if (hasCCpi(ctx, c)) return b('B.O.enolate');
-        return b(`B.O.alkoxide.${DEGREE_NAME[Math.min(carbonDegree(ctx, c), 3)]}`);
+        return b(`B.O.alkoxide.${ALKOXIDE_NAME[Math.min(carbonDegree(ctx, c), 3)]}`);
       }
       if (heavy.length === 0) return b('B.O.water');
+      // an oxygen on a charged heteroatom or double-bonded to a non-carbon (nitro N=O,
+      // sulfinyl S=O, P=O) is not an alcohol/carbonyl oxygen this course treats as a base
+      if (ls.some((l) => elOf(ctx, l.nb) !== 'C' && (l.order === 2 || chargeOf(ctx, l.nb) === 1))) return b('B.other');
       for (const l of ls) {
         const c = l.nb;
         if (carbonylOf(ctx, c) < 0) continue;
