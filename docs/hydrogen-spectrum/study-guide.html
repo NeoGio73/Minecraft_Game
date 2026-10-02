@@ -1,0 +1,1068 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hydrogen's Spectrum</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a sticky section nav above one reading column (65ch). Each interactive
+   explorer opens to two columns on wide screens (figure | controls + readout) and
+   stacks to one column on phones. Spectrum strips keep a black ground in both themes,
+   the way an emission spectrum is actually seen. */
+:root{
+  --bg:#f5f5f9;
+  --surface:#ffffff;
+  --surface-2:#eeeef4;
+  --fg:#17181f;
+  --fg-2:#4b4d5a;
+  --muted:#7a7c8a;
+  --line:#d9dae4;
+  --line-2:#e9eaf1;
+  --accent:#c62f2e;        /* hydrogen-alpha red, 656 nm */
+  --accent-ink:#a01f1e;
+  --accent-soft:#fbe8e7;
+  --uv:#5b43c9;
+  --ir:#b25a2b;
+  --ok:#1b7a3a;
+  --ok-soft:#e1f3e6;
+  --bad:#b3241f;
+  --bad-soft:#fae5e3;
+  --strip:#0a0a10;         /* spectrum ground, same in both themes */
+  --strip-ink:#d9dae4;
+  --font-display:"Spectral", Georgia, "Times New Roman", serif;
+  --font-body:"Source Sans 3", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius:6px;
+  --maxw:72rem;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121319; --surface:#1a1b23; --surface-2:#22232e; --fg:#eceef3; --fg-2:#b9bbc7; --muted:#878997;
+    --line:#2f3140; --line-2:#262734; --accent:#ff6d64; --accent-ink:#ff8d85; --accent-soft:#3a2023;
+    --uv:#a493ff; --ir:#e3905f; --ok:#5fcc7e; --ok-soft:#173422; --bad:#ff7b71; --bad-soft:#3b201d;
+    --strip-ink:#b9bbc7; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121319; --surface:#1a1b23; --surface-2:#22232e; --fg:#eceef3; --fg-2:#b9bbc7; --muted:#878997;
+  --line:#2f3140; --line-2:#262734; --accent:#ff6d64; --accent-ink:#ff8d85; --accent-soft:#3a2023;
+  --uv:#a493ff; --ir:#e3905f; --ok:#5fcc7e; --ok-soft:#173422; --bad:#ff7b71; --bad-soft:#3b201d;
+  --strip-ink:#b9bbc7; color-scheme:dark;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth; scroll-padding-top:5.5rem}
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} *{transition:none !important; animation:none !important} }
+body{margin:0; background:var(--bg); color:var(--fg); font-family:var(--font-body); font-size:17px; line-height:1.55; -webkit-font-smoothing:antialiased}
+img,svg{max-width:100%}
+[hidden]{display:none !important}
+a{color:var(--accent-ink)}
+a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+h1,h2,h3{font-family:var(--font-display); font-weight:600; line-height:1.15; text-wrap:balance; margin:0}
+h1{font-size:clamp(2rem,4.5vw,3rem); font-weight:700}
+h2{font-size:clamp(1.5rem,2.6vw,1.9rem)}
+h3{font-size:1.2rem; font-family:var(--font-body); font-weight:700}
+p{margin:0}
+sup,sub{line-height:0}
+.eyebrow{font-size:.75rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
+.mono{font-family:var(--font-mono); font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+.prose{max-width:65ch}
+.prose p + p{margin-top:.8em}
+.flow > * + *{margin-top:1rem}
+.wrap{max-width:var(--maxw); margin:0 auto; padding-inline:clamp(16px,4vw,40px)}
+
+/* Sticky nav */
+.top{position:sticky; top:env(safe-area-inset-top,0px); z-index:20; background:var(--bg); border-bottom:1px solid var(--line)}
+.top-inner{display:flex; align-items:center; gap:1rem; padding-block:.55rem; min-width:0}
+.brand{font-family:var(--font-display); font-weight:700; font-size:1.05rem; color:var(--fg); text-decoration:none; white-space:nowrap}
+.sections{display:flex; gap:.25rem; overflow-x:auto; min-width:0; flex:1; scrollbar-width:none; -webkit-overflow-scrolling:touch}
+.sections::-webkit-scrollbar{display:none}
+.sections a{white-space:nowrap; font-size:.85rem; font-weight:600; color:var(--fg-2); text-decoration:none; padding:.3rem .6rem; border-radius:999px; border:1px solid transparent}
+.sections a:hover{background:var(--surface-2)}
+.sections a.done{color:var(--fg)}
+.sections a.done::before{content:"✓ "; color:var(--ok)}
+.progress{display:flex; align-items:center; gap:.5rem; font-size:.8rem; color:var(--muted); white-space:nowrap}
+.progress .bar{width:84px; height:6px; background:var(--line-2); border-radius:3px; overflow:hidden}
+.progress .bar div{height:100%; width:0; background:var(--accent); transition:width .3s}
+@media (max-width:640px){ .progress span{display:none} .brand{font-size:.95rem} }
+
+/* Sections */
+section.block{padding-block:3.25rem; border-bottom:1px solid var(--line)}
+section.block:last-of-type{border-bottom:0}
+.section-head{display:grid; gap:.5rem; margin-bottom:1.6rem}
+.section-head p{color:var(--fg-2); max-width:65ch; font-size:1.05rem}
+
+/* Hero */
+.hero{padding-block:3rem 2.5rem; border-bottom:1px solid var(--line)}
+.hero .lede{font-family:var(--font-display); font-size:clamp(1.15rem,2vw,1.35rem); line-height:1.45; max-width:62ch; color:var(--fg)}
+.hero .howto{display:grid; gap:.35rem; font-size:.95rem; color:var(--fg-2); max-width:65ch}
+.hero .howto strong{color:var(--fg)}
+
+/* Figures and spectrum strips */
+figure{margin:0}
+figcaption{font-size:.9rem; color:var(--fg-2); margin-top:.6rem; max-width:65ch}
+.strip-wrap{position:relative}
+.strip{display:block; width:100%; height:auto; border-radius:var(--radius); background:var(--strip)}
+.tip{position:absolute; pointer-events:none; background:var(--fg); color:var(--bg); font-size:.8rem; line-height:1.3; padding:.4rem .55rem; border-radius:4px; max-width:16rem; z-index:5; transform:translate(-50%,calc(-100% - 10px)); white-space:nowrap}
+.tip[hidden]{display:none}
+.tip b{font-family:var(--font-mono); font-weight:500}
+
+/* Importance list */
+.why{display:grid; gap:1.75rem; grid-template-columns:1fr 1fr}
+@media (max-width:820px){ .why{grid-template-columns:1fr} }
+.why article{display:grid; gap:.45rem; align-content:start}
+.why h3{font-family:var(--font-display); font-weight:600; font-size:1.3rem}
+.why p{color:var(--fg-2); max-width:48ch}
+.why .fact{font-size:.9rem; color:var(--fg); padding:.6rem .75rem; background:var(--surface-2); border-left:3px solid var(--accent); border-radius:0 var(--radius) var(--radius) 0; max-width:48ch}
+.gallery{display:grid; gap:.6rem; margin-top:.5rem}
+.gallery .row{display:grid; grid-template-columns:5.5rem 1fr; gap:.75rem; align-items:center}
+.gallery .row span{font-weight:600; font-size:.95rem}
+.gallery .row small{display:block; font-weight:400; color:var(--muted); font-size:.8rem}
+
+/* Equations */
+.eq{display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:1rem; padding:.8rem 1rem; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); font-family:var(--font-display); font-size:1.25rem}
+.eq > span:first-child{white-space:nowrap; overflow-x:auto; min-width:0; padding-block:.1rem}
+.eq .paren{font-size:1.9em; font-weight:300; vertical-align:-.12em; line-height:0; margin:0 .05em}
+.eq .tag{font-family:var(--font-body); font-size:.8rem; color:var(--muted); font-weight:600; letter-spacing:.04em}
+.eq .frac{display:inline-grid; grid-template-rows:auto auto; text-align:center; vertical-align:middle; margin:0 .2em; line-height:1.1}
+.eq .frac > :first-child{border-bottom:1.5px solid currentColor; padding:0 .25em .05em}
+.eq .frac > :last-child{padding-top:.1em}
+.eq i{font-style:italic}
+.eq-list{display:grid; gap:.6rem; max-width:40rem}
+.callout{padding:.9rem 1.1rem; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:var(--radius); background:var(--surface); max-width:65ch}
+.callout strong{display:block; margin-bottom:.25rem}
+
+/* Explorer layout */
+.explorer{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:1.5rem 2.5rem; align-items:start}
+@media (max-width:860px){ .explorer{grid-template-columns:1fr} }
+.panel{display:grid; gap:1rem; min-width:0}
+.controls{display:flex; flex-wrap:wrap; gap:.75rem 1.25rem; align-items:end}
+.field{display:grid; gap:.3rem; font-size:.85rem; font-weight:600; color:var(--fg-2)}
+.field select,.field input[type=number],.field input[type=text]{font:inherit; font-size:1rem; padding:.45rem .6rem; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); color:var(--fg); min-width:7rem}
+.btn{font:inherit; font-size:.9rem; font-weight:600; padding:.45rem .85rem; border:1px solid var(--line); background:var(--surface); color:var(--fg); border-radius:var(--radius); cursor:pointer}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+.btn.primary:hover{background:var(--accent-ink)}
+.btn[aria-pressed="true"]{background:var(--fg); color:var(--bg); border-color:var(--fg)}
+.toggles{display:flex; flex-wrap:wrap; gap:.4rem}
+.readout{display:grid; grid-template-columns:auto 1fr; gap:.35rem 1rem; font-size:.95rem; align-items:baseline; padding:.9rem 1rem; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius)}
+.readout dt{color:var(--muted); font-weight:600; font-size:.8rem; letter-spacing:.04em; text-transform:uppercase}
+.readout dd{margin:0; font-family:var(--font-mono); font-variant-numeric:tabular-nums; min-width:0; overflow-wrap:anywhere}
+.readout dd.plain{font-family:var(--font-body)}
+.swatch{display:inline-block; width:.95em; height:.95em; border-radius:50%; vertical-align:-.12em; margin-right:.35em; border:1px solid rgba(0,0,0,.2)}
+.chip{display:inline-block; font-size:.75rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; padding:.12rem .5rem; border-radius:999px; border:1px solid currentColor}
+.chip.vis{color:var(--ok)} .chip.uv{color:var(--uv)} .chip.ir{color:var(--ir)}
+.steps{counter-reset:s; display:grid; gap:.5rem; padding:0; margin:0; list-style:none; font-size:.95rem}
+.steps li{display:grid; grid-template-columns:1.5rem 1fr; gap:.5rem; align-items:baseline}
+.steps li::before{counter-increment:s; content:counter(s); font-family:var(--font-mono); font-size:.8rem; color:var(--muted); text-align:right}
+.steps .m{font-family:var(--font-mono); font-size:.9rem; overflow-wrap:anywhere}
+.ladder{display:block; width:100%; height:auto; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius)}
+.ladder .lvl{cursor:pointer}
+.ladder .lvl line{stroke:currentColor; stroke-width:2}
+.ladder .lvl.sel line{stroke:var(--accent); stroke-width:3}
+.ladder .lvl:hover line{stroke-width:3}
+.ladder text{font-family:var(--font-mono); font-size:11px; fill:var(--fg-2)}
+.ladder .grid{stroke:var(--line-2); stroke-width:1}
+.ladder .axis{stroke:var(--line); stroke-width:1}
+.ladder .zero{stroke:var(--muted); stroke-width:1}
+.chart{display:block; width:100%; height:auto; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius)}
+.chart text{font-family:var(--font-mono); font-size:11px; fill:var(--fg-2)}
+.chart .grid{stroke:var(--line-2); stroke-width:1}
+.chart .axis{stroke:var(--line)}
+.chart .ln{cursor:pointer}
+.chart .ln rect.hit{fill:transparent}
+.chart .ln.sel line{stroke-width:4}
+.chart .lbl{font-family:var(--font-body); font-size:12px; font-weight:600; fill:var(--fg)}
+.scroll-x{overflow-x:auto}
+table{border-collapse:collapse; width:100%; font-size:.93rem}
+th,td{text-align:left; padding:.45rem .6rem; border-bottom:1px solid var(--line-2); vertical-align:top}
+th{font-size:.78rem; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); font-weight:600}
+td.n{font-family:var(--font-mono); font-variant-numeric:tabular-nums; white-space:nowrap}
+.reveal{display:grid; gap:.75rem}
+
+/* Slider */
+input[type=range]{width:100%; max-width:28rem; accent-color:var(--accent)}
+.ticks{display:flex; justify-content:space-between; max-width:28rem; font-family:var(--font-mono); font-size:.72rem; color:var(--muted)}
+.limitline{display:block; width:100%; height:auto; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius)}
+.limitline text{font-family:var(--font-mono); font-size:11px; fill:var(--fg-2)}
+
+/* Timeline */
+.timeline{list-style:none; margin:0; padding:0; display:grid; gap:0; max-width:65ch; border-left:2px solid var(--line)}
+.timeline li{display:grid; grid-template-columns:4.5rem 1fr; gap:.75rem; padding:.7rem 0 .7rem 1rem; position:relative}
+.timeline li::before{content:""; position:absolute; left:-6px; top:1.15rem; width:10px; height:10px; border-radius:50%; background:var(--bg); border:2px solid var(--muted)}
+.timeline li.key::before{background:var(--accent); border-color:var(--accent)}
+.timeline .yr{font-family:var(--font-mono); font-size:.9rem; color:var(--fg-2); padding-top:.1rem}
+.timeline b{display:block}
+.timeline p{color:var(--fg-2); font-size:.95rem}
+
+/* Terms */
+.terms{display:grid; grid-template-columns:repeat(auto-fill,minmax(17rem,1fr)); gap:.6rem}
+.terms details{border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); padding:.1rem .9rem}
+.terms summary{cursor:pointer; font-weight:700; padding:.6rem 0; list-style:none; display:flex; justify-content:space-between; gap:.5rem}
+.terms summary::-webkit-details-marker{display:none}
+.terms summary::after{content:"+"; color:var(--muted); font-family:var(--font-mono)}
+.terms details[open] summary::after{content:"–"}
+.terms details p{padding:0 0 .8rem; color:var(--fg-2); font-size:.95rem}
+
+/* Quiz */
+.quiz{display:grid; gap:1rem; max-width:48rem}
+.q{padding:1rem 1.1rem; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); display:grid; gap:.7rem}
+.q .qn{font-size:.75rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+.q .qt{font-weight:600; font-size:1.02rem}
+.q .opts{display:grid; gap:.35rem}
+.q label.opt{display:flex; gap:.6rem; align-items:flex-start; padding:.45rem .6rem; border:1px solid var(--line-2); border-radius:var(--radius); cursor:pointer}
+.q label.opt:hover{background:var(--surface-2)}
+.q label.opt input{margin-top:.25rem; accent-color:var(--accent)}
+.q .numin{display:flex; gap:.5rem; align-items:center; flex-wrap:wrap}
+.q .numin input{font:inherit; font-family:var(--font-mono); padding:.4rem .6rem; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); color:var(--fg); width:9rem}
+.q .fb{padding:.6rem .8rem; border-radius:var(--radius); font-size:.95rem; display:grid; gap:.2rem}
+.q .fb.ok{background:var(--ok-soft); color:var(--fg)} .q .fb.ok b{color:var(--ok)}
+.q .fb.bad{background:var(--bad-soft); color:var(--fg)} .q .fb.bad b{color:var(--bad)}
+.q .fb[hidden]{display:none}
+.q.answered label.opt{cursor:default}
+.score{display:flex; gap:1rem; align-items:center; flex-wrap:wrap; padding:1rem 1.1rem; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface)}
+.score .big{font-size:2rem; font-weight:700; font-family:var(--font-display)}
+
+/* Lab prep */
+.prep{display:grid; grid-template-columns:1fr 1fr; gap:2rem}
+@media (max-width:860px){ .prep{grid-template-columns:1fr} }
+.prep ul{margin:0; padding-left:1.1rem; display:grid; gap:.4rem; color:var(--fg-2); font-size:.97rem}
+.prep li strong{color:var(--fg)}
+.consts{display:grid; grid-template-columns:auto 1fr; gap:.3rem 1rem; font-size:.95rem; align-items:baseline}
+.consts dt{font-family:var(--font-display); font-style:italic}
+.consts dd{margin:0; font-family:var(--font-mono); font-variant-numeric:tabular-nums}
+.parts{display:grid; gap:.5rem; padding:0; margin:0; list-style:none}
+.parts li{display:grid; grid-template-columns:5rem 1fr; gap:.6rem; font-size:.95rem; padding:.5rem 0; border-bottom:1px solid var(--line-2)}
+.parts li span:first-child{font-weight:700}
+.parts li span:last-child{color:var(--fg-2)}
+footer{padding-block:2rem 3rem; font-size:.85rem; color:var(--muted); max-width:65ch}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap top-inner">
+    <a class="brand" href="#top">Hydrogen's Spectrum</a>
+    <nav class="sections" aria-label="Sections">
+      <a href="#why" data-sec="why">Why it matters</a>
+      <a href="#levels" data-sec="levels">Energy levels</a>
+      <a href="#transitions" data-sec="transitions">Transitions</a>
+      <a href="#spectrum" data-sec="spectrum">The spectrum</a>
+      <a href="#limit" data-sec="limit">Series limit</a>
+      <a href="#timeline" data-sec="timeline">Timeline</a>
+      <a href="#terms" data-sec="terms">Key terms</a>
+      <a href="#quiz" data-sec="quiz">Self-check</a>
+      <a href="#lab" data-sec="lab">Lab prep</a>
+    </nav>
+    <div class="progress" aria-live="polite"><span id="progress-label">0 of 9 sections</span><div class="bar"><div id="progress-fill"></div></div></div>
+  </div>
+</header>
+
+<main id="top">
+
+<section class="hero">
+  <div class="wrap flow">
+    <p class="eyebrow">CHM 2045C · General Chemistry I · Study guide</p>
+    <h1>The Atomic Spectrum of Hydrogen</h1>
+    <p class="lede">Run an electric current through a tube of hydrogen gas and it glows. Spread that glow with a prism and you do not get a rainbow. You get a handful of sharp, separate lines. Explaining why those lines sit exactly where they do took thirty years and started quantum mechanics.</p>
+    <figure class="strip-wrap">
+      <svg id="hero-strip" class="strip" role="img" aria-label="Visible emission spectrum of hydrogen on a black ground: bright lines at 656, 486, 434 and 410 nanometres and faint lines at 397 and 389, over a wavelength scale from 350 to 750 nanometres." viewBox="0 0 760 144"></svg>
+      <div class="tip" id="tip-hero" hidden></div>
+      <figcaption>What a spectroscope shows when it is pointed at a hydrogen discharge tube: four clear lines and two faint ones at the violet edge. Hover or tab to a line to see which electron jump makes it.</figcaption>
+    </figure>
+    <div class="howto">
+      <p><strong>How to use this guide.</strong> Each section has something to try, not just read. Work through them in order; the ideas build. The self-check at the end tells you whether you are ready for the dry lab, and the last section lists exactly what the lab will ask of you.</p>
+      <p>Your progress is remembered on this device.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="why" data-sec="why">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Part 1</p>
+      <h2>Why a few coloured lines matter</h2>
+      <p>Hydrogen's spectrum looks like a curiosity. It is one of the most consequential measurements in the history of science, and it reaches into astronomy, lighting, and the rest of this course.</p>
+    </div>
+    <div class="why">
+      <article>
+        <h3>It proved that energy in atoms comes in steps</h3>
+        <p>A hot solid glows with every colour at once. Hydrogen gas glows with only a few. In 1885 a Swiss schoolteacher, Johann Balmer, found a simple formula that fit the four visible lines to four decimal places, but nobody knew why it worked. In 1913 Niels Bohr showed that the formula follows if the electron can only hold certain energies. Each line is a photon whose energy is the gap between two of those allowed levels. Sharp lines mean sharp levels: quantization was no longer a guess.</p>
+        <p class="fact">Bohr's equation for the levels, the one you use in the lab, won him the 1922 Nobel Prize in Physics.</p>
+      </article>
+      <article>
+        <h3>Every element has a fingerprint</h3>
+        <p>Because each element has its own set of levels, each has its own set of lines. Spectroscopy identifies elements from their light alone. Helium was discovered in 1868 as an unexplained yellow line in sunlight, 27 years before anyone found it on Earth. The flame tests in your Qualitative Analysis lab work the same way: the colour of the flame is the element's strongest visible line.</p>
+        <div class="gallery" id="gallery" aria-label="Visible emission lines of four elements for comparison"></div>
+      </article>
+      <article>
+        <h3>It is how astronomers read the universe</h3>
+        <p>Light is the only thing that reaches us from a star. Hydrogen's lines appear in nearly every one, so they are the reference marks of astronomy. The red glow of nebulae in telescope images is the 656 nm hydrogen line. When Edwin Hubble found in 1929 that the lines of distant galaxies were shifted toward the red, the shift told him the universe is expanding.</p>
+        <p class="fact">Fraunhofer's dark lines C and F in the solar spectrum, catalogued in 1814, are hydrogen's 656 and 486 nm lines being absorbed by the Sun's own atmosphere.</p>
+      </article>
+      <article>
+        <h3>It is in the room with you</h3>
+        <p>A neon sign is a discharge tube; its orange-red is neon's emission lines. Fluorescent lamps run on mercury's lines, converted to white by a phosphor coating. Fireworks get their colours from the lines of strontium, barium and copper. Lasers work by driving a single transition over and over. And in this course, these energy levels are the starting point for electron configurations, periodic trends, and the photon energies behind the Beer-Lambert lab.</p>
+        <p class="fact">The energy of hydrogen's lowest level, 2.18 × 10<sup>−18</sup> J, is its ionization energy. Multiply by Avogadro's number and you get the 1312 kJ/mol in your textbook's periodic table.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="levels" data-sec="levels">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Part 2</p>
+      <h2>The allowed energy levels</h2>
+      <p>Bohr's result for hydrogen is one short equation. Everything else in the lab is built on it.</p>
+    </div>
+    <div class="explorer">
+      <div class="panel">
+        <div class="eq-list">
+          <div class="eq"><span><i>E</i><sub>n</sub> = <span class="frac"><span>−2.18 × 10<sup>−18</sup> J</span><span><i>n</i><sup>2</sup></span></span></span><span class="tag">EQN 1</span></div>
+        </div>
+        <div class="prose flow">
+          <p><i>n</i> is the <strong>principal quantum number</strong>: 1, 2, 3 and so on, with no values in between. <i>n</i> = 1 is the <strong>ground state</strong>, the lowest energy the electron can have. Every higher <i>n</i> is an <strong>excited state</strong>.</p>
+          <p><strong>Why negative?</strong> Zero is defined as the energy of an electron that has escaped the atom entirely. A bound electron has less energy than that, so every level is negative. More negative means more tightly held.</p>
+          <p><strong>Why do the levels crowd together?</strong> The gap between levels shrinks as 1/<i>n</i><sup>2</sup>. From <i>n</i> = 1 to 2 the energy rises by three quarters of the way to zero. From <i>n</i> = 9 to 10 it barely moves. The diagram is drawn to scale, which is why the top levels pile up. In Part II of the lab you draw this graph by hand.</p>
+        </div>
+        <div class="callout">
+          <strong>Worked example, the one the lab gives you</strong>
+          <span class="mono">E<sub>3</sub> = −2.18 × 10<sup>−18</sup> J ÷ 3<sup>2</sup> = −2.18 × 10<sup>−18</sup> ÷ 9 = −0.242 × 10<sup>−18</sup> J</span>
+        </div>
+        <div class="reveal">
+          <button class="btn" id="btn-table1" aria-expanded="false" aria-controls="table1">Check your Table 1 values</button>
+          <div id="table1" hidden class="scroll-x">
+            <table>
+              <thead><tr><th>n</th><th>E<sub>n</sub> (× 10<sup>−18</sup> J)</th><th>n</th><th>E<sub>n</sub> (× 10<sup>−18</sup> J)</th></tr></thead>
+              <tbody id="table1-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="controls">
+          <label class="field">Highlight a level
+            <select id="lvl-select"></select>
+          </label>
+          <button class="btn" id="btn-zoom" aria-pressed="false">Zoom in on n ≥ 3</button>
+        </div>
+        <figure>
+          <svg id="ladder" class="ladder" viewBox="0 0 400 460" role="img" aria-label="Energy level diagram of hydrogen drawn to scale: n equals 1 at minus 2.18 times ten to the minus eighteen joules, n equals 2 at minus 0.545, and higher levels crowding toward zero."></svg>
+          <figcaption>Energy levels of hydrogen, drawn to scale. Click a level, or choose one above, to read its energy. The zoom shows the crowded top of the ladder.</figcaption>
+        </figure>
+        <dl class="readout" id="lvl-readout">
+          <dt>Level</dt><dd id="lvl-n">n = 3</dd>
+          <dt>Energy</dt><dd id="lvl-e">−0.242 × 10⁻¹⁸ J</dd>
+          <dt>To ionize</dt><dd id="lvl-ion">0.242 × 10⁻¹⁸ J</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="transitions" data-sec="transitions">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Part 3</p>
+      <h2>Jumps between levels make the lines</h2>
+      <p>An electron that falls from a higher level to a lower one gives up the difference as one photon. The photon's wavelength is set entirely by that energy gap.</p>
+    </div>
+    <div class="explorer">
+      <div class="panel">
+        <div class="eq-list">
+          <div class="eq"><span>Δ<i>E</i> = <i>E</i><sub>final</sub> − <i>E</i><sub>initial</sub></span><span class="tag">EQN 2</span></div>
+          <div class="eq"><span class="f">Δ<i>E</i> = −2.18 × 10<sup>−18</sup> J <span class="paren">(</span><span class="frac"><span>1</span><span><i>n</i><sub>f</sub><sup>2</sup></span></span> − <span class="frac"><span>1</span><span><i>n</i><sub>i</sub><sup>2</sup></span></span><span class="paren">)</span></span><span class="tag">EQN 3</span></div>
+          <div class="eq"><span><i>λ</i> (m) = <span class="frac"><span><i>hc</i></span><span>|Δ<i>E</i>|</span></span></span><span class="tag">EQN 4</span></div>
+          <div class="eq"><span><i>λ</i> (nm) = <i>λ</i> (m) × 10<sup>9</sup></span><span class="tag">EQN 5</span></div>
+        </div>
+        <div class="prose flow">
+          <p><strong>Watch the sign.</strong> When the electron falls (<i>n</i><sub>initial</sub> &gt; <i>n</i><sub>final</sub>), Δ<i>E</i> comes out negative. That negative sign means the atom lost energy: a photon was <strong>emitted</strong>. When the electron climbs, Δ<i>E</i> is positive and a photon of exactly that energy must be <strong>absorbed</strong>. Either way the photon carries |Δ<i>E</i>|, so use the absolute value in Eqn 4.</p>
+          <p><strong>Series are named by where the electron lands.</strong> Every jump that ends on <i>n</i> = 1 belongs to the Lyman series, every jump that ends on <i>n</i> = 2 to the Balmer series, and so on. The landing level sets the size of the gaps, and so the region of the spectrum.</p>
+        </div>
+        <div class="scroll-x">
+          <table>
+            <thead><tr><th>Lands on</th><th>Series</th><th>Region</th><th>Longest line</th></tr></thead>
+            <tbody>
+              <tr><td class="n">n = 1</td><td>Lyman</td><td><span class="chip uv">UV</span></td><td class="n">121.5 nm (2 → 1)</td></tr>
+              <tr><td class="n">n = 2</td><td>Balmer</td><td><span class="chip vis">Visible</span></td><td class="n">656.1 nm (3 → 2)</td></tr>
+              <tr><td class="n">n = 3</td><td>Paschen</td><td><span class="chip ir">IR</span></td><td class="n">1875 nm (4 → 3)</td></tr>
+              <tr><td class="n">n = 4</td><td>Brackett</td><td><span class="chip ir">IR</span></td><td class="n">4050 nm (5 → 4)</td></tr>
+              <tr><td class="n">n = 5</td><td>Pfund</td><td><span class="chip ir">IR</span></td><td class="n">7455 nm (6 → 5)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="controls">
+          <label class="field">Electron starts at
+            <select id="tr-ni"></select>
+          </label>
+          <label class="field">and lands on
+            <select id="tr-nf"></select>
+          </label>
+          <button class="btn" id="btn-swap" title="Swap the two levels">Swap</button>
+        </div>
+        <figure>
+          <svg id="ladder2" class="ladder" viewBox="0 0 400 460" role="img" aria-label="Energy level diagram with an arrow showing the selected transition."></svg>
+          <figcaption>The selected jump, drawn on the same ladder. The arrow is coloured by the photon when it is visible.</figcaption>
+        </figure>
+        <dl class="readout" id="tr-readout">
+          <dt>Jump</dt><dd id="tr-jump"></dd>
+          <dt>ΔE</dt><dd id="tr-de"></dd>
+          <dt>Direction</dt><dd id="tr-dir" class="plain"></dd>
+          <dt>Wavelength</dt><dd id="tr-lam"></dd>
+          <dt>Region</dt><dd id="tr-region" class="plain"></dd>
+          <dt>Series</dt><dd id="tr-series" class="plain"></dd>
+          <dt>In the lab</dt><dd id="tr-obs" class="plain"></dd>
+        </dl>
+        <div>
+          <button class="btn" id="btn-steps" aria-expanded="false" aria-controls="tr-steps">Show the calculation step by step</button>
+          <ol class="steps" id="tr-steps" hidden style="margin-top:.75rem"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="spectrum" data-sec="spectrum">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Part 4</p>
+      <h2>The whole spectrum, series by series</h2>
+      <p>Only the Balmer lines fall where eyes can see them. The rest of hydrogen's light is ultraviolet or infrared, and it took better detectors to find it.</p>
+    </div>
+    <div class="flow">
+      <div class="toggles" id="series-toggles" aria-label="Show or hide series"></div>
+      <figure class="strip-wrap">
+        <svg id="full-chart" class="chart" viewBox="0 0 760 260" role="img" aria-label="Hydrogen emission lines from 90 to 6000 nanometres on a logarithmic wavelength scale, one row per series: Lyman in the ultraviolet near 100 nanometres, Balmer in the visible between 365 and 656, Paschen, Brackett and Pfund in the infrared."></svg>
+        <div class="tip" id="tip-full" hidden></div>
+        <figcaption>Every line from jumps that start at <i>n</i> ≤ 10, on a logarithmic wavelength axis. Each row is one series. Hover a line to read it; click it to load that jump into the explorer above. Lines outside the visible band are drawn in grey because they have no colour.</figcaption>
+      </figure>
+      <div class="prose flow">
+        <p><strong>Why the lines bunch up at the left of each row.</strong> Jumps from higher and higher levels release almost the same energy, because the upper levels are almost at zero. The lines crowd toward a short-wavelength edge called the series limit. Part 5 lets you push a jump to that edge.</p>
+        <p><strong>About the lab's Table 3.</strong> The fifteen observed wavelengths you will be asked to assign all come from jumps that start at <i>n</i> ≤ 8. Your Table 2 only goes up to <i>n</i> = 6, which is why four of them will not match anything you calculated. Two are in the Balmer row and two in the Paschen row. The chart shows where to look.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="limit" data-sec="limit">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Part 5</p>
+      <h2>The series limit and ionization</h2>
+      <p>Question 3 of the lab asks what happens to the Balmer wavelength as the starting level climbs to 100,000. Drag the slider and watch.</p>
+    </div>
+    <div class="explorer">
+      <div class="panel">
+        <div class="controls">
+          <label class="field">Electron lands on
+            <select id="lim-nf"></select>
+          </label>
+        </div>
+        <label class="field" for="lim-range">Electron starts at n = <span id="lim-ni-label" class="mono">10</span></label>
+        <input type="range" id="lim-range" min="0" max="6" step="1" value="2" aria-describedby="lim-ni-label">
+        <div class="ticks"><span>3</span><span>6</span><span>10</span><span>100</span><span>10³</span><span>10⁴</span><span>10⁵</span></div>
+        <figure>
+          <svg id="limit-line" class="limitline" viewBox="0 0 560 90" role="img" aria-label="Number line of wavelength showing the current transition's wavelength approaching the series limit."></svg>
+          <figcaption>Each step up the ladder moves the line a smaller distance toward the limit. It never crosses it.</figcaption>
+        </figure>
+        <dl class="readout">
+          <dt>ΔE</dt><dd id="lim-de"></dd>
+          <dt>Wavelength</dt><dd id="lim-lam"></dd>
+          <dt>Series limit</dt><dd id="lim-limit"></dd>
+        </dl>
+      </div>
+      <div class="panel">
+        <div class="prose flow">
+          <p>As <i>n</i><sub>initial</sub> grows, <i>E</i><sub>initial</sub> creeps up to zero, so Δ<i>E</i> approaches the energy of the landing level itself: <span class="mono">|ΔE| → 2.18 × 10<sup>−18</sup> J ÷ n<sub>f</sub><sup>2</sup></span>. The wavelength approaches a fixed value, the <strong>series limit</strong>. For the Balmer series that is 364.5 nm, just past the violet end of what we can see.</p>
+          <p><strong>Past the limit is ionization.</strong> A photon with more energy than the limit does not lift the electron to another level. It removes the electron from the atom, and any leftover energy becomes the electron's speed. Since that leftover can be anything, the spectrum beyond each limit is continuous, not lines. From the ground state the energy needed is 2.18 × 10<sup>−18</sup> J per atom, which is hydrogen's ionization energy.</p>
+        </div>
+        <div class="scroll-x">
+          <table aria-label="Wavelengths for the lab's question 3">
+            <thead><tr><th>n<sub>higher</sub></th><th>ΔE (J)</th><th>Wavelength (nm)</th></tr></thead>
+            <tbody id="lim-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="timeline" data-sec="timeline">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Part 6</p>
+      <h2>How the puzzle was solved</h2>
+      <p>The lines were measured long before anyone could explain them. The explanation, when it came, rewrote physics.</p>
+    </div>
+    <ol class="timeline">
+      <li><span class="yr">1814</span><div><b>Fraunhofer maps the dark lines in sunlight</b><p>Joseph von Fraunhofer catalogues hundreds of dark lines in the Sun's spectrum. Two of them, which he labels C and F, are hydrogen.</p></div></li>
+      <li><span class="yr">1862</span><div><b>Ångström measures hydrogen's visible lines</b><p>Anders Ångström records the four visible lines with enough precision that the pattern can be tested. The unit of wavelength, the ångström, is named for him.</p></div></li>
+      <li><span class="yr">1868</span><div><b>Helium is found in the Sun</b><p>A yellow line in the solar spectrum matches no known element. It is named for the Greek sun god. Helium is not isolated on Earth until 1895.</p></div></li>
+      <li class="key"><span class="yr">1885</span><div><b>Balmer finds the formula</b><p>Johann Balmer, a mathematics teacher in Basel, shows that the four wavelengths fit one formula with a single constant and the integers 3, 4, 5 and 6. He predicts a fifth line, which is found.</p></div></li>
+      <li><span class="yr">1888</span><div><b>Rydberg generalizes it</b><p>Johannes Rydberg rewrites Balmer's formula with two integers instead of one. It now predicts whole families of lines in regions no one has measured yet.</p></div></li>
+      <li><span class="yr">1906–1908</span><div><b>Lyman and Paschen find the other series</b><p>Theodore Lyman finds the ultraviolet series ending on <i>n</i> = 1. Friedrich Paschen finds the infrared series ending on <i>n</i> = 3. Rydberg's formula was right.</p></div></li>
+      <li class="key"><span class="yr">1913</span><div><b>Bohr explains it</b><p>Niels Bohr proposes that the electron can only occupy certain orbits, each with a fixed energy, and that light is emitted only when it jumps between them. Eqn 1 falls out of his model, and with it every measured line.</p></div></li>
+      <li><span class="yr">1922–1924</span><div><b>Brackett and Pfund series</b><p>Two more infrared series, ending on <i>n</i> = 4 and <i>n</i> = 5, are found exactly where the formula says they should be.</p></div></li>
+      <li><span class="yr">1925–1926</span><div><b>Quantum mechanics replaces the orbits</b><p>Heisenberg and Schrödinger replace Bohr's circular orbits with orbitals. For hydrogen, Eqn 1 survives unchanged, which is why you still use it.</p></div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="block" id="terms" data-sec="terms">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Part 7</p>
+      <h2>Key terms</h2>
+      <p>Open each one and say the definition in your own words before you read it.</p>
+    </div>
+    <div class="terms">
+      <details><summary>Principal quantum number, n</summary><p>The whole number that labels an energy level. It can be 1, 2, 3 and so on, never a fraction. Larger n means higher energy and an electron found farther from the nucleus on average.</p></details>
+      <details><summary>Ground state</summary><p>The lowest energy level, n = 1. An undisturbed hydrogen atom sits here. Its energy is −2.18 × 10<sup>−18</sup> J.</p></details>
+      <details><summary>Excited state</summary><p>Any level above the ground state. An atom gets there by absorbing energy from heat, an electric discharge or a photon. It does not stay long.</p></details>
+      <details><summary>Photon</summary><p>A single packet of light. Its energy is <i>E</i> = <i>hc</i>/<i>λ</i>. Shorter wavelength means higher energy: ultraviolet photons carry more energy than visible ones, which carry more than infrared.</p></details>
+      <details><summary>Emission</summary><p>Light given off when an electron falls to a lower level. The photon's energy equals the size of the drop. Emission spectra are bright lines on a dark background.</p></details>
+      <details><summary>Absorption</summary><p>Light taken in when an electron climbs to a higher level. Only photons whose energy exactly matches a gap are absorbed. Absorption spectra are dark lines on a bright background, like Fraunhofer's.</p></details>
+      <details><summary>Spectral series</summary><p>All the lines from jumps that end on the same level. Lyman ends on n = 1, Balmer on 2, Paschen on 3, Brackett on 4, Pfund on 5.</p></details>
+      <details><summary>Series limit</summary><p>The shortest wavelength a series can reach, from a jump that starts infinitely far up. For Balmer it is 364.5 nm. Beyond it the spectrum is continuous.</p></details>
+      <details><summary>Ionization energy</summary><p>The energy needed to remove the electron from the atom completely. For hydrogen in its ground state it is 2.18 × 10<sup>−18</sup> J per atom, or 1312 kJ per mole.</p></details>
+      <details><summary>Planck's constant, h</summary><p>6.626 × 10<sup>−34</sup> J·s. It links a photon's energy to its frequency and, with the speed of light, to its wavelength.</p></details>
+      <details><summary>Wavelength, λ</summary><p>The distance between successive crests of a light wave. Visible light runs from about 400 nm (violet) to 700 nm (red). The lab uses 350 to 700 nm as its working range for the visible region.</p></details>
+      <details><summary>Quantized</summary><p>Restricted to certain separate values with nothing in between. The energy of an electron in an atom is quantized, which is the whole reason the spectrum is lines instead of a smear.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="quiz" data-sec="quiz">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Part 8</p>
+      <h2>Self-check</h2>
+      <p>Ten questions, checked as you go. Use a calculator for the numeric ones, the way you will in the lab. Aim for 8 or better before lab day.</p>
+    </div>
+    <div class="quiz" id="quiz-list"></div>
+    <div class="score" id="score" style="margin-top:1rem">
+      <span class="big" id="score-num">0 / 10</span>
+      <span id="score-msg" style="flex:1;min-width:12rem">Answer the questions above to see your score.</span>
+      <button class="btn" id="btn-reset">Start over</button>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="lab" data-sec="lab">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Part 9</p>
+      <h2>What the lab will ask you to do</h2>
+      <p>The Atomic Spectrum of Hydrogen is a dry lab: no glassware, just calculations and a graph. Here is the whole thing on one screen.</p>
+    </div>
+    <div class="prep">
+      <div class="flow">
+        <h3>The five parts</h3>
+        <ol class="parts">
+          <li><span>Part I</span><span>Calculate <i>E</i><sub>n</sub> for n = 1 to 10 with Eqn 1. Write every answer as a multiple of 10<sup>−18</sup> J. The lab gives you n = 3 as a check.</span></li>
+          <li><span>Part II</span><span>Plot the ten energies against n on the graph paper provided. Label both axes with units. Expect the top levels to crowd together.</span></li>
+          <li><span>Part III</span><span>Fill Table 2: Δ<i>E</i> and <i>λ</i> in nm for every jump from n = 2 to 6 down to n = 1 to 5. That is 15 jumps.</span></li>
+          <li><span>Part IV</span><span>Match 15 observed wavelengths in Table 3 to your calculated ones. Four will not match; they come from n = 7 and 8. Work those out and have your instructor check them.</span></li>
+          <li><span>Part V</span><span>Answer four questions on the Balmer series: which lines are visible, the longest, the shortest as n climbs to 100,000, and why.</span></li>
+        </ol>
+        <h3>Constants, exactly as the lab uses them</h3>
+        <dl class="consts">
+          <dt>E<sub>n</sub></dt><dd>−2.18 × 10⁻¹⁸ J ÷ n²</dd>
+          <dt>h</dt><dd>6.626 × 10⁻³⁴ J·s</dd>
+          <dt>c</dt><dd>2.998 × 10⁸ m/s</dd>
+          <dt>hc</dt><dd>1.986 × 10⁻²⁵ J·m</dd>
+          <dt>1 m</dt><dd>10⁹ nm</dd>
+        </dl>
+      </div>
+      <div class="flow">
+        <h3>Mistakes that cost points every year</h3>
+        <ul>
+          <li><strong>Forgetting to square n.</strong> E<sub>4</sub> uses 16, not 4. If your n = 10 energy is −0.218 × 10<sup>−18</sup> J you divided by 10.</li>
+          <li><strong>Mixing up which n is which.</strong> In Eqn 3, n<sub>f</sub> is where the electron lands. For emission it is the smaller number. If your Δ<i>E</i> comes out positive for a drop, the two n values are swapped.</li>
+          <li><strong>Feeding a negative Δ<i>E</i> into Eqn 4.</strong> A wavelength cannot be negative. Use |Δ<i>E</i>|.</li>
+          <li><strong>Stopping at metres.</strong> 6.56 × 10<sup>−7</sup> m is correct but Table 2 wants 656 nm. Multiply by 10<sup>9</sup>.</li>
+          <li><strong>Rounding too early.</strong> Keep three significant figures through the calculation. Your calculated lines will sit within about half a nanometre of the observed ones; a wrong jump is off by tens of nanometres, so matching is unambiguous if you have not rounded.</li>
+          <li><strong>Wrong graph scale.</strong> The y-axis on the lab's graph paper runs from 0 to −2.0 × 10<sup>−18</sup> J. Plot n = 1 at the very bottom and n = 10 almost on the zero line.</li>
+        </ul>
+        <h3>Quick sanity checks</h3>
+        <ul>
+          <li>Jumps ending on n = 2 should land between 365 and 656 nm. Anything else is in the wrong series.</li>
+          <li>The 3 → 2 jump is the longest Balmer wavelength and the smallest Balmer energy. Larger drops give shorter wavelengths.</li>
+          <li>Every Lyman line is below 122 nm. Every Paschen line is above 820 nm.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <p>Built to accompany "The Atomic Spectrum of Hydrogen" in the CHM 2045C Laboratory Experiments manual (Seminole State College, v.2023; Mead, Quach, Robinson and Summers). Equation numbers, constants and the 350 to 700 nm visible range follow the manual so that your numbers here match your numbers in the lab. Wavelengths of other elements are the principal visible lines, rounded.</p>
+</footer>
+
+<script>
+(function(){
+'use strict';
+const R = 2.18e-18, H = 6.626e-34, C = 2.998e8;
+const E = n => -R/(n*n);
+const dE = (ni,nf) => E(nf) - E(ni);
+const lam = (ni,nf) => H*C/Math.abs(dE(ni,nf))*1e9;
+const SERIES = {1:'Lyman',2:'Balmer',3:'Paschen',4:'Brackett',5:'Pfund',6:'Humphreys'};
+const OBSERVED = [97.25,102.57,121.57,388.91,397.01,410.17,434.05,486.13,656.28,954.62,1004.98,1093.8,1281.8,1875.1,4050.0];
+const MINUS = '−';
+const $ = id => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+
+function svgEl(tag, attrs, parent){
+  const el = document.createElementNS(NS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(el);
+  return el;
+}
+function region(nm){ return nm < 350 ? 'uv' : nm <= 700 ? 'vis' : 'ir'; }
+function regionLabel(r){ return r==='uv' ? 'Ultraviolet' : r==='vis' ? 'Visible' : 'Infrared'; }
+function sci(x, digits){
+  if (x === 0) return '0';
+  const e = Math.floor(Math.log10(Math.abs(x)));
+  const m = x/Math.pow(10,e);
+  return (m<0?MINUS:'') + Math.abs(m).toFixed(digits==null?2:digits) + ' × 10<sup>' + (e<0?MINUS:'') + Math.abs(e) + '</sup>';
+}
+function e18(j){ return (j<0?MINUS:'') + Math.abs(j/1e-18).toFixed(3) + ' × 10<sup>' + MINUS + '18</sup> J'; }
+function nmFmt(nm){ return (nm >= 1000 ? nm.toFixed(0) : nm.toFixed(1)) + ' nm'; }
+function matchObserved(nm){
+  let best = null;
+  for (const o of OBSERVED){ if (Math.abs(o-nm) < 1.5 && (best===null || Math.abs(o-nm) < Math.abs(best-nm))) best = o; }
+  return best;
+}
+
+/* Wavelength to colour (Bruton approximation; lines below 380 are drawn as dim violet) */
+function wlRGB(w){
+  const x = Math.min(Math.max(w, 380), 780);
+  let r=0,g=0,b=0;
+  if (x < 440){ r = -(x-440)/60; b = 1; }
+  else if (x < 490){ g = (x-440)/50; b = 1; }
+  else if (x < 510){ g = 1; b = -(x-510)/20; }
+  else if (x < 580){ r = (x-510)/70; g = 1; }
+  else if (x < 645){ r = 1; g = -(x-645)/65; }
+  else { r = 1; }
+  let f = 1;
+  if (w < 380) f = 0.25;
+  else if (x < 420) f = 0.3 + 0.7*(x-380)/40;
+  else if (x > 700) f = 0.3 + 0.7*(780-x)/80;
+  const gam = v => Math.round(255*Math.pow(v*f, 0.8));
+  return 'rgb(' + gam(r) + ',' + gam(g) + ',' + gam(b) + ')';
+}
+
+/* Tooltip helper */
+function makeTip(tipEl, wrapEl){
+  return {
+    show(target, html){
+      const wr = wrapEl.getBoundingClientRect(), tr = target.getBoundingClientRect();
+      tipEl.innerHTML = html;
+      tipEl.hidden = false;
+      let x = tr.left + tr.width/2 - wr.left;
+      const half = tipEl.offsetWidth/2 + 4;
+      x = Math.max(half, Math.min(wr.width - half, x));
+      tipEl.style.left = x + 'px';
+      tipEl.style.top = (tr.top - wr.top) + 'px';
+    },
+    hide(){ tipEl.hidden = true; }
+  };
+}
+
+/* ---------- Visible-band strip (hero and gallery) ---------- */
+function drawStrip(svg, lines, opts){
+  opts = opts || {};
+  const W = 760, Hh = opts.height || 144, L = 36, Rr = 16, lo = 350, hi = 750;
+  const bandTop = 10, bandH = opts.axis ? Hh - 66 : Hh - 20;
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh);
+  svg.innerHTML = '';
+  const X = nm => L + (nm-lo)/(hi-lo)*(W-L-Rr);
+  svgEl('rect',{x:0,y:0,width:W,height:Hh,fill:'#0a0a10'},svg);
+  if (opts.axis){
+    const defs = svgEl('defs',{},svg);
+    const grad = svgEl('linearGradient',{id:opts.gradId||'rainbow',x1:'0',x2:'1',y1:'0',y2:'0'},defs);
+    for (let nm=lo; nm<=hi; nm+=10) svgEl('stop',{offset:((nm-lo)/(hi-lo)*100)+'%','stop-color':wlRGB(nm)},grad);
+    svgEl('rect',{x:X(lo),y:bandTop+bandH+6,width:X(hi)-X(lo),height:6,fill:'url(#'+(opts.gradId||'rainbow')+')',opacity:'0.9'},svg);
+    for (let nm=lo; nm<=hi; nm+=50){
+      svgEl('line',{x1:X(nm),x2:X(nm),y1:bandTop+bandH+14,y2:bandTop+bandH+19,stroke:'#9a9cab','stroke-width':1},svg);
+      const t = svgEl('text',{x:X(nm),y:bandTop+bandH+32,'text-anchor':'middle',fill:'#b9bbc7','font-size':'11','font-family':'IBM Plex Mono, monospace'},svg);
+      t.textContent = nm;
+    }
+    const t = svgEl('text',{x:(L+W-Rr)/2,y:Hh-7,'text-anchor':'middle',fill:'#878997','font-size':'11','font-family':'Source Sans 3, sans-serif'},svg);
+    t.textContent = 'wavelength, nm';
+  }
+  const g = svgEl('g',{},svg);
+  for (const ln of lines){
+    if (ln.nm < lo || ln.nm > hi) continue;
+    const x = X(ln.nm);
+    const col = wlRGB(ln.nm);
+    const grp = svgEl('g',{class:'ln',tabindex:'0',role:'img','aria-label':ln.label.replace(/<[^>]+>/g,'')},g);
+    svgEl('rect',{class:'hit',x:x-7,y:bandTop,width:14,height:bandH,fill:'transparent'},grp);
+    svgEl('line',{x1:x,x2:x,y1:bandTop,y2:bandTop+bandH,stroke:col,'stroke-width':ln.weight||2.5,opacity:ln.opacity||1},grp);
+    grp.dataset.html = ln.label;
+    if (opts.tip){
+      const show = () => opts.tip.show(grp.querySelector('line'), ln.label);
+      grp.addEventListener('mouseenter', show); grp.addEventListener('focus', show);
+      grp.addEventListener('mouseleave', opts.tip.hide); grp.addEventListener('blur', opts.tip.hide);
+    }
+  }
+}
+
+const heroTip = makeTip($('tip-hero'), $('hero-strip').parentElement);
+const balmerLines = [];
+for (let n=3; n<=8; n++){ const w = lam(n,2); balmerLines.push({nm:w, label:'<b>'+nmFmt(w)+'</b> · '+n+' → 2'+(n>=7?' (faint)':''), weight: n<=6 ? 3 : 1.5, opacity: n<=6 ? 1 : 0.7}); }
+drawStrip($('hero-strip'), balmerLines, {axis:true, tip:heroTip, gradId:'rainbow-hero'});
+
+const GALLERY = [
+  {el:'Hydrogen', note:'H', lines:[656.3,486.1,434.0,410.2,397.0]},
+  {el:'Helium', note:'He', lines:[388.9,447.1,471.3,492.2,501.6,587.6,667.8,706.5]},
+  {el:'Neon', note:'Ne', lines:[540.1,585.2,588.2,594.5,603.0,607.4,614.3,621.7,626.6,633.4,638.3,640.2,650.7,667.8,693.0,703.2]},
+  {el:'Sodium', note:'Na', lines:[568.8,589.0,589.6,615.4]},
+];
+GALLERY.forEach((g,i) => {
+  const row = document.createElement('div'); row.className = 'row';
+  const lab = document.createElement('span'); lab.innerHTML = g.el + '<small>' + g.lines.length + ' lines shown</small>';
+  const svg = document.createElementNS(NS,'svg'); svg.setAttribute('class','strip'); svg.setAttribute('role','img');
+  svg.setAttribute('aria-label', 'Visible emission lines of ' + g.el.toLowerCase() + ' at ' + g.lines.join(', ') + ' nanometres');
+  row.appendChild(lab); row.appendChild(svg); $('gallery').appendChild(row);
+  drawStrip(svg, g.lines.map(nm => ({nm, label:'<b>'+nm+' nm</b>', weight:2})), {height:40});
+});
+
+/* ---------- Energy ladder ---------- */
+function drawLadder(svg, state){
+  const W=400, Hh=460, top=28, bottom=Hh-34, left=70, right=W-96;
+  const Emin = state.zoom ? E(3) : E(1);
+  const Y = e => top + (e/Emin)*(bottom-top);
+  svg.innerHTML = '';
+  const singles = state.zoom ? [3,4,5,6,7,8] : [1,2,3,4];
+  const grouped = state.zoom ? [9,10] : [5,6,7,8,9,10];
+  const ticks = state.zoom ? [0,-0.05,-0.10,-0.15,-0.20,-0.242] : [0,-0.5,-1.0,-1.5,-2.0];
+  for (const t of ticks){
+    const y = Y(t*1e-18);
+    svgEl('line',{class:'grid',x1:left-6,x2:right+6,y1:y,y2:y},svg);
+    const tx = svgEl('text',{x:left-10,y:y+4,'text-anchor':'end'},svg);
+    tx.textContent = (t===0 ? '0' : (MINUS + Math.abs(t).toFixed(state.zoom?2:1)));
+  }
+  const ax = svgEl('text',{x:14,y:Hh/2,'text-anchor':'middle',transform:'rotate(-90 14 '+(Hh/2)+')'},svg);
+  ax.textContent = 'energy, × 10' + MINUS + '18 J';
+  svgEl('line',{class:'zero',x1:left-6,x2:right+6,y1:Y(0),y2:Y(0)},svg);
+  const inf = svgEl('text',{x:right+10,y:Y(0)-4},svg); inf.textContent = 'n = ∞ (free)';
+  for (let n=1; n<=10; n++){
+    const e = E(n), y = Y(e);
+    if (y > bottom + 1){ continue; }
+    const g = svgEl('g',{class:'lvl'+(n===state.sel?' sel':''),tabindex:'0',role:'button','aria-label':'n = '+n+', '+e18(e).replace(/<[^>]+>/g,'')},svg);
+    svgEl('rect',{x:left,y:y-5,width:right-left,height:10,fill:'transparent'},g);
+    svgEl('line',{x1:left,x2:right,y1:y,y2:y},g);
+    if (singles.indexOf(n) >= 0){ const t = svgEl('text',{x:right+10,y:y+4},svg); t.textContent = 'n = ' + n; }
+    const pick = () => { state.sel = n; state.onSelect && state.onSelect(n); };
+    g.addEventListener('click', pick);
+    g.addEventListener('keydown', ev => { if (ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); pick(); } });
+  }
+  const gy = grouped.reduce((s,n) => s + Y(E(n)), 0) / grouped.length;
+  const gt = svgEl('text',{x:right+10,y:gy+4},svg);
+  gt.textContent = 'n = ' + grouped[0] + ' to ' + grouped[grouped.length-1];
+  if (state.zoom){
+    const t = svgEl('text',{x:(left+right)/2,y:bottom+24,'text-anchor':'middle'},svg);
+    t.textContent = 'n = 1 and 2 are below this view';
+  } else {
+    const t = svgEl('text',{x:(left+right)/2,y:bottom+24,'text-anchor':'middle'},svg);
+    t.textContent = 'ground state at the bottom';
+  }
+  if (state.arrow){
+    const {ni,nf} = state.arrow;
+    const yi = Y(E(ni)), yf = Y(E(nf));
+    const visible = Math.min(yi,yf) >= top-1 && Math.max(yi,yf) <= bottom+1;
+    if (visible){
+      const w = lam(ni,nf), reg = region(w);
+      const col = reg==='vis' ? wlRGB(w) : 'var(--muted)';
+      const defs = svgEl('defs',{},svg);
+      const mk = svgEl('marker',{id:'arrow-'+svg.id,viewBox:'0 0 10 10',refX:'8',refY:'5',markerWidth:'7',markerHeight:'7',orient:'auto-start-reverse'},defs);
+      svgEl('path',{d:'M0,0 L10,5 L0,10 z',fill:col},mk);
+      const x = (left+right)/2;
+      svgEl('line',{x1:x,x2:x,y1:yi,y2:yf + (yf>yi?-4:4),stroke:col,'stroke-width':3,'marker-end':'url(#arrow-'+svg.id+')'},svg);
+      svgEl('circle',{cx:x,cy:yi,r:5,fill:col,stroke:'var(--surface)','stroke-width':2},svg);
+      const lbl = svgEl('text',{x:x+12,y:(yi+yf)/2+4,'font-weight':'500'},svg);
+      lbl.textContent = nmFmt(w) + (reg==='vis' ? '' : (reg==='uv' ? ' (UV)' : ' (IR)'));
+    } else {
+      const t = svgEl('text',{x:(left+right)/2,y:top+40,'text-anchor':'middle'},svg);
+      t.textContent = 'turn zoom off to see this jump';
+    }
+  }
+}
+
+/* Level explorer */
+const lvlState = {sel:3, zoom:false};
+const lvlSelect = $('lvl-select');
+for (let n=1;n<=10;n++){ const o=document.createElement('option'); o.value=n; o.textContent='n = '+n; lvlSelect.appendChild(o); }
+lvlSelect.value = 3;
+function updateLevel(){
+  const n = lvlState.sel, e = E(n);
+  $('lvl-n').textContent = 'n = ' + n;
+  $('lvl-e').innerHTML = e18(e);
+  $('lvl-ion').innerHTML = e18(-e);
+  lvlSelect.value = n;
+  drawLadder($('ladder'), lvlState);
+}
+lvlState.onSelect = updateLevel;
+lvlSelect.addEventListener('change', () => { lvlState.sel = +lvlSelect.value; updateLevel(); });
+$('btn-zoom').addEventListener('click', () => { lvlState.zoom = !lvlState.zoom; $('btn-zoom').setAttribute('aria-pressed', lvlState.zoom); updateLevel(); });
+updateLevel();
+
+const t1 = $('table1-body');
+for (let n=1;n<=5;n++){
+  const tr = document.createElement('tr');
+  tr.innerHTML = '<td class="n">'+n+'</td><td class="n">'+(MINUS+Math.abs(E(n)/1e-18).toFixed(3))+'</td><td class="n">'+(n+5)+'</td><td class="n">'+(MINUS+Math.abs(E(n+5)/1e-18).toFixed(3))+'</td>';
+  t1.appendChild(tr);
+}
+$('btn-table1').addEventListener('click', () => {
+  const open = $('table1').hidden; $('table1').hidden = !open;
+  $('btn-table1').setAttribute('aria-expanded', open); $('btn-table1').textContent = open ? 'Hide Table 1 values' : 'Check your Table 1 values';
+});
+
+/* ---------- Transition explorer ---------- */
+const trNi = $('tr-ni'), trNf = $('tr-nf');
+for (let n=1;n<=10;n++){ for (const s of [trNi,trNf]){ const o=document.createElement('option'); o.value=n; o.textContent='n = '+n; s.appendChild(o);} }
+const trState = {ni:3, nf:2};
+const ladder2State = {sel:0, zoom:false, arrow:null};
+function updateTransition(){
+  const {ni,nf} = trState;
+  trNi.value = ni; trNf.value = nf;
+  if (ni === nf){
+    $('tr-jump').textContent = ni + ' → ' + nf;
+    $('tr-de').textContent = '0 J';
+    $('tr-dir').textContent = 'No jump: the electron stays put, so no photon.';
+    $('tr-lam').textContent = '—'; $('tr-region').textContent = '—'; $('tr-series').textContent = '—'; $('tr-obs').textContent = '—';
+    $('tr-steps').innerHTML = '';
+    ladder2State.arrow = null; drawLadder($('ladder2'), ladder2State);
+    return;
+  }
+  const d = dE(ni,nf), w = lam(ni,nf), reg = region(w), emit = d < 0;
+  const lower = Math.min(ni,nf);
+  $('tr-jump').textContent = ni + ' → ' + nf;
+  $('tr-de').innerHTML = sci(d) + ' J';
+  $('tr-dir').textContent = emit ? 'Negative: the atom loses energy. A photon is emitted.' : 'Positive: the atom gains energy. A photon must be absorbed.';
+  const sw = reg==='vis' ? '<span class="swatch" style="background:'+wlRGB(w)+'"></span>' : '';
+  $('tr-lam').innerHTML = sw + sci(w*1e-9) + ' m = ' + nmFmt(w);
+  $('tr-region').innerHTML = '<span class="chip '+reg+'">'+regionLabel(reg)+'</span>' + (reg==='vis' ? ' (within the lab’s 350 to 700 nm)' : '');
+  $('tr-series').textContent = (SERIES[lower] || ('ends on n = '+lower)) + ' series' + (emit ? '' : ' (absorption line)');
+  const obs = matchObserved(w);
+  $('tr-obs').textContent = obs ? ('Table 3 lists this line at ' + obs.toFixed(2) + ' nm' + (Math.max(ni,nf) > 6 ? '. It is one of the four you must work out beyond Table 2.' : '.')) : (Math.max(ni,nf) <= 6 && lower <= 5 ? 'In Table 2, not among the observed lines in Table 3.' : 'Not in the lab’s tables.');
+  const steps = [
+    ['E<sub>initial</sub> = ' + MINUS + '2.18 × 10<sup>' + MINUS + '18</sup> J ÷ ' + ni + '<sup>2</sup> = ' + e18(E(ni))],
+    ['E<sub>final</sub> = ' + MINUS + '2.18 × 10<sup>' + MINUS + '18</sup> J ÷ ' + nf + '<sup>2</sup> = ' + e18(E(nf))],
+    ['ΔE = E<sub>final</sub> − E<sub>initial</sub> = ' + e18(E(nf)) + ' − (' + e18(E(ni)) + ') = ' + sci(d,3) + ' J', emit ? 'Negative, so energy leaves the atom as a photon.' : 'Positive, so the atom must absorb a photon of this energy.'],
+    ['λ = hc ÷ |ΔE| = (6.626 × 10<sup>' + MINUS + '34</sup> J·s × 2.998 × 10<sup>8</sup> m/s) ÷ ' + sci(Math.abs(d),3) + ' J = ' + sci(w*1e-9,3) + ' m'],
+    ['λ (nm) = ' + sci(w*1e-9,3) + ' m × 10<sup>9</sup> = ' + nmFmt(w), regionLabel(reg) + (reg==='vis' ? ', so it is one of the lines you can see.' : ', so you would need a detector to find it.')]
+  ];
+  $('tr-steps').innerHTML = steps.map(s => '<li><div><div class="m">'+s[0]+'</div>'+(s[1]?'<div>'+s[1]+'</div>':'')+'</div></li>').join('');
+  ladder2State.arrow = {ni,nf};
+  drawLadder($('ladder2'), ladder2State);
+}
+trNi.addEventListener('change', () => { trState.ni = +trNi.value; updateTransition(); });
+trNf.addEventListener('change', () => { trState.nf = +trNf.value; updateTransition(); });
+$('btn-swap').addEventListener('click', () => { const t = trState.ni; trState.ni = trState.nf; trState.nf = t; updateTransition(); });
+$('btn-steps').addEventListener('click', () => {
+  const open = $('tr-steps').hidden; $('tr-steps').hidden = !open;
+  $('btn-steps').setAttribute('aria-expanded', open); $('btn-steps').textContent = open ? 'Hide the steps' : 'Show the calculation step by step';
+});
+updateTransition();
+
+/* ---------- Full-range chart ---------- */
+const fullTip = makeTip($('tip-full'), $('full-chart').parentElement);
+const seriesOn = {1:true,2:true,3:true,4:true,5:true};
+const togglesEl = $('series-toggles');
+for (let s=1;s<=5;s++){
+  const b = document.createElement('button'); b.className='btn'; b.type='button'; b.setAttribute('aria-pressed','true');
+  b.textContent = SERIES[s] + ' (n = ' + s + ')';
+  b.addEventListener('click', () => { seriesOn[s] = !seriesOn[s]; b.setAttribute('aria-pressed', seriesOn[s]); drawFull(); });
+  togglesEl.appendChild(b);
+}
+function drawFull(){
+  const svg = $('full-chart'); svg.innerHTML = '';
+  const W=760, Hh=260, left=70, right=W-16, top=18, rowH=34, rows=5, axisY = top + rows*rowH + 8;
+  const lo=60, hi=8000, L0=Math.log10(lo), L1=Math.log10(hi);
+  const X = nm => left + (Math.log10(nm)-L0)/(L1-L0)*(right-left);
+  const defs = svgEl('defs',{},svg);
+  const grad = svgEl('linearGradient',{id:'rainbow-full',x1:'0',x2:'1',y1:'0',y2:'0'},defs);
+  for (let nm=350; nm<=700; nm+=10) svgEl('stop',{offset:((X(nm)-X(350))/(X(700)-X(350))*100)+'%','stop-color':wlRGB(nm)},grad);
+  svgEl('rect',{x:X(350),y:top-6,width:X(700)-X(350),height:rows*rowH+6,fill:'url(#rainbow-full)',opacity:'0.18'},svg);
+  const bands = [['ultraviolet', Math.sqrt(lo*350)], ['visible', Math.sqrt(350*700)], ['infrared', Math.sqrt(700*hi)]];
+  for (const [name, mid] of bands){ const t = svgEl('text',{class:'lbl',x:X(mid),y:axisY+40,'text-anchor':'middle'},svg); t.textContent = name; }
+  svgEl('line',{class:'axis',x1:left,x2:right,y1:axisY,y2:axisY},svg);
+  for (const nm of [100,200,300,500,700,1000,2000,3000,5000]){
+    svgEl('line',{class:'grid',x1:X(nm),x2:X(nm),y1:top-6,y2:axisY},svg);
+    svgEl('line',{class:'axis',x1:X(nm),x2:X(nm),y1:axisY,y2:axisY+5},svg);
+    const t = svgEl('text',{x:X(nm),y:axisY+18,'text-anchor':'middle'},svg); t.textContent = nm;
+  }
+  const u = svgEl('text',{x:right,y:axisY+54,'text-anchor':'end'},svg); u.textContent = 'wavelength, nm (log scale)';
+  for (let s=1;s<=5;s++){
+    const y0 = top + (s-1)*rowH, yc = y0 + rowH/2;
+    svgEl('line',{class:'grid',x1:left,x2:right,y1:y0+rowH,y2:y0+rowH},svg);
+    const lbl = svgEl('text',{class:'lbl',x:left-8,y:yc+4,'text-anchor':'end'},svg); lbl.textContent = SERIES[s];
+    if (!seriesOn[s]) { const t = svgEl('text',{x:left+6,y:yc+4},svg); t.textContent='hidden'; continue; }
+    const limit = H*C/(R/(s*s))*1e9;
+    svgEl('line',{x1:X(limit),x2:X(limit),y1:y0+4,y2:y0+rowH-4,stroke:'var(--muted)','stroke-width':1},svg);
+    const lt = svgEl('text',{x:X(limit)-4,y:y0+11,'text-anchor':'end','font-size':'9'},svg); lt.textContent = 'limit ' + limit.toFixed(0);
+    for (let n=s+1; n<=10; n++){
+      const w = lam(n,s), reg = region(w);
+      const col = reg==='vis' ? wlRGB(w) : 'var(--muted)';
+      const sel = (trState.ni===n && trState.nf===s);
+      const g = svgEl('g',{class:'ln'+(sel?' sel':''),tabindex:'0',role:'button','aria-label':n+' to '+s+', '+nmFmt(w)},svg);
+      svgEl('rect',{class:'hit',x:X(w)-5,y:y0+2,width:10,height:rowH-4},g);
+      svgEl('line',{x1:X(w),x2:X(w),y1:y0+6,y2:y0+rowH-6,stroke:col,'stroke-width':sel?4:2.5},g);
+      const obs = matchObserved(w);
+      const html = '<b>'+nmFmt(w)+'</b> · '+n+' → '+s+'<br>'+SERIES[s]+' · '+regionLabel(reg)+(obs?'<br>Table 3: '+obs.toFixed(2)+' nm':'');
+      const show = () => fullTip.show(g.querySelector('line'), html);
+      g.addEventListener('mouseenter', show); g.addEventListener('focus', show);
+      g.addEventListener('mouseleave', fullTip.hide); g.addEventListener('blur', fullTip.hide);
+      const pick = () => { trState.ni = n; trState.nf = s; updateTransition(); drawFull(); $('tr-readout').scrollIntoView({behavior:'smooth',block:'center'}); };
+      g.addEventListener('click', pick);
+      g.addEventListener('keydown', ev => { if (ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); pick(); } });
+    }
+  }
+}
+drawFull();
+
+/* ---------- Series limit ---------- */
+const LIM_N = [3,6,10,100,1000,10000,100000];
+const limNf = $('lim-nf');
+for (let n=1;n<=5;n++){ const o=document.createElement('option'); o.value=n; o.textContent='n = '+n+' ('+SERIES[n]+')'; limNf.appendChild(o); }
+limNf.value = 2;
+function updateLimit(){
+  const nf = +limNf.value, idx = +$('lim-range').value, ni = Math.max(LIM_N[idx], nf+1);
+  $('lim-ni-label').textContent = ni.toLocaleString();
+  const d = dE(ni,nf), w = lam(ni,nf);
+  const limit = H*C/(R/(nf*nf))*1e9;
+  $('lim-de').innerHTML = sci(d,3) + ' J';
+  $('lim-lam').innerHTML = w.toFixed(2) + ' nm';
+  $('lim-limit').innerHTML = limit.toFixed(1) + ' nm';
+  const tb = $('lim-table'); tb.innerHTML = '';
+  for (const n of [10,100,1000,10000,100000]){
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td class="n">'+n.toLocaleString()+'</td><td class="n">'+sci(dE(n,nf),3)+'</td><td class="n">'+lam(n,nf).toFixed(2)+'</td>';
+    tb.appendChild(tr);
+  }
+  const svg = $('limit-line'); svg.innerHTML = '';
+  const W=560, left=40, right=W-40, y=46;
+  const wmax = lam(nf+1,nf), lo = limit*0.98, hi = wmax*1.02;
+  const X = v => left + (v-lo)/(hi-lo)*(right-left);
+  svgEl('line',{x1:left,x2:right,y1:y,y2:y,stroke:'var(--line)','stroke-width':1},svg);
+  for (const n of LIM_N.concat([nf+1,nf+2,nf+3])){ if (n<=nf) continue; const v = lam(n,nf); svgEl('line',{x1:X(v),x2:X(v),y1:y-5,y2:y+5,stroke:'var(--line)','stroke-width':1},svg); }
+  svgEl('line',{x1:X(limit),x2:X(limit),y1:y-16,y2:y+16,stroke:'var(--accent)','stroke-width':2},svg);
+  const lt = svgEl('text',{x:X(limit),y:y-22,'text-anchor':'start'},svg); lt.textContent = 'limit ' + limit.toFixed(1) + ' nm';
+  const rt = svgEl('text',{x:right,y:y+30,'text-anchor':'end'},svg); rt.textContent = (nf+1)+' → '+nf+' at '+wmax.toFixed(1)+' nm';
+  const reg = region(w);
+  svgEl('circle',{cx:X(w),cy:y,r:7,fill:reg==='vis'?wlRGB(w):'var(--muted)',stroke:'var(--surface)','stroke-width':2},svg);
+  const ct = svgEl('text',{x:Math.min(X(w)+12, right-60),y:y+30,'text-anchor':'start'},svg); ct.textContent = ni.toLocaleString()+' → '+nf+': '+w.toFixed(1)+' nm';
+}
+$('lim-range').addEventListener('input', updateLimit);
+limNf.addEventListener('change', updateLimit);
+updateLimit();
+
+/* ---------- Quiz ---------- */
+const QUIZ = [
+  {t:'mc', q:'Hydrogen in a discharge tube glows with a few sharp lines instead of a full rainbow. What does that tell you about the atom?', opts:['It holds only a few electrons','Its electron can have only certain allowed energies','It absorbs most colours of light','The gas is too thin to make other colours'], a:1, why:'Each line is a photon whose energy equals the gap between two allowed levels. Only certain gaps exist, so only certain wavelengths appear.'},
+  {t:'num', q:'Calculate E₄, the energy of the n = 4 level. Enter it as a multiple of 10⁻¹⁸ J (the lab writes n = 3 as −0.242).', a:-0.13625, tol:0.003, unit:'× 10⁻¹⁸ J', why:'E₄ = −2.18 × 10⁻¹⁸ J ÷ 4² = −2.18 ÷ 16 = −0.136 × 10⁻¹⁸ J. Remember to square n.'},
+  {t:'mc', q:'Why are all the energies in Eqn 1 negative?', opts:['The electron has negative charge','Zero is defined as a free electron, and a bound electron has less energy than that','The constant was measured in the wrong direction','Energy is always negative in chemistry'], a:1, why:'Zero is the energy of an electron that has escaped the atom. Bound electrons sit below that, so every level is negative. More negative means more tightly held.'},
+  {t:'num', q:'An electron drops from n = 5 to n = 2. What wavelength of light is emitted, in nm?', a:433.9, tol:4, unit:'nm', why:'ΔE = −2.18 × 10⁻¹⁸ (1/4 − 1/25) = −4.58 × 10⁻¹⁹ J. λ = hc ÷ |ΔE| = 1.986 × 10⁻²⁵ ÷ 4.58 × 10⁻¹⁹ = 4.34 × 10⁻⁷ m = 434 nm, the blue-violet line.'},
+  {t:'mc', q:'Which jump makes the red line at 656 nm?', opts:['2 → 1','3 → 2','4 → 2','4 → 3'], a:1, why:'3 → 2 is the smallest drop that ends on n = 2, so it gives the Balmer series its longest, lowest-energy line: the red one.'},
+  {t:'mc', q:'Which series lies in the visible region?', opts:['Lyman (ends on n = 1)','Balmer (ends on n = 2)','Paschen (ends on n = 3)','Brackett (ends on n = 4)'], a:1, why:'Drops to n = 1 release too much energy (ultraviolet). Drops to n = 3 or higher release too little (infrared). Only drops to n = 2 land between 365 and 656 nm.'},
+  {t:'mc', q:'For an electron falling from n = 4 to n = 2, Eqn 3 gives a ΔE that is…', opts:['Positive, because light is produced','Negative, because the atom loses energy','Zero, because the photon carries it away','Either sign, depending on the units'], a:1, why:'E_final is lower than E_initial, so E_final − E_initial is negative. The atom lost that energy as a photon. Use the absolute value when you put it into Eqn 4.'},
+  {t:'num', q:'As the starting level climbs toward 100,000, the Balmer wavelength approaches what value, in nm?', a:364.5, tol:3, unit:'nm', why:'With E_initial essentially zero, |ΔE| → 2.18 × 10⁻¹⁸ ÷ 2² = 5.45 × 10⁻¹⁹ J, and λ = hc ÷ |ΔE| = 364.5 nm. That is the Balmer series limit.'},
+  {t:'mc', q:'The lab’s Table 3 lists a line at 397.01 nm that does not appear in your Table 2. Which jump is it?', opts:['6 → 2','7 → 2','8 → 2','7 → 3'], a:1, why:'Table 2 stops at n = 6, whose Balmer line is 410 nm. The next one down, 7 → 2, is at 397 nm. 8 → 2 is at 389 nm, and anything ending on n = 3 is infrared.'},
+  {t:'mc', q:'Why was Bohr’s 1913 explanation of these lines so important?', opts:['It gave the first accurate value for the speed of light','It showed that energy inside atoms is quantized, which no earlier model could explain','It proved that hydrogen is the lightest element','It let chemists measure the mass of the electron'], a:1, why:'Balmer’s formula had fit the lines for 28 years with no reason behind it. Bohr showed the lines follow if the electron can only have certain energies. Quantization became a fact about matter, not a mathematical trick.'}
+];
+const quizState = loadJSON('h-spec-quiz') || {};
+function renderQuiz(){
+  const list = $('quiz-list'); list.innerHTML = '';
+  QUIZ.forEach((item, i) => {
+    const d = document.createElement('div'); d.className = 'q'; d.id = 'q'+i;
+    let body = '<div class="qn">Question ' + (i+1) + ' of ' + QUIZ.length + '</div><div class="qt">' + item.q + '</div>';
+    if (item.t === 'mc'){
+      body += '<div class="opts" role="group" aria-label="Choices">' + item.opts.map((o,k) => '<label class="opt"><input type="radio" name="q'+i+'" value="'+k+'" id="q'+i+'o'+k+'"><span>'+o+'</span></label>').join('') + '</div>';
+    } else {
+      body += '<div class="numin"><input type="text" inputmode="decimal" id="q'+i+'in" aria-label="Your answer" placeholder="your value"><span>'+item.unit+'</span></div>';
+    }
+    body += '<div><button class="btn primary" id="q'+i+'btn">Check</button></div><div class="fb" id="q'+i+'fb" hidden></div>';
+    d.innerHTML = body; list.appendChild(d);
+    const btn = $('q'+i+'btn');
+    const grade = () => {
+      let given, ok;
+      if (item.t === 'mc'){
+        const sel = d.querySelector('input[name=q'+i+']:checked'); if (!sel) return;
+        given = +sel.value; ok = given === item.a;
+      } else {
+        const raw = $('q'+i+'in').value.trim().replace(/−/g,'-').replace(/,/g,'');
+        if (raw === '' || isNaN(+raw)) return;
+        given = +raw; ok = Math.abs(given - item.a) <= item.tol;
+      }
+      quizState[i] = {given, ok}; saveJSON('h-spec-quiz', quizState);
+      showFeedback(i, d, item);
+    };
+    btn.addEventListener('click', grade);
+    d.addEventListener('keydown', ev => { if (ev.key==='Enter' && ev.target.tagName==='INPUT' && ev.target.type==='text'){ ev.preventDefault(); grade(); } });
+    if (quizState[i]){
+      if (item.t === 'mc'){ const r = $('q'+i+'o'+quizState[i].given); if (r) r.checked = true; }
+      else { $('q'+i+'in').value = quizState[i].given; }
+      showFeedback(i, d, item);
+    }
+  });
+  updateScore();
+}
+function showFeedback(i, d, item){
+  const st = quizState[i]; const fb = $('q'+i+'fb');
+  fb.hidden = false; fb.className = 'fb ' + (st.ok ? 'ok' : 'bad');
+  const correct = item.t==='mc' ? item.opts[item.a] : (item.a.toFixed(item.a < 10 ? 3 : 1) + ' ' + item.unit);
+  fb.innerHTML = '<b>' + (st.ok ? 'Correct.' : 'Not quite. The answer is ' + correct + '.') + '</b><span>' + item.why + '</span>';
+  d.classList.add('answered');
+  d.querySelectorAll('input').forEach(inp => inp.disabled = true);
+  $('q'+i+'btn').disabled = true;
+  updateScore();
+}
+function updateScore(){
+  const answered = Object.keys(quizState).length, right = Object.values(quizState).filter(s => s.ok).length;
+  $('score-num').textContent = right + ' / ' + QUIZ.length;
+  let msg;
+  if (answered === 0) msg = 'Answer the questions above to see your score.';
+  else if (answered < QUIZ.length) msg = answered + ' answered so far. Keep going.';
+  else if (right >= 9) msg = 'Ready for the lab. Go in and finish early.';
+  else if (right >= 7) msg = 'Nearly there. Re-read the explanations for the ones you missed, then start over.';
+  else msg = 'Work back through Parts 2 and 3, then try again.';
+  $('score-msg').textContent = msg;
+  if (answered === QUIZ.length) markDone('quiz');
+}
+$('btn-reset').addEventListener('click', () => { for (const k in quizState) delete quizState[k]; saveJSON('h-spec-quiz', quizState); renderQuiz(); });
+renderQuiz();
+
+/* ---------- Progress ---------- */
+const SECTIONS = ['why','levels','transitions','spectrum','limit','timeline','terms','quiz','lab'];
+const done = new Set(loadJSON('h-spec-done') || []);
+function markDone(id){ if (done.has(id)) return; done.add(id); saveJSON('h-spec-done', Array.from(done)); paintProgress(); }
+function paintProgress(){
+  const n = SECTIONS.filter(s => done.has(s)).length;
+  $('progress-label').textContent = n + ' of ' + SECTIONS.length + ' sections';
+  $('progress-fill').style.width = (n/SECTIONS.length*100) + '%';
+  document.querySelectorAll('.sections a').forEach(a => a.classList.toggle('done', done.has(a.dataset.sec)));
+}
+paintProgress();
+if ('IntersectionObserver' in window){
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => { if (en.isIntersecting && en.target.dataset.sec !== 'quiz') markDone(en.target.dataset.sec); });
+  }, {threshold: 0.35});
+  document.querySelectorAll('section.block').forEach(s => io.observe(s));
+}
+function loadJSON(k){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e){ return null; } }
+function saveJSON(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+})();
+</script>
+</body>
+</html>
